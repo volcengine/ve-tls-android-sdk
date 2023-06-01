@@ -329,6 +329,7 @@ public class TLSLogClientImpl implements TLSLogClient {
         mergeHeaders(path, headers);
 
         RawResponse rawResponse = doRetryRequest(path, query, requestBody);
+        String s = new String(rawResponse.getData());
         if (rawResponse.getCode() != SdkError.SUCCESS.getNumber()) {
             String[] error = getError(rawResponse);
             throw new LogException(rawResponse.getHttpCode(), error[0], error[1], rawResponse.getFirstHeader(X_TLS_REQUESTID));

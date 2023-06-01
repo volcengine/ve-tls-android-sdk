@@ -18,7 +18,7 @@ public class SDKVersion {
         try {
             properties.load(SDKVersion.class.getClassLoader().getResourceAsStream("com/volcengine/version"));
             VERSION = properties.getProperty("version");
-            AGENT = "volc-sdk-java/v" + VERSION;
+            AGENT = "volc-sdk-android/v" + VERSION;
         } catch (IOException e) {
             LOG.error("Read file version file fail.");
         }

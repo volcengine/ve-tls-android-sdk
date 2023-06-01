@@ -1,7 +1,11 @@
 package com.volcengine.model.response;
 
-import lombok.Data;
 import com.volcengine.model.Header;
+import kotlin.Pair;
+import lombok.Data;
+import okhttp3.Headers;
+
+import java.util.Iterator;
 
 @Data
 public class RawResponse {
@@ -23,18 +27,18 @@ public class RawResponse {
         this.exception = e;
     }
 
-    public RawResponse(byte[] data, int code, Exception exception, Header[] headers) {
+    public RawResponse(byte[] data, int code, Exception exception, Headers headers) {
         this.data = data;
         this.code = code;
         this.exception = exception;
-        this.headers = headers;
+        this.setHeaders(headers);
     }
 
-    public RawResponse(byte[] data, int code, Exception exception, Header[] headers, int httpCode) {
+    public RawResponse(byte[] data, int code, Exception exception, Headers headers, int httpCode) {
         this.data = data;
         this.code = code;
         this.exception = exception;
-        this.headers = headers;
+        this.setHeaders(headers);
         this.httpCode = httpCode;
     }
 
@@ -47,5 +51,19 @@ public class RawResponse {
             }
         }
         return null;
+    }
+
+    public void setHeaders(Headers headers) {
+        if (headers == null || headers.size() == 0) {
+            return;
+        }
+        this.headers = new Header[headers.size()];
+        Iterator<Pair<String, String>> iterator = headers.iterator();
+        int index = 0;
+        while (iterator.hasNext()) {
+            Pair<String, String> item = iterator.next();
+            this.headers[index] = new Header(item.getFirst(), item.getSecond());
+            index++;
+        }
     }
 }

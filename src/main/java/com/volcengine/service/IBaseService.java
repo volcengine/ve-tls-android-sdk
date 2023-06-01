@@ -118,16 +118,6 @@ public interface IBaseService {
     void setConnectionTimeout(int connectionTimeout);
 
     /**
-     * Query raw response.
-     *
-     * @param api    the api
-     * @param params the params
-     * @return the raw response
-     * @throws Exception the exception
-     */
-    RawResponse query(String api, List<NameValuePair> params) throws Exception;
-
-    /**
      * Gets sign url.
      *
      * @param api    the api
@@ -148,19 +138,6 @@ public interface IBaseService {
      */
     RawResponse json(String api, List<NameValuePair> params, String body) throws Exception;
 
-    /**
-     * Post raw response.
-     *
-     * @param api    the api
-     * @param params the params
-     * @param form   the form
-     * @return the raw response
-     * @throws Exception the exception
-     */
-    RawResponse post(String api, List<NameValuePair> params, List<NameValuePair> form) throws Exception;
-
-
-
 
     /**
      * Sign by sts2.
@@ -173,10 +150,10 @@ public interface IBaseService {
     SecurityToken2 signSts2(Policy inlinePolicy, long expire) throws Exception;
 
     /**
-     * @param api interface path like /PutLogs
-     * @param params query params
-     * @param header some special header for protobuf
-     * @param body request body
+     * @param api          interface path like /PutLogs
+     * @param params       query params
+     * @param header       some special header for protobuf
+     * @param body         request body
      * @param compressType default not compress,support lz4
      * @return
      */

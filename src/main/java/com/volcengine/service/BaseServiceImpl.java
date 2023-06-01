@@ -24,7 +24,7 @@ import org.apache.commons.logging.LogFactory;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.Proxy;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -158,17 +158,6 @@ public abstract class BaseServiceImpl implements IBaseService {
         return StringUtils.defaultString(urlBuilder.build().query(), StringUtils.EMPTY);
     }
 
-    @Override
-    public RawResponse query(String api, List<NameValuePair> params) {
-        ApiInfo apiInfo = apiInfoList.get(api);
-        if (apiInfo == null) {
-            return new RawResponse(null, SdkError.ENOAPI.getNumber(), new Exception(SdkError.getErrorDesc(SdkError.ENOAPI)));
-        }
-
-        Request request = prepareRequestBuilder(api, params).get().build();
-        return makeRequest(api, request);
-    }
-
 
     /**
      * Origin put method which without volcengine signer
@@ -237,33 +226,38 @@ public abstract class BaseServiceImpl implements IBaseService {
         if (apiInfo == null) {
             return new RawResponse(null, SdkError.ENOAPI.getNumber(), new Exception(SdkError.getErrorDesc(SdkError.ENOAPI)));
         }
+        String method = apiInfo.getMethod();
 
-        Request.Builder requestBuilder = prepareRequestBuilder(api, params);
+        if (method == Const.GET) {
+            GetBodyBuilder requestBuilder = new GetBodyBuilder();
+            requestBuilder = (GetBodyBuilder) prepareRequestBuilder(requestBuilder, api, params);
+            RequestBody requestBody = RequestBody.create(body, MEDIA_TYPE_JSON);
+            requestBuilder.header(Const.ContentType, requestBody.contentType().toString());
+            requestBuilder.get(requestBody);
+            return makeRequest(api, requestBuilder.build());
+        } else {
+            Request.Builder requestBuilder = prepareRequestBuilder(api, params);
+            RequestBody requestBody = RequestBody.create(body, MEDIA_TYPE_JSON);
+            requestBuilder.header(Const.ContentType, requestBody.contentType().toString());
+            requestBuilder.method(method, requestBody);
+            return makeRequest(api, requestBuilder.build());
+        }
 
-        RequestBody requestBody = RequestBody.create(body, MEDIA_TYPE_JSON);
 
-        requestBuilder.header(Const.ContentType, requestBody.contentType().toString());
-        requestBuilder.post(requestBody);
-        return makeRequest(api, requestBuilder.build());
     }
 
-    @Override
-    public RawResponse post(String api, List<NameValuePair> query, List<NameValuePair> form) {
-        ApiInfo apiInfo = apiInfoList.get(api);
-        if (apiInfo == null) {
-            return new RawResponse(null, SdkError.ENOAPI.getNumber(), new Exception(SdkError.getErrorDesc(SdkError.ENOAPI)));
-        }
-        Request.Builder requestBuilder = prepareRequestBuilder(api, query);
-        List<NameValuePair> mergedForm = mergeQuery(form, apiInfo.getForm());
-        FormBody.Builder bodyBuilder = new FormBody.Builder();
-        for (NameValuePair pair : mergedForm) {
-            bodyBuilder.add(pair.getName(), pair.getValue());
-        }
+    static class GetBodyBuilder extends Request.Builder {
+        public Request.Builder get(RequestBody body) {
+            this.post(body);
+            try {
+                Field field = Request.Builder.class.getDeclaredField("method");
+                field.setAccessible(true);
+                field.set(this, "GET");
+            } catch (IllegalAccessException | NoSuchFieldException e) {
 
-        FormBody formBody = bodyBuilder.build();
-
-        requestBuilder.header(Const.ContentType, formBody.contentType().toString());
-        return makeRequest(api, requestBuilder.post(formBody).build());
+            }
+            return this;
+        }
     }
 
     private RawResponse makeRequest(String api, Request request) {
@@ -280,15 +274,16 @@ public abstract class BaseServiceImpl implements IBaseService {
             ResponseBody body = response.body();
             byte[] bytes = null;
             int statusCode = response.code();
+            Headers headers = response.headers();
             if (statusCode >= 300) {
                 if (body != null) {
-                    return new RawResponse(null, SdkError.EHTTP.getNumber(), new Exception(body.string()));
+                    return new RawResponse(null, SdkError.EHTTP.getNumber(), new Exception(body.string()), headers, statusCode);
                 }
             }
             if (body != null) {
                 bytes = body.bytes();
             }
-            return new RawResponse(bytes, SdkError.SUCCESS.getNumber(), null);
+            return new RawResponse(bytes, SdkError.SUCCESS.getNumber(), null, headers, statusCode);
         } catch (Exception e) {
             e.printStackTrace();
             return new RawResponse(null, SdkError.EHTTP.getNumber(), new Exception(SdkError.getErrorDesc(SdkError.EHTTP)));
@@ -488,6 +483,10 @@ public abstract class BaseServiceImpl implements IBaseService {
 
     private Request.Builder prepareRequestBuilder(String api, List<NameValuePair> params) {
         Request.Builder requestBuilder = new Request.Builder();
+        return prepareRequestBuilder(requestBuilder, api, params);
+    }
+
+    private Request.Builder prepareRequestBuilder(Request.Builder requestBuilder, String api, List<NameValuePair> params) {
         ApiInfo apiInfo = apiInfoList.get(api);
 
         HttpUrl.Builder urlBuilder = new HttpUrl.Builder();
