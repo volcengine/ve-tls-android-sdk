@@ -4,6 +4,7 @@ import com.volcengine.helper.Const;
 import okhttp3.Interceptor;
 import okhttp3.Request;
 import okhttp3.Response;
+import okio.Buffer;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -47,6 +48,13 @@ public class DynamicTimeoutInterceptor implements Interceptor {
                 }
             }
         }
+        if (request.body() != null) {
+            final Buffer buffer = new Buffer();
+            request.body().writeTo(buffer);
+            String body = buffer.readUtf8();
+            System.out.println("body :" + body);
+        } else
+            System.out.println("null");
         return overrideChain.proceed(request);
     }
 

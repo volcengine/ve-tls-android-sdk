@@ -22,6 +22,7 @@ public class SignerV4Impl implements ISignerV4 {
     private static final Set<String> H_INCLUDE = new HashSet<String>();
     private static final BitSet URLENCODER = new BitSet(256);
     private static final String CONST_ENCODE = "0123456789ABCDEF";
+    private static final byte[] DefaultBodyHashCode = String.valueOf("{}").getBytes();
 
     static {
         H_INCLUDE.add(Const.ContentType);
@@ -83,7 +84,7 @@ public class SignerV4Impl implements ISignerV4 {
             signRequest.setXSignedHeaders(meta.getSignedHeaders());
             signRequest.setXSignedQueries(StringUtils.join(keys, ";"));
 
-            bodyHash = Utils.hashSHA256(new byte[0]);
+            bodyHash = Utils.hashSHA256(DefaultBodyHashCode);
         } else {
             for (Header header : requestParam.getHeaders()) {
                 requestSignMap.put(header.getName(), header.getValue());
@@ -97,7 +98,7 @@ public class SignerV4Impl implements ISignerV4 {
             requestSignMap.put(Const.XDate, formatDate);
             requestSignMap.put(Const.Host, requestParam.getHost());
             requestSignMap.putIfAbsent(Const.ContentType, Const.ContentTypeValue);
-            bodyHash = Utils.hashSHA256(requestParam.getBody() == null ? new byte[0] : requestParam.getBody());
+            bodyHash = Utils.hashSHA256(requestParam.getBody() == null ? DefaultBodyHashCode : requestParam.getBody());
             requestSignMap.put(Const.XContentSha256, bodyHash);
 
             signRequest.setHost(requestParam.getHost());
