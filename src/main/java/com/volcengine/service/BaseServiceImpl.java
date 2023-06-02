@@ -232,25 +232,13 @@ public abstract class BaseServiceImpl implements IBaseService {
         String method = apiInfo.getMethod();
         if (method == Const.GET) {
             requestBody = null;
+            requestBuilder.header(Const.ContentType, Const.APPLICATION_JSON);
+        } else {
+            requestBuilder.header(Const.ContentType, requestBody.contentType().toString());
         }
-        requestBuilder.header(Const.ContentType, requestBody.contentType().toString());
         requestBuilder.method(method, requestBody);
         return makeRequest(api, requestBuilder.build());
 
-    }
-
-    static class GetBodyBuilder extends Request.Builder {
-        public Request.Builder get(RequestBody body) {
-            this.post(body);
-            try {
-                Field field = Request.Builder.class.getDeclaredField("method");
-                field.setAccessible(true);
-                field.set(this, "GET");
-            } catch (IllegalAccessException | NoSuchFieldException e) {
-
-            }
-            return this;
-        }
     }
 
     private RawResponse makeRequest(String api, Request request) {

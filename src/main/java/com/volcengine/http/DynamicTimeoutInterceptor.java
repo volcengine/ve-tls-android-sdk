@@ -48,13 +48,6 @@ public class DynamicTimeoutInterceptor implements Interceptor {
                 }
             }
         }
-        if (request.body() != null) {
-            final Buffer buffer = new Buffer();
-            request.body().writeTo(buffer);
-            String body = buffer.readUtf8();
-            System.out.println("body :" + body);
-        } else
-            System.out.println("null");
         return overrideChain.proceed(request);
     }
 

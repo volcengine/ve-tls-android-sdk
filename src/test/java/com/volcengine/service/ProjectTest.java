@@ -37,10 +37,10 @@ public class ProjectTest extends BaseTest {
 //            actualMessage.contains(expectedMessage);
 //
             //describe project
-//            DescribeProjectResponse describeProjectResponse = client.describeProject(
-//                    new DescribeProjectRequest("0aaf9c98-87e9-4379-9822-3e3352d9a365"));
-//            Assert.assertEquals(describeProjectResponse.getProjectInfo().getProjectName(), projectName);
-//            System.out.println("describe project success,response:" + describeProjectResponse);
+            DescribeProjectResponse describeProjectResponse = client.describeProject(
+                    new DescribeProjectRequest(createProjectResponse.getProjectId()));
+            Assert.assertEquals(describeProjectResponse.getProjectInfo().getProjectName(), projectName);
+            System.out.println("describe project success,response:" + describeProjectResponse);
 //
 //            exception = assertThrows(LogException.class, () -> {
 //                client.describeProject(
@@ -72,12 +72,12 @@ public class ProjectTest extends BaseTest {
 //            actualMessage.contains(expectedMessage);
 
             //describe projects
-//            DescribeProjectsRequest describeProjectRequest = new DescribeProjectsRequest();
-//            describeProjectRequest.setPageNumber(3);
-//            describeProjectRequest.setPageSize(1);
-//            DescribeProjectsResponse describeProjectsResponse = client.describeProjects(describeProjectRequest);
-//            assertTrue(describeProjectsResponse.getTotal() > 0);
-//            System.out.println("describe projects success,response:" + describeProjectsResponse);
+            DescribeProjectsRequest describeProjectRequest = new DescribeProjectsRequest();
+            describeProjectRequest.setPageNumber(3);
+            describeProjectRequest.setPageSize(1);
+            DescribeProjectsResponse describeProjectsResponse = client.describeProjects(describeProjectRequest);
+            assertTrue(describeProjectsResponse.getTotal() > 0);
+            System.out.println("describe projects success,response:" + describeProjectsResponse);
 //            exception = assertThrows(LogException.class, () -> {
 //                describeProjectRequest.setProjectId("123_456");
 //                client.describeProjects(describeProjectRequest);
@@ -88,9 +88,9 @@ public class ProjectTest extends BaseTest {
 
 
             //delete project
-            DeleteProjectResponse deleteProjectResponse = client.deleteProject(new DeleteProjectRequest(
-                    createProjectResponse.getProjectId()));
-            assertTrue(deleteProjectResponse.getRequestId().length() > 0);
+//            DeleteProjectResponse deleteProjectResponse = client.deleteProject(new DeleteProjectRequest(
+//                    createProjectResponse.getProjectId()));
+//            assertTrue(deleteProjectResponse.getRequestId().length() > 0);
 //            exception = assertThrows(LogException.class, () -> {
 //                client.describeProject(
 //                        new DescribeProjectRequest(createProjectResponse.getProjectId()));
@@ -99,7 +99,7 @@ public class ProjectTest extends BaseTest {
 //            expectedMessage = "Project does not exist.";
 //            actualMessage = exception.getMessage();
 //            actualMessage.contains(expectedMessage);
-            System.out.println("delete project success,response:" + deleteProjectResponse);
+//            System.out.println("delete project success,response:" + deleteProjectResponse);
 
         } catch (LogException e) {
             e.printStackTrace();

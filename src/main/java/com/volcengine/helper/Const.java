@@ -293,6 +293,7 @@ public class Const {
     public static final String SERVICE_NAME = "ServiceName";
     public static final String CONTENT_TYPE = "Content-Type";
     public static final String APPLICATION_X_PROTOBUF = "application/x-protobuf";
+    public static final String APPLICATION_JSON ="application/json; charset=utf-8";
 
     // visual
     public static final String SkySegment = "SkySegment";
