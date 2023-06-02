@@ -226,23 +226,16 @@ public abstract class BaseServiceImpl implements IBaseService {
         if (apiInfo == null) {
             return new RawResponse(null, SdkError.ENOAPI.getNumber(), new Exception(SdkError.getErrorDesc(SdkError.ENOAPI)));
         }
+        Request.Builder requestBuilder = prepareRequestBuilder(api, params);
+        RequestBody requestBody = RequestBody.create(body, MEDIA_TYPE_JSON);
+
         String method = apiInfo.getMethod();
-
         if (method == Const.GET) {
-            GetBodyBuilder requestBuilder = new GetBodyBuilder();
-            requestBuilder = (GetBodyBuilder) prepareRequestBuilder(requestBuilder, api, params);
-            RequestBody requestBody = RequestBody.create(body, MEDIA_TYPE_JSON);
-            requestBuilder.header(Const.ContentType, requestBody.contentType().toString());
-            requestBuilder.get(requestBody);
-            return makeRequest(api, requestBuilder.build());
-        } else {
-            Request.Builder requestBuilder = prepareRequestBuilder(api, params);
-            RequestBody requestBody = RequestBody.create(body, MEDIA_TYPE_JSON);
-            requestBuilder.header(Const.ContentType, requestBody.contentType().toString());
-            requestBuilder.method(method, requestBody);
-            return makeRequest(api, requestBuilder.build());
+            requestBody = null;
         }
-
+        requestBuilder.header(Const.ContentType, requestBody.contentType().toString());
+        requestBuilder.method(method, requestBody);
+        return makeRequest(api, requestBuilder.build());
 
     }
 
