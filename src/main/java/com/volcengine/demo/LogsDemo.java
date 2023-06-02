@@ -59,11 +59,6 @@ public class LogsDemo extends BaseDemo {
                 System.out.println("put logs success,response:" + putLogsResponse);
 
             }
-            // describe cursor
-            DescribeCursorRequest describeCursorRequest =
-                    new DescribeCursorRequest(topicId, 0, "1656604800");
-            DescribeCursorResponse describeCursorResponse = client.describeCursor(describeCursorRequest);
-            System.out.println("describe cursor success,response:" + describeCursorResponse);
 
             // describes shards
             DescribeShardsRequest describeShardsRequest =
@@ -73,19 +68,6 @@ public class LogsDemo extends BaseDemo {
             // wait 30s,index to be queried
 
             Thread.sleep(30000);
-            ConsumeLogsRequest consumeLogsRequest = new ConsumeLogsRequest();
-            consumeLogsRequest.setTopicId(topicId);
-            consumeLogsRequest.setShardId(0);
-            consumeLogsRequest.setCursor(describeCursorResponse.getCursor());
-            ConsumeLogsResponse consumeLogsResponse = client.consumeLogs(consumeLogsRequest);
-            System.out.println(String.format("consume logs success requestId:%s,cursor:%s,cursorCnt:%d.",
-                    consumeLogsResponse.getRequestId(), consumeLogsResponse.getXTlsCursor(),
-                    consumeLogsResponse.getXTlsCount()));
-            consumeLogsRequest.setCompression(Const.LZ4);
-            consumeLogsResponse = client.consumeLogs(consumeLogsRequest);
-            System.out.println(String.format("consume logs success requestId:%s,cursor:%s,cursorCnt:%d.",
-                    consumeLogsResponse.getRequestId(), consumeLogsResponse.getXTlsCursor(),
-                    consumeLogsResponse.getXTlsCount()));
             // search logs
             SearchLogsRequest searchLogsRequest = new SearchLogsRequest();
             searchLogsRequest.setTopicId(topicId);
