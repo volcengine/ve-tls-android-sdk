@@ -142,40 +142,6 @@ public class TLSLogClientImpl implements TLSLogClient {
         return new PutLogsResponse(rawResponse.getHeaders());
     }
 
-    @Override
-    public DescribeCursorResponse describeCursor(DescribeCursorRequest request) throws LogException {
-        if (request == null || !request.CheckValidation()) {
-            throw new LogException("InvalidArgument", "Invalid request, Please check it", null);
-        }
-
-        // 1、prepare request
-        ArrayList<NameValuePair> params = new ArrayList<>();
-        params.add(new NameValuePair(TOPIC_ID, request.getTopicId()));
-        params.add(new NameValuePair(SHARD_ID, String.valueOf(request.getShardId())));
-        String requestBody = JSONObject.toJSONString(request);
-        // 2、check sum and sendRequest
-        RawResponse rawResponse = sendJsonRequest(DESCRIBE_CURSOR, params, requestBody);
-        // 3、parse response
-        return new DescribeCursorResponse(rawResponse.getHeaders()).deSerialize(rawResponse.getData(), DescribeCursorResponse.class);
-
-    }
-
-    @Override
-    public ConsumeLogsResponse consumeLogs(ConsumeLogsRequest request) throws LogException {
-        if (request == null || !request.CheckValidation()) {
-            throw new LogException("InvalidArgument", "Invalid request, Please check it", null);
-        }
-
-        // 1、prepare request
-        ArrayList<NameValuePair> params = new ArrayList<>();
-        params.add(new NameValuePair(TOPIC_ID, request.getTopicId()));
-        params.add(new NameValuePair(SHARD_ID, String.valueOf(request.getShardId())));
-        String requestBody = JSONObject.toJSONString(request);
-        // 2、check sum and sendRequest
-        RawResponse rawResponse = sendJsonRequest(CONSUME_LOGS, params, requestBody);
-        // 3、parse response
-        return new ConsumeLogsResponse(rawResponse.getHeaders(), request.getCompression()).deSerialize(rawResponse.getData(), ConsumeLogsResponse.class);
-    }
 
     @Override
     public SearchLogsResponse searchLogs(SearchLogsRequest request) throws LogException {

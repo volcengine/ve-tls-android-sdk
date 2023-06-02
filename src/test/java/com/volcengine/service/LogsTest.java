@@ -88,20 +88,6 @@ public class LogsTest extends BaseTest {
             String actualMessage = exception.getMessage();
             assertTrue(actualMessage.contains(expectedMessage));
             System.out.println("put logs success,response:" + putLogsResponse);
-            // describe cursor
-            DescribeCursorRequest describeCursorRequest =
-                    new DescribeCursorRequest(topicId, 0, "1656604800");
-            DescribeCursorResponse describeCursorResponse = client.describeCursor(describeCursorRequest);
-            assertTrue(describeCursorResponse.getCursor().length() > 0);
-
-            exception = assertThrows(LogException.class, () -> {
-                describeCursorRequest.setTopicId("124_356");
-                client.describeCursor(describeCursorRequest);
-            });
-            expectedMessage = "Invalid argument key TopicId";
-            actualMessage = exception.getMessage();
-            assertTrue(actualMessage.contains(expectedMessage));
-            System.out.println("describe cursor success,response:" + describeCursorResponse);
 
             // describes shards
             DescribeShardsRequest describeShardsRequest =
@@ -121,30 +107,7 @@ public class LogsTest extends BaseTest {
             // wait 30s,index to be queried
 
             Thread.sleep(30000);
-            ConsumeLogsRequest consumeLogsRequest = new ConsumeLogsRequest();
-            consumeLogsRequest.setTopicId(topicId);
-            consumeLogsRequest.setShardId(0);
-            consumeLogsRequest.setCursor(describeCursorResponse.getCursor());
-            ConsumeLogsResponse consumeLogsResponse = client.consumeLogs(consumeLogsRequest);
-            assertTrue(consumeLogsResponse.getXTlsCount() > 0);
 
-            exception = assertThrows(LogException.class, () -> {
-                consumeLogsRequest.setTopicId("124_356");
-                client.consumeLogs(consumeLogsRequest);
-            });
-            expectedMessage = "Invalid argument key TopicId";
-            actualMessage = exception.getMessage();
-            assertTrue(actualMessage.contains(expectedMessage));
-
-            System.out.println(String.format("consume logs success requestId:%s,cursor:%s,cursorCnt:%d.",
-                    consumeLogsResponse.getRequestId(), consumeLogsResponse.getXTlsCursor(),
-                    consumeLogsResponse.getXTlsCount()));
-            consumeLogsRequest.setTopicId(createTopicResponse.getTopicId());
-            consumeLogsRequest.setCompression(LZ4);
-            consumeLogsResponse = client.consumeLogs(consumeLogsRequest);
-            System.out.println(String.format("consume logs success requestId:%s,cursor:%s,cursorCnt:%d.",
-                    consumeLogsResponse.getRequestId(), consumeLogsResponse.getXTlsCursor(),
-                    consumeLogsResponse.getXTlsCount()));
             // search logs
             SearchLogsRequest searchLogsRequest = new SearchLogsRequest();
             searchLogsRequest.setTopicId(topicId);

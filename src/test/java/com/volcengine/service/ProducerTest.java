@@ -68,24 +68,7 @@ public class ProducerTest extends BaseTest {
                 }
             };
             producer.sendLog("", topicId, "test-source", "test-file", log, callBack);
-            // describe cursor
-            DescribeCursorRequest describeCursorRequest =
-                    new DescribeCursorRequest(topicId, 0, "1656604800");
-            DescribeCursorResponse describeCursorResponse = client.describeCursor(describeCursorRequest);
-            assertTrue(describeCursorResponse.getCursor().length() > 0);
 
-            // wait 30s,index to be queried
-
-            Thread.sleep(30000);
-            ConsumeLogsRequest consumeLogsRequest = new ConsumeLogsRequest();
-            consumeLogsRequest.setTopicId(topicId);
-            consumeLogsRequest.setShardId(0);
-            consumeLogsRequest.setCursor(describeCursorResponse.getCursor());
-            ConsumeLogsResponse consumeLogsResponse = client.consumeLogs(consumeLogsRequest);
-            assertTrue(consumeLogsResponse.getXTlsCount() > 0);
-            System.out.println(String.format("consume logs success requestId:%s,cursor:%s,cursorCnt:%d.",
-                    consumeLogsResponse.getRequestId(), consumeLogsResponse.getXTlsCursor(),
-                    consumeLogsResponse.getXTlsCount()));
             // delete index topic project
             DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest(topicId);
             DeleteIndexResponse deleteIndexResponse = client.deleteIndex(deleteIndexRequest);

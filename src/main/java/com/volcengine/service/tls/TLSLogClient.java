@@ -18,15 +18,12 @@ public interface TLSLogClient {
 
     /**
      * 日志管理
+     *
      * @param request
      */
     PutLogsResponse putLogs(PutLogsRequest request) throws LogException;
 
     PutLogsResponse putLogsV2(PutLogsRequestV2 request) throws LogException;
-
-    DescribeCursorResponse describeCursor(DescribeCursorRequest request) throws LogException;
-
-    ConsumeLogsResponse consumeLogs(ConsumeLogsRequest request) throws LogException;
 
     SearchLogsResponse searchLogs(SearchLogsRequest request) throws LogException;
 
