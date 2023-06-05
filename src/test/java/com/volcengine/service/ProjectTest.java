@@ -34,7 +34,7 @@ public class ProjectTest extends BaseTest {
             });
             String expectedMessage = "Project already exist";
             String actualMessage = exception.getMessage();
-            actualMessage.contains(expectedMessage);
+            Assert.assertTrue(actualMessage.contains(expectedMessage));
 
             //describe project
             DescribeProjectResponse describeProjectResponse = client.describeProject(
@@ -48,7 +48,7 @@ public class ProjectTest extends BaseTest {
             });
             expectedMessage = "Invalid argument key";
             actualMessage = exception.getMessage();
-            actualMessage.contains(expectedMessage);
+            Assert.assertTrue(actualMessage.contains(expectedMessage));
 
             //modify project
 
@@ -69,7 +69,7 @@ public class ProjectTest extends BaseTest {
             });
             expectedMessage = "Invalid argument key";
             actualMessage = exception.getMessage();
-            actualMessage.contains(expectedMessage);
+            Assert.assertTrue(actualMessage.contains(expectedMessage));
 
             //describe projects
             DescribeProjectsRequest describeProjectRequest = new DescribeProjectsRequest();
@@ -84,7 +84,7 @@ public class ProjectTest extends BaseTest {
             });
             expectedMessage = "Invalid argument key";
             actualMessage = exception.getMessage();
-            actualMessage.contains(expectedMessage);
+            Assert.assertTrue(actualMessage.contains(expectedMessage));
 
 
             //delete project
@@ -98,7 +98,7 @@ public class ProjectTest extends BaseTest {
 
             expectedMessage = "Project does not exist.";
             actualMessage = exception.getMessage();
-            actualMessage.contains(expectedMessage);
+            Assert.assertTrue(actualMessage.contains(expectedMessage));
             System.out.println("delete project success,response:" + deleteProjectResponse);
 
         } catch (LogException e) {

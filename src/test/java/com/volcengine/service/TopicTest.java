@@ -44,7 +44,7 @@ public class TopicTest extends BaseTest {
             });
             String expectedMessage = "Topic " + topicName + " already exist";
             String actualMessage = exception.getMessage();
-            actualMessage.contains(expectedMessage);
+            Assert.assertTrue(actualMessage.contains(expectedMessage));
 
 
             //describe topic
@@ -59,7 +59,7 @@ public class TopicTest extends BaseTest {
             });
             expectedMessage = "Invalid argument key";
             actualMessage = exception.getMessage();
-            actualMessage.contains(expectedMessage);
+            Assert.assertTrue(actualMessage.contains(expectedMessage));
 
             //modify topic
             ModifyTopicRequest modifyTopicRequest = new ModifyTopicRequest();
@@ -76,7 +76,7 @@ public class TopicTest extends BaseTest {
             });
             expectedMessage = "Invalid argument key";
             actualMessage = exception.getMessage();
-            actualMessage.contains(expectedMessage);
+            Assert.assertTrue(actualMessage.contains(expectedMessage));
 
             //describe topics
             DescribeTopicsRequest describeTopicsRequest = new DescribeTopicsRequest();
@@ -91,7 +91,7 @@ public class TopicTest extends BaseTest {
             });
             expectedMessage = "Invalid argument key";
             actualMessage = exception.getMessage();
-            actualMessage.contains(expectedMessage);
+            Assert.assertTrue(actualMessage.contains(expectedMessage));
 
             //delete topic
             DeleteTopicResponse deleteTopicResponse = client.deleteTopic(
@@ -105,7 +105,7 @@ public class TopicTest extends BaseTest {
 
             expectedMessage = "Topic does not exist.";
             actualMessage = exception.getMessage();
-            actualMessage.contains(expectedMessage);
+            Assert.assertTrue(actualMessage.contains(expectedMessage));
             DeleteProjectResponse deleteProjectResponse = client.deleteProject(new DeleteProjectRequest(projectId));
             System.out.println("delete project success,response:" + deleteProjectResponse);
         } catch (
