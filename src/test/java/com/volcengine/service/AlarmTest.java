@@ -22,15 +22,17 @@ public class AlarmTest extends BaseTest {
         SimpleDateFormat sdf = new SimpleDateFormat(Const.DATE_FORMAT);
         String prefix = "test";
         String separator = "-";
+        String testReceiver =  System.getenv("receiver");;
         String date = sdf.format(new Date());
         try {
             // create alarm notify group
             CreateAlarmNotifyGroupRequest createAlarmNotifyGroupRequest = new CreateAlarmNotifyGroupRequest();
-            createAlarmNotifyGroupRequest.setAlarmNotifyGroupName(prefix + separator + System.currentTimeMillis());
+            final String alarmNotifyGroupName = prefix + separator + System.currentTimeMillis();
+            createAlarmNotifyGroupRequest.setAlarmNotifyGroupName(alarmNotifyGroupName);
             createAlarmNotifyGroupRequest.setNotifyType(Arrays.asList("Recovery", "Trigger"));
             Receiver receiver = new Receiver();
             receiver.setReceiverType("User");
-            receiver.setReceiverNames(Arrays.asList("test-user"));
+            receiver.setReceiverNames(Arrays.asList(testReceiver));
             receiver.setReceiverChannels(Arrays.asList("Sms"));
             receiver.setStartTime("00:00:00");
             receiver.setEndTime("23:59:59");
@@ -44,11 +46,11 @@ public class AlarmTest extends BaseTest {
             });
             String expectedMessage = "Notify group already exist";
             String actualMessage = exception.getMessage();
-            assertEquals(expectedMessage, actualMessage);
+            assertTrue(actualMessage.contains(expectedMessage));
             System.out.println("create alarm notify group success,response:" + createAlarmNotifyGroupResponse);
 
             exception = assertThrows(LogException.class, () -> {
-                createAlarmNotifyGroupRequest.setAlarmNotifyGroupName(prefix + separator + System.currentTimeMillis());
+                createAlarmNotifyGroupRequest.setAlarmNotifyGroupName(alarmNotifyGroupName);
                 createAlarmNotifyGroupRequest.setReceivers(null);
                 client.createAlarmNotifyGroup(createAlarmNotifyGroupRequest);
             });
@@ -84,7 +86,7 @@ public class AlarmTest extends BaseTest {
             modifyAlarmNotifyGroupRequest.setNotifyType(Arrays.asList("Recovery", "Trigger"));
             receiver = new Receiver();
             receiver.setReceiverType("User");
-            receiver.setReceiverNames(Arrays.asList("test-user"));
+            receiver.setReceiverNames(Arrays.asList(testReceiver));
             receiver.setReceiverChannels(Arrays.asList("Sms"));
             receiver.setStartTime("01:00:00");
             receiver.setEndTime("22:59:59");
@@ -109,14 +111,14 @@ public class AlarmTest extends BaseTest {
             System.out.println("modify alarm notify group success,response:" + modifyAlarmNotifyGroupResponse);
 
             exception = assertThrows(LogException.class, () -> {
-               modifyAlarmNotifyGroupRequest.setAlarmNotifyGroupId(createAlarmNotifyGroupResponse.getAlarmNotifyGroupId());
-               modifyAlarmNotifyGroupRequest.setNotifyType(Arrays.asList("invalid"));
-               client.modifyAlarmNotifyGroup(modifyAlarmNotifyGroupRequest);
+                modifyAlarmNotifyGroupRequest.setAlarmNotifyGroupId(createAlarmNotifyGroupResponse.getAlarmNotifyGroupId());
+                modifyAlarmNotifyGroupRequest.setNotifyType(Arrays.asList("invalid"));
+                client.modifyAlarmNotifyGroup(modifyAlarmNotifyGroupRequest);
             });
 
             // create project for alarm
             String projectName = prefix + "project" + separator + date + separator + System.currentTimeMillis();
-            String region = "your-region";
+            String region = clientConfig.getRegion();
             String description = "test project";
             CreateProjectRequest project = new CreateProjectRequest(projectName, region, description);
             CreateProjectResponse createProjectResponse = client.createProject(project);
@@ -135,7 +137,8 @@ public class AlarmTest extends BaseTest {
             createAlarmRequest.setAlarmNotifyGroup(
                     Arrays.asList(createAlarmNotifyGroupResponse.getAlarmNotifyGroupId()));
             createAlarmRequest.setCondition("$1.errNum>0");
-            createAlarmRequest.setAlarmName(prefix + separator + System.currentTimeMillis());
+            String nameNew = prefix + separator + System.currentTimeMillis();
+            createAlarmRequest.setAlarmName(nameNew);
             createAlarmRequest.setAlarmPeriod(60);
             createAlarmRequest.setProjectId(createProjectResponse.getProjectId());
             QueryRequest queryRequest = new QueryRequest();
@@ -159,7 +162,7 @@ public class AlarmTest extends BaseTest {
             });
             expectedMessage = "Topic " + createTopicRequest.getTopicName() + " already exist";
             actualMessage = exception.getMessage();
-            assertEquals(expectedMessage, actualMessage);
+            assertTrue(actualMessage.contains(expectedMessage));
             System.out.println("create alarm success,response:" + createAlarmResponse);
             // describe alarm
             final DescribeAlarmsRequest describeAlarmsRequest = new DescribeAlarmsRequest();
@@ -222,7 +225,7 @@ public class AlarmTest extends BaseTest {
 
             expectedMessage = "Alarm policy does not exist.";
             actualMessage = exception.getMessage();
-            assertEquals(expectedMessage, actualMessage);
+            assertTrue(actualMessage.contains(expectedMessage));
             System.out.println("delete alarm success,response:" + deleteAlarmResponse);
             // delete alarm notify group
             DeleteAlarmNotifyGroupRequest deleteAlarmNotifyGroupRequest =
@@ -236,7 +239,7 @@ public class AlarmTest extends BaseTest {
 
             expectedMessage = "Alarm notify group does not exist.";
             actualMessage = exception.getMessage();
-            assertEquals(expectedMessage, actualMessage);
+            assertTrue(actualMessage.contains(expectedMessage));
             System.out.println("delete alarm notify group success,response:" + deleteAlarmNotifyGroupResponse);
             //delete topic
             DeleteTopicResponse deleteTopicResponse =

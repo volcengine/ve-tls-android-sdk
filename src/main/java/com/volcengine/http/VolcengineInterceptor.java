@@ -48,7 +48,6 @@ public class VolcengineInterceptor implements Interceptor {
         if (signRequest == null) {
             throw new IllegalArgumentException("Sign Error");
         }
-        System.out.println(signRequest);
         Request.Builder newReq = req.newBuilder();
         newReq.addHeader(Const.XDate, signRequest.getXDate());
         if (signRequest.getXNotSignBody() != null) {

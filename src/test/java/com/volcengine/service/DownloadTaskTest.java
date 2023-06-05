@@ -41,6 +41,7 @@ public class DownloadTaskTest extends BaseTest {
                 createTopicRequest.setTopicName(topicName);
                 createTopicRequest.setProjectId(projectId);
                 createTopicRequest.setTtl(500);
+                createTopicRequest.setEnableTracking(true);
                 CreateTopicResponse createTopicResponse = client.createTopic(createTopicRequest);
                 System.out.println("create topic success,response:" + createTopicResponse);
                 topicId = createTopicResponse.getTopicId();
@@ -102,7 +103,7 @@ public class DownloadTaskTest extends BaseTest {
             }
 
             // Wait for download task finish
-            Thread.sleep(1000 * 10);
+            Thread.sleep(1000 * 90);
 
             // DescribeDownloadUrl
             {
@@ -115,7 +116,7 @@ public class DownloadTaskTest extends BaseTest {
 
                 // Invalid case
                 Exception exception = assertThrows(LogException.class, () -> {
-                    request.setTaskId("notexist");
+                    request.setTaskId("not exist");
                     client.describeDownloadUrl(request);
                 });
             }

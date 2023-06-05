@@ -55,7 +55,7 @@ public class RuleTest extends BaseTest {
             createRuleRequest.setExtractRule(extractRule);
 
             createRuleRequest.setExcludePaths(Arrays.asList(new ExcludePath("File", "/data/nginx/log/*/*/exclude.log")));
-            createRuleRequest.setLogSample("2018-05-22 15:35:53.850 INFO XXXX");
+            createRuleRequest.setLogSample("2018-05-22 15:35:53.850#INFO XXXX");
             UserDefineRule udr = new UserDefineRule();
             {
                 udr.setParsePathRule(new ParsePathRule("/var/logs/instanceid_any_podname/test.log", "\\/test.log", Arrays.asList("instance-id")));

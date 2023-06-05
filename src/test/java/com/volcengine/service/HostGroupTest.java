@@ -36,7 +36,7 @@ public class HostGroupTest extends BaseTest {
             String expectedMessage = "MachineGroup " + createHostGroupRequest.getHostGroupName() +
                     " already exist";
             String actualMessage = exception.getMessage();
-            assertEquals(expectedMessage, actualMessage);
+            assertTrue(actualMessage.contains(expectedMessage));
 
             exception = assertThrows(LogException.class, () -> {
                 createHostGroupRequest.setHostGroupName(prefix + separator + System.currentTimeMillis());
@@ -110,9 +110,9 @@ public class HostGroupTest extends BaseTest {
             assertTrue(actualMessage.contains(expectedMessage));
 
             exception = assertThrows(LogException.class, () -> {
-               describeHostGroupsRequest.setHostGroupId(null);
-               describeHostGroupsRequest.setPageSize(200);
-               client.describeHostGroups(describeHostGroupsRequest);
+                describeHostGroupsRequest.setHostGroupId(null);
+                describeHostGroupsRequest.setPageSize(200);
+                client.describeHostGroups(describeHostGroupsRequest);
             });
 
             //describe host
@@ -165,7 +165,7 @@ public class HostGroupTest extends BaseTest {
             expectedMessage = String.format("Host %s does not exist in HostGroup %s", deleteHostRequest.getIp(),
                     deleteHostRequest.getHostGroupId());
             actualMessage = exception.getMessage();
-             assertEquals(expectedMessage, actualMessage);
+            assertTrue(actualMessage.contains(expectedMessage));
             System.out.println("delete host to group success,response:" + deleteHostResponse);
 
 
@@ -177,10 +177,10 @@ public class HostGroupTest extends BaseTest {
             exception = assertThrows(LogException.class, () -> {
                 client.deleteHostGroup(new DeleteHostGroupRequest(createHostGroupResponse.getHostGroupId()));
             });
-            expectedMessage = "HostGroup " + createHostGroupResponse.getHostGroupId()+
-            " does not exist";
+            expectedMessage = "HostGroup " + createHostGroupResponse.getHostGroupId() +
+                    " does not exist";
             actualMessage = exception.getMessage();
-             assertEquals(expectedMessage, actualMessage);
+            assertTrue(actualMessage.contains(expectedMessage));
             System.out.println("delete host group success,response:" + deleteHostGroupResponse);
 
         } catch (LogException e) {

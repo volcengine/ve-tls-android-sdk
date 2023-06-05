@@ -29,26 +29,26 @@ public class ProjectTest extends BaseTest {
             assertTrue(createProjectResponse.getProjectId().length() > 0);
             System.out.println("create project success,response:" + createProjectResponse);
 
-//            Exception exception = assertThrows(LogException.class, () -> {
-//                client.createProject(project);
-//            });
-//            String expectedMessage = "Project already exist";
-//            String actualMessage = exception.getMessage();
-//            actualMessage.contains(expectedMessage);
-//
+            Exception exception = assertThrows(LogException.class, () -> {
+                client.createProject(project);
+            });
+            String expectedMessage = "Project already exist";
+            String actualMessage = exception.getMessage();
+            actualMessage.contains(expectedMessage);
+
             //describe project
             DescribeProjectResponse describeProjectResponse = client.describeProject(
                     new DescribeProjectRequest(createProjectResponse.getProjectId()));
             Assert.assertEquals(describeProjectResponse.getProjectInfo().getProjectName(), projectName);
             System.out.println("describe project success,response:" + describeProjectResponse);
-//
-//            exception = assertThrows(LogException.class, () -> {
-//                client.describeProject(
-//                        new DescribeProjectRequest("123-456-zsq"));
-//            });
-//            expectedMessage = "Invalid argument key";
-//            actualMessage = exception.getMessage();
-//            actualMessage.contains(expectedMessage);
+
+            exception = assertThrows(LogException.class, () -> {
+                client.describeProject(
+                        new DescribeProjectRequest("123-456-zsq"));
+            });
+            expectedMessage = "Invalid argument key";
+            actualMessage = exception.getMessage();
+            actualMessage.contains(expectedMessage);
 
             //modify project
 
@@ -58,18 +58,18 @@ public class ProjectTest extends BaseTest {
                     projectName, description);
             ModifyProjectResponse modifyProjectResponse = client.modifyProject(modifyProjectRequest);
             assertTrue(modifyProjectResponse.getRequestId().length() > 0);
-//            describeProjectResponse = client.describeProject(
-//                    new DescribeProjectRequest(createProjectResponse.getProjectId()));
-//            Assert.assertEquals(describeProjectResponse.getProjectInfo().getProjectName(), projectName);
+            describeProjectResponse = client.describeProject(
+                    new DescribeProjectRequest(createProjectResponse.getProjectId()));
+            Assert.assertEquals(describeProjectResponse.getProjectInfo().getProjectName(), projectName);
             System.out.println("modify project success,response:" + modifyProjectResponse);
 
-//            exception = assertThrows(LogException.class, () -> {
-//                modifyProjectRequest.setProjectName("1243_456");
-//                client.modifyProject(modifyProjectRequest);
-//            });
-//            expectedMessage = "Invalid argument key";
-//            actualMessage = exception.getMessage();
-//            actualMessage.contains(expectedMessage);
+            exception = assertThrows(LogException.class, () -> {
+                modifyProjectRequest.setProjectName("1243_456");
+                client.modifyProject(modifyProjectRequest);
+            });
+            expectedMessage = "Invalid argument key";
+            actualMessage = exception.getMessage();
+            actualMessage.contains(expectedMessage);
 
             //describe projects
             DescribeProjectsRequest describeProjectRequest = new DescribeProjectsRequest();
@@ -78,28 +78,28 @@ public class ProjectTest extends BaseTest {
             DescribeProjectsResponse describeProjectsResponse = client.describeProjects(describeProjectRequest);
             assertTrue(describeProjectsResponse.getTotal() > 0);
             System.out.println("describe projects success,response:" + describeProjectsResponse);
-//            exception = assertThrows(LogException.class, () -> {
-//                describeProjectRequest.setProjectId("123_456");
-//                client.describeProjects(describeProjectRequest);
-//            });
-//            expectedMessage = "Invalid argument key";
-//            actualMessage = exception.getMessage();
-//            actualMessage.contains(expectedMessage);
+            exception = assertThrows(LogException.class, () -> {
+                describeProjectRequest.setProjectId("123_456");
+                client.describeProjects(describeProjectRequest);
+            });
+            expectedMessage = "Invalid argument key";
+            actualMessage = exception.getMessage();
+            actualMessage.contains(expectedMessage);
 
 
             //delete project
-//            DeleteProjectResponse deleteProjectResponse = client.deleteProject(new DeleteProjectRequest(
-//                    createProjectResponse.getProjectId()));
-//            assertTrue(deleteProjectResponse.getRequestId().length() > 0);
-//            exception = assertThrows(LogException.class, () -> {
-//                client.describeProject(
-//                        new DescribeProjectRequest(createProjectResponse.getProjectId()));
-//            });
-//
-//            expectedMessage = "Project does not exist.";
-//            actualMessage = exception.getMessage();
-//            actualMessage.contains(expectedMessage);
-//            System.out.println("delete project success,response:" + deleteProjectResponse);
+            DeleteProjectResponse deleteProjectResponse = client.deleteProject(new DeleteProjectRequest(
+                    createProjectResponse.getProjectId()));
+            assertTrue(deleteProjectResponse.getRequestId().length() > 0);
+            exception = assertThrows(LogException.class, () -> {
+                client.describeProject(
+                        new DescribeProjectRequest(createProjectResponse.getProjectId()));
+            });
+
+            expectedMessage = "Project does not exist.";
+            actualMessage = exception.getMessage();
+            actualMessage.contains(expectedMessage);
+            System.out.println("delete project success,response:" + deleteProjectResponse);
 
         } catch (LogException e) {
             e.printStackTrace();
