@@ -159,66 +159,6 @@ public abstract class BaseServiceImpl implements IBaseService {
     }
 
 
-    /**
-     * Origin put method which without volcengine signer
-     *
-     * @param url     url
-     * @param data    data
-     * @param headers headers
-     * @return true if the http response code is 200, otherwise false
-     */
-    protected boolean originPutData(String url, byte[] data, Map<String, String> headers) {
-        RequestBody body = RequestBody.create(data);
-        return doOriginPut(url, body, headers).getCode() == 200;
-    }
-
-    /**
-     * Origin put method which without volcengine signer
-     *
-     * @param url     url
-     * @param data    data
-     * @param headers headers
-     * @return the raw response
-     */
-    protected RawResponse originPutDataWithResponse(String url, byte[] data, Map<String, String> headers) {
-        return doOriginPut(url, RequestBody.create(data), headers);
-    }
-
-    private RawResponse doOriginPut(String url, RequestBody entity, Map<String, String> headers) {
-        Request.Builder httpPut = new Request.Builder();
-        httpPut.url(url);
-        httpPut.put(entity);
-        if (headers != null && headers.size() > 0) {
-            for (Map.Entry<String, String> entry : headers.entrySet()) {
-                httpPut.addHeader(entry.getKey(), entry.getValue());
-            }
-        }
-        OkHttpClient client;
-        Response response = null;
-        RawResponse rawResponse = new RawResponse();
-        try {
-            client = OkHttpClientFactory.create();
-            if (client == null) {
-                return new RawResponse(null, SdkError.UNKNOWN.getNumber(), new IllegalStateException(""));
-            }
-            Call call = client.newCall(httpPut.build());
-            response = call.execute();
-            int statusCode = response.code();
-            rawResponse.setCode(statusCode);
-            ResponseBody body = response.body();
-            if (body != null) {
-                rawResponse.setData(body.bytes());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            rawResponse.setException(e);
-        } finally {
-            if (response != null) {
-                response.close();
-            }
-        }
-        return rawResponse;
-    }
 
     @Override
     public RawResponse json(String api, List<NameValuePair> params, String body) {
