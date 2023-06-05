@@ -20,7 +20,7 @@ public class RuleTest extends BaseTest {
         String date = sdf.format(new Date());
         //  create project
         String projectName = prefix + separator + date + separator + System.currentTimeMillis();
-        String region = "your-region";
+        String region = clientConfig.getRegion();
         String description = "test project";
 
         try {
@@ -56,7 +56,8 @@ public class RuleTest extends BaseTest {
 
             createRuleRequest.setExcludePaths(Arrays.asList(new ExcludePath("File", "/data/nginx/log/*/*/exclude.log")));
             createRuleRequest.setLogSample("2018-05-22 15:35:53.850 INFO XXXX");
-            UserDefineRule udr = new UserDefineRule(); {
+            UserDefineRule udr = new UserDefineRule();
+            {
                 udr.setParsePathRule(new ParsePathRule("/var/logs/instanceid_any_podname/test.log", "\\/test.log", Arrays.asList("instance-id")));
             }
             createRuleRequest.setUserDefineRule(udr);
@@ -104,7 +105,8 @@ public class RuleTest extends BaseTest {
 
             ruleInfo.setExcludePaths(Arrays.asList(new ExcludePath("File", "/data/nginx/log/*/*/exclude.log")));
             ruleInfo.setLogSample("2018-05-22 15:35:53.850 INFO XXXX");
-            udr = new UserDefineRule(); {
+            udr = new UserDefineRule();
+            {
                 udr.setParsePathRule(new ParsePathRule("/var/logs/instanceid_any_podname/test.log", "\\/test.log", Arrays.asList("instance-id")));
             }
             ruleInfo.setUserDefineRule(udr);

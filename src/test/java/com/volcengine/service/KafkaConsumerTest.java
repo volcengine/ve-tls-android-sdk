@@ -25,7 +25,7 @@ public class KafkaConsumerTest extends BaseTest {
             String projectId;
             {
                 String projectName = prefix + separator + date + separator + System.currentTimeMillis();
-                String region = "cn-guilin-boe";
+                String region = clientConfig.getRegion();
                 String description = "test project";
                 CreateProjectRequest project = new CreateProjectRequest(projectName, region, description);
                 CreateProjectResponse createProjectResponse = client.createProject(project);
@@ -59,7 +59,8 @@ public class KafkaConsumerTest extends BaseTest {
 
             // OpenKafkaConsumer
             {
-                OpenKafkaConsumerRequest request = new OpenKafkaConsumerRequest(); {
+                OpenKafkaConsumerRequest request = new OpenKafkaConsumerRequest();
+                {
                     request.setTopicId(topicId);
                 }
                 OpenKafkaConsumerResponse response = client.openKafkaConsumer(request);
@@ -74,7 +75,8 @@ public class KafkaConsumerTest extends BaseTest {
 
             // DescribeKafkaConsumer
             {
-                DescribeKafkaConsumerRequest request = new DescribeKafkaConsumerRequest(); {
+                DescribeKafkaConsumerRequest request = new DescribeKafkaConsumerRequest();
+                {
                     request.setTopicId(topicId);
                 }
                 DescribeKafkaConsumerResponse response = client.describeKafkaConsumer(request);
@@ -89,7 +91,8 @@ public class KafkaConsumerTest extends BaseTest {
 
             // CloseKafkaConsumer
             {
-                CloseKafkaConsumerRequest request = new CloseKafkaConsumerRequest(); {
+                CloseKafkaConsumerRequest request = new CloseKafkaConsumerRequest();
+                {
                     request.setTopicId(topicId);
                 }
                 CloseKafkaConsumerResponse response = client.closeKafkaConsumer(request);

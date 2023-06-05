@@ -22,7 +22,7 @@ public class TopicTest extends BaseTest {
         try {
             //create project
             String projectName = prefix + separator + date + separator + System.currentTimeMillis();
-            String region = "your-region";
+            String region = clientConfig.getRegion();
             String description = "test project";
             CreateProjectRequest project = new CreateProjectRequest(projectName, region, description);
             CreateProjectResponse createProjectResponse = client.createProject(project);

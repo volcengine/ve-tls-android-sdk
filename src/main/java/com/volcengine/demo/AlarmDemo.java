@@ -59,7 +59,7 @@ public class AlarmDemo extends BaseDemo {
 
             // create project for alarm
             String projectName = prefix + "project" + separator + date + separator + System.currentTimeMillis();
-            String region = "your-region";
+            String region = clientConfig.getRegion();
             String description = "test project";
             CreateProjectRequest project = new CreateProjectRequest(projectName, region, description);
             CreateProjectResponse createProjectResponse = client.createProject(project);
