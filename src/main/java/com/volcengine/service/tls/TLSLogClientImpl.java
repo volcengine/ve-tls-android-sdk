@@ -3,6 +3,8 @@ package com.volcengine.service.tls;
 import com.alibaba.fastjson.JSONObject;
 import com.volcengine.error.SdkError;
 import com.volcengine.model.ApiInfo;
+import com.volcengine.model.Header;
+import com.volcengine.model.NameValuePair;
 import com.volcengine.model.response.RawResponse;
 import com.volcengine.model.tls.ClientConfig;
 import com.volcengine.model.tls.Const;
@@ -15,8 +17,6 @@ import com.volcengine.model.tls.util.AdaptorUtil;
 import com.volcengine.model.tls.util.MessageUtil;
 import com.volcengine.model.tls.util.TimeUtil;
 import org.apache.commons.lang3.StringUtils;
-import com.volcengine.model.Header;
-import com.volcengine.model.NameValuePair;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -1294,6 +1294,10 @@ public class TLSLogClientImpl implements TLSLogClient {
         code = SdkError.getErrorDesc(SdkError.getError(response.getCode()));
         if (response.getException() != null) {
             message = response.getException().getMessage();
+            if (message != null && message.contains(ERROR_MESSAGE)) {
+                LogException logException = JSONObject.parseObject(message, LogException.class);
+                message = logException.getErrorMessage();
+            }
         }
         return new String[]{code, message};
     }
