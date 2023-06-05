@@ -118,47 +118,6 @@ public abstract class BaseServiceImpl implements IBaseService {
         }
     }
 
-    @Override
-    public String getSignUrl(String api, List<NameValuePair> params) throws Exception {
-        ApiInfo apiInfo = apiInfoList.get(api);
-
-        if (apiInfo == null) {
-            throw new Exception(SdkError.getErrorDesc(SdkError.ENOAPI));
-        }
-
-        List<NameValuePair> mergedNV = mergeQuery(params, apiInfo.getQuery());
-
-        RequestParam requestParam = RequestParam.builder().isSignUrl(true)
-                .body(new byte[0])
-                .host(serviceInfo.getHost())
-                .path(apiInfo.getPath())
-                .method(apiInfo.getMethod().toUpperCase())
-                .date(new Date())
-                .queryList(mergedNV)
-                .build();
-        SignRequest signRequest = ISigner.getSignRequest(requestParam, serviceInfo.getCredentials());
-
-        HttpUrl.Builder urlBuilder = new HttpUrl.Builder();
-        urlBuilder.scheme(serviceInfo.getScheme()).host(serviceInfo.getHost()).encodedPath(apiInfo.getPath());
-
-        for (NameValuePair pair : mergedNV) {
-            urlBuilder.addQueryParameter(pair.getName(), pair.getValue());
-        }
-
-        urlBuilder.addQueryParameter(Const.XDate, signRequest.getXDate());
-        urlBuilder.addQueryParameter(Const.XNotSignBody, signRequest.getXNotSignBody());
-        urlBuilder.addQueryParameter(Const.XCredential, signRequest.getXCredential());
-        urlBuilder.addQueryParameter(Const.XAlgorithm, signRequest.getXAlgorithm());
-        urlBuilder.addQueryParameter(Const.XSignedHeaders, signRequest.getXSignedHeaders());
-        urlBuilder.addQueryParameter(Const.XSignedQueries, signRequest.getXSignedQueries());
-        urlBuilder.addQueryParameter(Const.XSignature, signRequest.getXSignature());
-        if (StringUtils.isNotEmpty(signRequest.getXSecurityToken())) {
-            urlBuilder.addQueryParameter(Const.XSecurityToken, signRequest.getXSecurityToken());
-        }
-        return StringUtils.defaultString(urlBuilder.build().query(), StringUtils.EMPTY);
-    }
-
-
 
     @Override
     public RawResponse json(String api, List<NameValuePair> params, String body) {
@@ -236,11 +195,6 @@ public abstract class BaseServiceImpl implements IBaseService {
             res.addAll(query2);
         }
         return res;
-    }
-
-    @Override
-    public void setClientNoReuse() {
-        this.httpClient = null;
     }
 
 
@@ -357,24 +311,6 @@ public abstract class BaseServiceImpl implements IBaseService {
     @Override
     public void setConnectionTimeout(int connectionTimeout) {
         this.connectionTimeout = connectionTimeout;
-    }
-
-    @Override
-    public SecurityToken2 signSts2(Policy inlinePolicy, long expire) throws Exception {
-        SecurityToken2 sts2 = new SecurityToken2();
-        sts2.setAccessKeyId(Sts2Utils.generateAccessKeyId("AKTP"));
-        sts2.setSecretAccessKey(Sts2Utils.generateSecretKey());
-
-        Date now = new Date();
-        Date expireTime = new Date(now.getTime() + expire);
-        sts2.setCurrentTime(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX").format(now));
-        sts2.setExpiredTime(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX").format(expireTime));
-
-        InnerToken innerToken = Sts2Utils.createInnerToken(serviceInfo.getCredentials(), sts2, inlinePolicy, expireTime.getTime() / 1000);
-
-        String sessionToken = "STS2" + Base64.encodeBase64String(JSON.toJSONString(innerToken).getBytes());
-        sts2.setSessionToken(sessionToken);
-        return sts2;
     }
 
     @Override

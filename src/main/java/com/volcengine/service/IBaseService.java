@@ -15,11 +15,6 @@ import java.util.Map;
 public interface IBaseService {
 
     /**
-     * Sets client no reuse.
-     */
-    void setClientNoReuse();
-
-    /**
      * Gets access key.
      *
      * @return the access key
@@ -118,16 +113,6 @@ public interface IBaseService {
     void setConnectionTimeout(int connectionTimeout);
 
     /**
-     * Gets sign url.
-     *
-     * @param api    the api
-     * @param params the params
-     * @return the sign url
-     * @throws Exception the exception
-     */
-    String getSignUrl(String api, List<NameValuePair> params) throws Exception;
-
-    /**
      * Json raw response.
      *
      * @param api    the api
@@ -138,16 +123,6 @@ public interface IBaseService {
      */
     RawResponse json(String api, List<NameValuePair> params, String body) throws Exception;
 
-
-    /**
-     * Sign by sts2.
-     *
-     * @param inlinePolicy the Policy
-     * @param expire       expire time
-     * @return the sts2
-     * @throws Exception the exception
-     */
-    SecurityToken2 signSts2(Policy inlinePolicy, long expire) throws Exception;
 
     /**
      * @param api          interface path like /PutLogs
