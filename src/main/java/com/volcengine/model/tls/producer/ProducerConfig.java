@@ -137,6 +137,7 @@ public class ProducerConfig {
             throw new LogException("InvalidArgument", String.valueOf(clientConfig), null);
         }
         this.clientConfig = clientConfig;
+        this.clientConfig.setRetryCount(1);
     }
 
     public void setShardCount(int shardCount) throws LogException {
