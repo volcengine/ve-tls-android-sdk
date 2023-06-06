@@ -40,6 +40,7 @@ public class LogsTest extends BaseTest {
             createTopicRequest.setTopicName(topicName);
             createTopicRequest.setProjectId(projectId);
             createTopicRequest.setTtl(500);
+            createTopicRequest.setEnableTracking(true);
             CreateTopicResponse createTopicResponse = client.createTopic(createTopicRequest);
             String topicId = createTopicResponse.getTopicId();
             System.out.println("create topic success,response:" + createTopicResponse);
@@ -106,7 +107,7 @@ public class LogsTest extends BaseTest {
 
             // wait 30s,index to be queried
 
-            Thread.sleep(30000);
+            Thread.sleep(60000);
 
             // search logs
             SearchLogsRequest searchLogsRequest = new SearchLogsRequest();
