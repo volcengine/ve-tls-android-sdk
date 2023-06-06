@@ -13,12 +13,19 @@ import static com.volcengine.model.tls.Const.TLS;
 
 @Data
 public class ClientConfig {
+    public static final int DEFAULT_CONNECTION_TIMEOUT = 10 * 1000;
+    public static final int DEFAULT_SOCKET_TIMEOUT = 50 * 1000;
+    public static final int DEFAULT_RETRY_COUNT = 5;
     String endpoint;
     String accessKeyId;
     String accessKeySecret;
     String securityToken;
     String region;
     String apiVersion;
+    int retryCount;
+    int socketTimeout;
+    int connectionTimeout;
+
 
     public ClientConfig(String endPoint, String region, String accessKeyId, String accessKeySecret,
                         String securityToken) {
@@ -37,6 +44,9 @@ public class ClientConfig {
         this.securityToken = securityToken;
         this.region = region;
         this.apiVersion = apiVersion;
+        this.retryCount = DEFAULT_RETRY_COUNT;
+        this.socketTimeout = DEFAULT_SOCKET_TIMEOUT;
+        this.connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
     }
 
     public static ServiceInfo initServiceInfo(ClientConfig config) {
@@ -48,9 +58,9 @@ public class ClientConfig {
                 new HashMap<String, Object>() {
                     {
                         put(com.volcengine.helper.Const.CONNECTION_TIMEOUT,
-                                Const.CONNECTION_TIMEOUT_MS);
+                                config.getConnectionTimeout());
                         put(com.volcengine.helper.Const.SOCKET_TIMEOUT,
-                                Const.SOCKET_TIMEOUT_MS);
+                                config.getSocketTimeout());
                         put(com.volcengine.helper.Const.Scheme, schema);
                         put(com.volcengine.helper.Const.Host, url[1]);
                         put(com.volcengine.helper.Const.Header, new ArrayList<Header>() {

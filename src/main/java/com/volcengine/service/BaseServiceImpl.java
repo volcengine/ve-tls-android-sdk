@@ -11,22 +11,14 @@ import com.volcengine.http.VolcengineInterceptor;
 import com.volcengine.model.Credentials;
 import com.volcengine.model.*;
 import com.volcengine.model.response.RawResponse;
-import com.volcengine.model.sts2.InnerToken;
-import com.volcengine.model.sts2.Policy;
-import com.volcengine.model.sts2.SecurityToken2;
 import com.volcengine.util.EncodeUtil;
-import com.volcengine.util.Sts2Utils;
 import okhttp3.*;
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.lang.reflect.Field;
 import java.net.Proxy;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 import static com.volcengine.model.tls.Const.LZ4;
@@ -70,9 +62,9 @@ public abstract class BaseServiceImpl implements IBaseService {
 
         DynamicTimeoutInterceptor dynamicTimeoutInterceptor = new DynamicTimeoutInterceptor(defaultTimeout, apiTimeoutMap);
         if (proxy == null) {
-            this.httpClient = OkHttpClientFactory.create(volcengineInterceptor, dynamicTimeoutInterceptor);
+            this.httpClient = OkHttpClientFactory.create(serviceInfo.getConnectionTimeout(), serviceInfo.getSocketTimeout(), volcengineInterceptor, dynamicTimeoutInterceptor);
         } else {
-            this.httpClient = OkHttpClientFactory.create(proxy, volcengineInterceptor, dynamicTimeoutInterceptor);
+            this.httpClient = OkHttpClientFactory.create(serviceInfo.getConnectionTimeout(), serviceInfo.getSocketTimeout(), proxy, volcengineInterceptor, dynamicTimeoutInterceptor);
         }
 
 
@@ -305,12 +297,12 @@ public abstract class BaseServiceImpl implements IBaseService {
 
     @Override
     public void setSocketTimeout(int socketTimeout) {
-        this.socketTimeout = socketTimeout;
+        OkHttpClientFactory.setSocketTimeout(this.httpClient.newBuilder(), socketTimeout);
     }
 
     @Override
     public void setConnectionTimeout(int connectionTimeout) {
-        this.connectionTimeout = connectionTimeout;
+        OkHttpClientFactory.setConnectionTimeout(this.httpClient.newBuilder(), connectionTimeout);
     }
 
     @Override

@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.volcengine.model.tls.Const.*;
 import static com.volcengine.model.tls.producer.ProducerConfig.EXTERNAL_ERROR;
@@ -31,42 +30,13 @@ import static com.volcengine.model.tls.producer.ProducerConfig.TOO_MANY_REQUEST_
 public class TLSLogClientImpl implements TLSLogClient {
 
     public static int DEFAULT_RETRY_INTERVAL_MS = 100;
-    public static int DEFAULT_REQUEST_TIMEOUT_MS = 30 * 1000;
-    public static int DEFAULT_RETRY_COUNTER_MAXIMUM = 50;
-
-    private static AtomicInteger DEFAULT_RETRY_COUNTER = new AtomicInteger(0);
+    public static int REQUEST_TIMEOUT_MS = 60 * 1000;
     private ClientConfig config;
     private final TLSHttpUtil httpRequest;
 
     public TLSLogClientImpl(TLSHttpUtil util, ClientConfig config) {
         this.httpRequest = util;
         this.config = config;
-    }
-
-    private static void increaseCounterByOne() {
-        while (true) {
-            int v = DEFAULT_RETRY_COUNTER.get();
-            if (v >= DEFAULT_RETRY_COUNTER_MAXIMUM) {
-                break;
-            }
-            boolean cas = DEFAULT_RETRY_COUNTER.compareAndSet(v, v + 1);
-            if (cas) {
-                break;
-            }
-        }
-    }
-
-    private static void decreaseCounterByOne() {
-        while (true) {
-            int v = DEFAULT_RETRY_COUNTER.get();
-            if (v <= 0) {
-                break;
-            }
-            boolean cas = DEFAULT_RETRY_COUNTER.compareAndSet(v, v - 1);
-            if (cas) {
-                break;
-            }
-        }
     }
 
     @Override
@@ -90,7 +60,7 @@ public class TLSLogClientImpl implements TLSLogClient {
     public void setTimeout(int socketTimeout, int connectionTimeout) {
         httpRequest.setSocketTimeout(socketTimeout);
         httpRequest.setConnectionTimeout(connectionTimeout);
-        DEFAULT_REQUEST_TIMEOUT_MS = socketTimeout;
+        REQUEST_TIMEOUT_MS = socketTimeout;
     }
 
     @Override
@@ -322,20 +292,19 @@ public class TLSLogClientImpl implements TLSLogClient {
 
     private RawResponse doRetryRequest(String path, ArrayList<NameValuePair> params, String requestBody) throws LogException {
         RawResponse rawResponse = null;
-        long expectedQuitTimestamp = System.currentTimeMillis() + DEFAULT_REQUEST_TIMEOUT_MS;
+        long expectedQuitTimestamp = System.currentTimeMillis() + REQUEST_TIMEOUT_MS;
         int tryCount = 0;
         // retry
         while (true) {
             rawResponse = httpRequest.json(path, params, requestBody);
             tryCount += 1;
             // return if request succeed or tryCount >= 5
-            if (tryCount >= 5 || rawResponse.getCode() == SdkError.SUCCESS.getNumber() || !needRetryStatus(rawResponse.getHttpCode())) {
-                decreaseCounterByOne();
+            if (tryCount >= config.getRetryCount() || rawResponse.getCode() == SdkError.SUCCESS.getNumber()
+                    || !needRetryStatus(rawResponse.getHttpCode())) {
                 break;
             }
-            increaseCounterByOne();
             try {
-                long sleepMs = TimeUtil.calcDefaultBackOffMs(DEFAULT_RETRY_COUNTER.get(), DEFAULT_RETRY_INTERVAL_MS, expectedQuitTimestamp);
+                long sleepMs = TimeUtil.calcDefaultBackOffMs(tryCount, DEFAULT_RETRY_INTERVAL_MS, expectedQuitTimestamp);
                 if (sleepMs > 0) {
                     Thread.sleep(sleepMs);
                 }
@@ -1248,20 +1217,18 @@ public class TLSLogClientImpl implements TLSLogClient {
             headers.put(HEADER_API_VERSION, this.config.getApiVersion());
         }
         RawResponse rawResponse = null;
-        long expectedQuitTimestamp = System.currentTimeMillis() + DEFAULT_REQUEST_TIMEOUT_MS;
+        long expectedQuitTimestamp = System.currentTimeMillis() + REQUEST_TIMEOUT_MS;
         int tryCount = 0;
         // retry
         while (true) {
             rawResponse = httpRequest.proto(api, params, headers, body, compressType);
             tryCount += 1;
             // return if request succeed
-            if (tryCount >= 5 || rawResponse.getCode() == SdkError.SUCCESS.getNumber() || !needRetryStatus(rawResponse.getHttpCode())) {
-                decreaseCounterByOne();
+            if (tryCount >= config.getRetryCount() || rawResponse.getCode() == SdkError.SUCCESS.getNumber() || !needRetryStatus(rawResponse.getHttpCode())) {
                 break;
             }
-            increaseCounterByOne();
             try {
-                long sleepMs = TimeUtil.calcDefaultBackOffMs(DEFAULT_RETRY_COUNTER.get(), DEFAULT_RETRY_INTERVAL_MS, expectedQuitTimestamp);
+                long sleepMs = TimeUtil.calcDefaultBackOffMs(tryCount, DEFAULT_RETRY_INTERVAL_MS, expectedQuitTimestamp);
                 if (sleepMs > 0) {
                     Thread.sleep(sleepMs);
                 }

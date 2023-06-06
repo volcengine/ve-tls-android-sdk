@@ -43,10 +43,13 @@ public class ProducerConfig {
 
     public ProducerConfig(String endpoint, String region, String accessKey, String accessSecret, String token) {
         clientConfig = new ClientConfig(endpoint, region, accessKey, accessSecret, token);
+        clientConfig.setRetryCount(1);
     }
+
     public ProducerConfig(String endpoint, String region, String accessKey, String accessSecret) {
         this(endpoint, region, accessKey, accessSecret, null);
     }
+
     public static boolean needRetry(int httpCode) {
         return httpCode == TOO_MANY_REQUEST_ERROR || httpCode >= EXTERNAL_ERROR;
     }

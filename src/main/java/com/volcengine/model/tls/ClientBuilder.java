@@ -56,8 +56,8 @@ public class ClientBuilder {
                     tlsHttpUtil.setAccessKey(config.getAccessKeyId());
                     tlsHttpUtil.setSecretKey(config.getAccessKeySecret());
                     tlsHttpUtil.setSessionToken(config.getSecurityToken());
-//                    tlsHttpUtil.setSocketTimeout(60000);
-//                    tlsHttpUtil.setConnectionTimeout(60000);
+                    tlsHttpUtil.setSocketTimeout(config.getSocketTimeout());
+                    tlsHttpUtil.setConnectionTimeout(config.getConnectionTimeout());
                     client = new TLSLogClientImpl(tlsHttpUtil, config);
                 }
             }

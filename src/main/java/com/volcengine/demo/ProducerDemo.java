@@ -4,7 +4,6 @@ import com.volcengine.model.tls.Const;
 import com.volcengine.model.tls.FullTextInfo;
 import com.volcengine.model.tls.LogItem;
 import com.volcengine.model.tls.exception.LogException;
-import com.volcengine.model.tls.pb.PutLogRequest;
 import com.volcengine.model.tls.producer.CallBack;
 import com.volcengine.model.tls.producer.Result;
 import com.volcengine.model.tls.request.*;
@@ -16,8 +15,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-
-import static org.junit.Assert.assertTrue;
 
 public class ProducerDemo extends BaseDemo {
     public static void main(String[] args) {
@@ -52,10 +49,6 @@ public class ProducerDemo extends BaseDemo {
             System.out.println("create index success,response:" + createIndexResponse);
 
             // producer put logs
-            PutLogRequest.LogContent logContent = PutLogRequest.LogContent.newBuilder().setKey("test-key-" +
-                    currentTimeMillis).setValue("test-value").build();
-            PutLogRequest.Log log = PutLogRequest.Log.newBuilder().setTime(currentTimeMillis).
-                    addContents(logContent).build();
             String topicId = createTopicResponse.getTopicId();
             Producer producer = ProducerImpl.defaultProducer(
                     clientConfig.getEndpoint(), clientConfig.getRegion(), clientConfig.getAccessKeyId(), clientConfig.getAccessKeySecret(),
@@ -74,7 +67,7 @@ public class ProducerDemo extends BaseDemo {
             item.addContent("index", "" + 1);
             item.addContent("test-key", "test-value");
             logs.add(item);
-            producer.sendLogsV2("",topicId,"test-source", "test-file", logs, callBack);
+            producer.sendLogsV2("", topicId, "test-source", "test-file", logs, callBack);
 
             // wait 30s,index to be queried
 
