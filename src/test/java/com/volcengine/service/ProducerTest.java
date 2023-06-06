@@ -2,6 +2,7 @@ package com.volcengine.service;
 
 import com.volcengine.model.tls.Const;
 import com.volcengine.model.tls.FullTextInfo;
+import com.volcengine.model.tls.LogItem;
 import com.volcengine.model.tls.exception.LogException;
 import com.volcengine.model.tls.pb.PutLogRequest;
 import com.volcengine.model.tls.producer.CallBack;
@@ -51,10 +52,6 @@ public class ProducerTest extends BaseTest {
             System.out.println("create index success,response:" + createIndexResponse);
 
             // producer put logs
-            PutLogRequest.LogContent logContent = PutLogRequest.LogContent.newBuilder().setKey("test-key-" +
-                    currentTimeMillis).setValue("test-value").build();
-            PutLogRequest.Log log = PutLogRequest.Log.newBuilder().setTime(currentTimeMillis).
-                    addContents(logContent).build();
             String topicId = createTopicResponse.getTopicId();
             Producer producer = ProducerImpl.defaultProducer(
                     clientConfig.getEndpoint(), clientConfig.getRegion(), clientConfig.getAccessKeyId(), clientConfig.getAccessKeySecret(),
@@ -67,7 +64,9 @@ public class ProducerTest extends BaseTest {
                     System.out.println("producer result:" + result);
                 }
             };
-            producer.sendLog("", topicId, "test-source", "test-file", log, callBack);
+            LogItem item = new LogItem(System.currentTimeMillis());
+            item.addContent("test-key", "test-value");
+            producer.sendLogV2("", topicId, "test-source", "test-file", item, callBack);
 
             // delete index topic project
             DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest(topicId);
