@@ -39,32 +39,43 @@ public class OkHttpClientFactory {
         builder.proxy(proxy)
                 .connectTimeout(conf.getConnectionTimeout(), TimeUnit.MILLISECONDS)
                 .readTimeout(conf.getSocketTimeout(), TimeUnit.MILLISECONDS);
-        for (Interceptor interceptor: interceptors) {
+        for (Interceptor interceptor : interceptors) {
             builder.addInterceptor(interceptor);
         }
 
         return builder.build();
     }
 
-    public static OkHttpClient create(Proxy proxy, Interceptor... interceptors) {
+    public static OkHttpClient create(int connectionTimeout, int socketTimeout, Proxy proxy, Interceptor... interceptors) {
         OkHttpClient.Builder builder = ClientHolder.INSTANCE.newBuilder().proxy(proxy);
-        for (Interceptor interceptor: interceptors) {
-            builder.addInterceptor(interceptor);
-        }
-        return builder.build();
+        return create(builder, connectionTimeout, socketTimeout, interceptors);
     }
 
 
-    public static OkHttpClient create(Interceptor... interceptors) {
+    public static OkHttpClient create(int connectionTimeout, int socketTimeout, Interceptor... interceptors) {
         OkHttpClient.Builder builder = ClientHolder.INSTANCE.newBuilder();
-        for (Interceptor interceptor: interceptors) {
+        return create(builder, connectionTimeout, socketTimeout, interceptors);
+    }
+
+    private static OkHttpClient create(OkHttpClient.Builder builder, int connectionTimeout, int socketTimeout, Interceptor... interceptors) {
+        for (Interceptor interceptor : interceptors) {
             builder.addInterceptor(interceptor);
         }
+        builder.readTimeout(socketTimeout, TimeUnit.MILLISECONDS);
+        builder.connectTimeout(connectionTimeout, TimeUnit.MILLISECONDS);
         return builder.build();
     }
 
     public static OkHttpClient create() {
         return ClientHolder.INSTANCE;
+    }
+
+    public static OkHttpClient setConnectionTimeout(OkHttpClient.Builder builder, int connectionTimeout) {
+        return builder.connectTimeout(connectionTimeout, TimeUnit.MILLISECONDS).build();
+    }
+
+    public static OkHttpClient setSocketTimeout(OkHttpClient.Builder builder, int socketTimeout) {
+        return builder.readTimeout(socketTimeout, TimeUnit.MILLISECONDS).build();
     }
 
 }
