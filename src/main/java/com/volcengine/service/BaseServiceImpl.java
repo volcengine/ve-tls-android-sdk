@@ -13,8 +13,8 @@ import com.volcengine.model.*;
 import com.volcengine.model.response.RawResponse;
 import com.volcengine.util.EncodeUtil;
 import okhttp3.*;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -27,7 +27,7 @@ public abstract class BaseServiceImpl implements IBaseService {
     public static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json");
     public static final MediaType MEDIA_TYPE_PROTOBUF = MediaType.parse(Const.APPLICATION_X_PROTOBUF);
 
-    private static final Log LOG = LogFactory.getLog(BaseServiceImpl.class);
+    private static final Logger LOG = LoggerFactory.getLogger(BaseServiceImpl.class);
     private String VERSION;
 
     protected ServiceInfo serviceInfo;

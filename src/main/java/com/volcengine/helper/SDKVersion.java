@@ -1,14 +1,14 @@
 package com.volcengine.helper;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Properties;
 
 public class SDKVersion {
 
-    private static final Log LOG = LogFactory.getLog(SDKVersion.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SDKVersion.class);
     private static String VERSION = "Unknown";
 
     private static String AGENT = "volc-sdk-java/Unknown";

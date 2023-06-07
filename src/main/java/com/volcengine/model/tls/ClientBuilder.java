@@ -5,14 +5,14 @@ import com.volcengine.model.tls.exception.LogException;
 import com.volcengine.service.tls.TLSHttpUtil;
 import com.volcengine.service.tls.TLSLogClient;
 import com.volcengine.service.tls.TLSLogClientImpl;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class ClientBuilder {
     public static final String HTTP = "http";
     private static volatile TLSLogClient client;
-    private final static Log log = LogFactory.getLog(ClientBuilder.class);
+    private final static Logger log = LoggerFactory.getLogger(ClientBuilder.class);
 
     public ClientBuilder() {
     }

@@ -1,8 +1,8 @@
 package com.volcengine.service.tls;
 
 import com.volcengine.model.tls.producer.BatchLog;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Semaphore;
@@ -14,7 +14,7 @@ public class BatchHandler extends Thread {
     private final AtomicInteger batchCount;
     private volatile boolean closed;
     private final String name;
-    private final static Log LOG = LogFactory.getLog(BatchHandler.class);
+    private final static Logger LOG = LoggerFactory.getLogger(BatchHandler.class);
 
     public BatchHandler(String name, Semaphore memoryLock, BlockingQueue<BatchLog> batchQueue, AtomicInteger batchCount) {
         super(name);
