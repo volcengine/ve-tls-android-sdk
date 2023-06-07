@@ -20,11 +20,11 @@
         </license>
     </licenses>
 
-    <scm>
-        <url>https://github.com/volcengine/volc-sdk-java</url>
-        <connection>scm:git:https://github.com/volcengine/volc-sdk-java.git</connection>
-        <developerConnection>scm:git:https://github.com/volcengine/volc-sdk-java.git</developerConnection>
-    </scm>
+<!--    <scm>-->
+<!--        <url>https://github.com/volcengine/volc-sdk-java</url>-->
+<!--        <connection>scm:git:https://github.com/volcengine/volc-sdk-java.git</connection>-->
+<!--        <developerConnection>scm:git:https://github.com/volcengine/volc-sdk-java.git</developerConnection>-->
+<!--    </scm>-->
 
     <developers>
         <developer>
