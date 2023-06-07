@@ -4,7 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.volcengine.auth.ISignerV4;
 import com.volcengine.auth.impl.SignerV4Impl;
 import com.volcengine.error.SdkError;
-import com.volcengine.helper.Const;
+import com.volcengine.util.Const;
 import com.volcengine.http.DynamicTimeoutInterceptor;
 import com.volcengine.http.OkHttpClientFactory;
 import com.volcengine.http.VolcengineInterceptor;

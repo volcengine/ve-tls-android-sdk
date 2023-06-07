@@ -1,12 +1,12 @@
 package com.volcengine.model;
 
-import com.volcengine.helper.Const;
+import com.volcengine.util.Const;
 import lombok.Data;
 
 import java.util.List;
 import java.util.Map;
 
-import static com.volcengine.helper.Const.*;
+import static com.volcengine.util.Const.*;
 
 
 @Data

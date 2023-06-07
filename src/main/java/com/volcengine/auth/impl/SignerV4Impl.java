@@ -2,13 +2,13 @@ package com.volcengine.auth.impl;
 
 import com.volcengine.auth.ISignerV4;
 import com.volcengine.auth.MetaData;
-import com.volcengine.helper.Const;
-import com.volcengine.helper.Utils;
+import com.volcengine.util.Const;
+import com.volcengine.util.HashUtils;
 import com.volcengine.model.Credentials;
 import com.volcengine.model.RequestParam;
 import com.volcengine.model.SignRequest;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.lang3.StringUtils;
+import com.volcengine.util.StringUtils;
 import com.volcengine.model.*;
 
 import java.nio.ByteBuffer;
@@ -84,7 +84,7 @@ public class SignerV4Impl implements ISignerV4 {
             signRequest.setXSignedHeaders(meta.getSignedHeaders());
             signRequest.setXSignedQueries(StringUtils.join(keys, ";"));
 
-            bodyHash = Utils.hashSHA256(DefaultBodyHashCode);
+            bodyHash = HashUtils.hashSHA256(DefaultBodyHashCode);
         } else {
             for (Header header : requestParam.getHeaders()) {
                 requestSignMap.put(header.getName(), header.getValue());
@@ -98,7 +98,7 @@ public class SignerV4Impl implements ISignerV4 {
             requestSignMap.put(Const.XDate, formatDate);
             requestSignMap.put(Const.Host, requestParam.getHost());
             requestSignMap.putIfAbsent(Const.ContentType, Const.ContentTypeValue);
-            bodyHash = Utils.hashSHA256(requestParam.getBody() == null ? DefaultBodyHashCode : requestParam.getBody());
+            bodyHash = HashUtils.hashSHA256(requestParam.getBody() == null ? DefaultBodyHashCode : requestParam.getBody());
             requestSignMap.put(Const.XContentSha256, bodyHash);
 
             signRequest.setHost(requestParam.getHost());
@@ -155,7 +155,7 @@ public class SignerV4Impl implements ISignerV4 {
             canonicalRequest = StringUtils.join(new String[]{requestParam.getMethod(), normUri(requestParam.getPath()),
                     normQuery(requestParam.getQueryList()), canonicalHeaders, meta.getSignedHeaders(), bodyHash}, "\n");
         }
-        return Utils.hashSHA256(canonicalRequest.getBytes());
+        return HashUtils.hashSHA256(canonicalRequest.getBytes());
     }
 
     private String getCanonicalHeaders(RequestParam requestParam, MetaData meta, Map<String, String> requestSignMap) {
@@ -198,14 +198,14 @@ public class SignerV4Impl implements ISignerV4 {
     }
 
     private String signatureV4(byte[] signingKey, String stringToSign) throws Exception {
-        return new String(Hex.encodeHex(Utils.hmacSHA256(signingKey, stringToSign)));
+        return new String(Hex.encodeHex(HashUtils.hmacSHA256(signingKey, stringToSign)));
     }
 
     private byte[] genSigningSecretKeyV4(String secretKey, String date, String region, String service) throws Exception {
-        byte[] kDate = Utils.hmacSHA256((secretKey).getBytes(), date);
-        byte[] kRegion = Utils.hmacSHA256(kDate, region);
-        byte[] kService = Utils.hmacSHA256(kRegion, service);
-        return Utils.hmacSHA256(kService, "request");
+        byte[] kDate = HashUtils.hmacSHA256((secretKey).getBytes(), date);
+        byte[] kRegion = HashUtils.hmacSHA256(kDate, region);
+        byte[] kService = HashUtils.hmacSHA256(kRegion, service);
+        return HashUtils.hmacSHA256(kService, "request");
     }
 
     private String buildAuthHeaderV4(String signature, MetaData meta, Credentials credentials) {

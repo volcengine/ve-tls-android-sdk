@@ -7,8 +7,8 @@ import com.volcengine.model.tls.pb.PutLogRequest;
 import com.volcengine.model.tls.producer.BatchLog;
 import com.volcengine.model.tls.producer.CallBack;
 import com.volcengine.model.tls.producer.ProducerConfig;
-import com.volcengine.model.tls.util.AdaptorUtil;
-import org.apache.commons.lang3.StringUtils;
+import com.volcengine.util.AdaptorUtil;
+import com.volcengine.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

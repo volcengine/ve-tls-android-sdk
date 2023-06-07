@@ -13,10 +13,10 @@ import com.volcengine.model.tls.exception.LogException;
 import com.volcengine.model.tls.pb.PutLogRequest;
 import com.volcengine.model.tls.request.*;
 import com.volcengine.model.tls.response.*;
-import com.volcengine.model.tls.util.AdaptorUtil;
-import com.volcengine.model.tls.util.MessageUtil;
-import com.volcengine.model.tls.util.TimeUtil;
-import org.apache.commons.lang3.StringUtils;
+import com.volcengine.util.AdaptorUtil;
+import com.volcengine.util.MessageUtil;
+import com.volcengine.util.TimeUtil;
+import com.volcengine.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;

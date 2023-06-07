@@ -4,7 +4,7 @@ import com.volcengine.model.tls.ClientConfig;
 import com.volcengine.model.tls.exception.LogException;
 import lombok.Getter;
 import lombok.ToString;
-import org.apache.commons.lang3.StringUtils;
+import com.volcengine.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

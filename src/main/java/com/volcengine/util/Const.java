@@ -1,4 +1,4 @@
-package com.volcengine.helper;
+package com.volcengine.util;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;

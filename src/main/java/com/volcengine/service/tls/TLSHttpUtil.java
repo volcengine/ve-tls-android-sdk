@@ -1,6 +1,6 @@
 package com.volcengine.service.tls;
 
-import com.volcengine.helper.Const;
+import com.volcengine.util.Const;
 import com.volcengine.model.ApiInfo;
 import com.volcengine.model.NameValuePair;
 import com.volcengine.model.ServiceInfo;

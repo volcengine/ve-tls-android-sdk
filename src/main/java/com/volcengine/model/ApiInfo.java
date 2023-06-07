@@ -1,6 +1,6 @@
 package com.volcengine.model;
 
-import com.volcengine.helper.Const;
+import com.volcengine.util.Const;
 import lombok.Data;
 
 import java.util.List;

@@ -52,27 +52,27 @@ public class ClientConfig {
     public static ServiceInfo initServiceInfo(ClientConfig config) {
         String endPoint = config.getEndpoint().toLowerCase();
         String[] url = endPoint.split("\\/\\/");
-        String schema = endPoint.startsWith(com.volcengine.helper.Const.HTTPS) ?
-                com.volcengine.helper.Const.HTTPS : com.volcengine.helper.Const.HTTP;
+        String schema = endPoint.startsWith(com.volcengine.util.Const.HTTPS) ?
+                com.volcengine.util.Const.HTTPS : com.volcengine.util.Const.HTTP;
         return new ServiceInfo(
                 new HashMap<String, Object>() {
                     {
-                        put(com.volcengine.helper.Const.CONNECTION_TIMEOUT,
+                        put(com.volcengine.util.Const.CONNECTION_TIMEOUT,
                                 config.getConnectionTimeout());
-                        put(com.volcengine.helper.Const.SOCKET_TIMEOUT,
+                        put(com.volcengine.util.Const.SOCKET_TIMEOUT,
                                 config.getSocketTimeout());
-                        put(com.volcengine.helper.Const.Scheme, schema);
-                        put(com.volcengine.helper.Const.Host, url[1]);
-                        put(com.volcengine.helper.Const.Header, new ArrayList<Header>() {
+                        put(com.volcengine.util.Const.Scheme, schema);
+                        put(com.volcengine.util.Const.Host, url[1]);
+                        put(com.volcengine.util.Const.Header, new ArrayList<Header>() {
                             {
-                                add(new Header(com.volcengine.helper.Const.ACCEPT,
-                                        com.volcengine.helper.Const.ACCEPT_ALL));
-                                add(new Header(com.volcengine.helper.Const.ACCEPT_ENCODING,
-                                        com.volcengine.helper.Const.GZIP_DEFLATE_BR));
+                                add(new Header(com.volcengine.util.Const.ACCEPT,
+                                        com.volcengine.util.Const.ACCEPT_ALL));
+                                add(new Header(com.volcengine.util.Const.ACCEPT_ENCODING,
+                                        com.volcengine.util.Const.GZIP_DEFLATE_BR));
                                 add(new Header(Const.REGION, config.getRegion()));
                             }
                         });
-                        put(com.volcengine.helper.Const.Credentials, new Credentials(config.getRegion(), TLS));
+                        put(com.volcengine.util.Const.Credentials, new Credentials(config.getRegion(), TLS));
                     }
                 }
         );

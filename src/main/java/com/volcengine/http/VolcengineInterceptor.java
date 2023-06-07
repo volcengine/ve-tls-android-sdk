@@ -1,8 +1,8 @@
 package com.volcengine.http;
 
 import com.volcengine.auth.ISignerV4;
-import com.volcengine.helper.Const;
-import com.volcengine.helper.SDKVersion;
+import com.volcengine.util.Const;
+import com.volcengine.util.SDKVersion;
 import com.volcengine.model.*;
 import com.volcengine.model.Credentials;
 import okhttp3.*;

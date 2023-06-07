@@ -2,7 +2,7 @@ package com.volcengine.http;
 
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
-import org.apache.commons.lang3.StringUtils;
+import com.volcengine.util.StringUtils;
 
 import java.net.InetSocketAddress;
 import java.net.Proxy;

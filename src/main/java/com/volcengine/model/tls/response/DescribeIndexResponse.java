@@ -5,11 +5,10 @@ import com.volcengine.model.tls.FullTextInfo;
 import com.volcengine.model.tls.KeyValueInfo;
 import com.volcengine.model.tls.ValueInfo;
 import com.volcengine.model.tls.exception.LogException;
-import com.volcengine.model.tls.util.StringUtil;
+import com.volcengine.util.StringUtils;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
-import org.apache.commons.lang3.StringUtils;
 import com.volcengine.model.Header;
 
 import java.util.List;
@@ -44,7 +43,7 @@ public class DescribeIndexResponse extends CommonResponse {
         FullTextInfo fullTextInfo = response.getFullTextInfo();
         if (fullTextInfo != null && StringUtils.isNotEmpty(fullTextInfo.getDelimiter())) {
             String delimiter = fullTextInfo.getDelimiter();
-            fullTextInfo.setDelimiter(StringUtil.replaceWhiteSpaceCharacter(delimiter));
+            fullTextInfo.setDelimiter(StringUtils.replaceWhiteSpaceCharacter(delimiter));
         }
         this.setFullTextInfo(fullTextInfo);
         List<KeyValueInfo> keyValue = response.getKeyValue();
@@ -53,7 +52,7 @@ public class DescribeIndexResponse extends CommonResponse {
                 ValueInfo value = kv.getValue();
                 if (value != null && StringUtils.isNotEmpty(value.getDelimiter())) {
                     String delimiter = value.getDelimiter();
-                    value.setDelimiter(StringUtil.replaceWhiteSpaceCharacter(delimiter));
+                    value.setDelimiter(StringUtils.replaceWhiteSpaceCharacter(delimiter));
                 }
             }
         }
