@@ -9,8 +9,8 @@ import com.volcengine.model.tls.producer.CallBack;
 import com.volcengine.model.tls.producer.ProducerConfig;
 import com.volcengine.model.tls.util.AdaptorUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.volcengine.model.tls.Const.TLS;
 
 public class ProducerImpl implements Producer {
-    private static final Log LOG = LogFactory.getLog(ProducerImpl.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ProducerImpl.class);
     private ProducerConfig producerConfig;
     private final LogDispatcher dispatcher;
     private static final AtomicInteger INSTANCE_ID = new AtomicInteger(0);

@@ -1,8 +1,8 @@
 package com.volcengine.service.tls;
 
 import com.volcengine.model.tls.producer.BatchLog;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class RetryManager {
     private final AtomicInteger retryLock;
     private boolean closed;
-    private final static Log LOG = LogFactory.getLog(RetryManager.class);
+    private final static Logger LOG = LoggerFactory.getLogger(RetryManager.class);
 
     private final DelayQueue<BatchLog> retryBatches = new DelayQueue<>();
 

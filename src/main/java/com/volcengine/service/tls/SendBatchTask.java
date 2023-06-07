@@ -7,13 +7,13 @@ import com.volcengine.model.tls.producer.ProducerConfig;
 import com.volcengine.model.tls.request.PutLogsRequest;
 import com.volcengine.model.tls.request.RequestBuilder;
 import com.volcengine.model.tls.response.PutLogsResponse;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.BlockingQueue;
 
 public class SendBatchTask implements Runnable {
-    private static final Log LOG = LogFactory.getLog(SendBatchTask.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SendBatchTask.class);
     private final ProducerConfig producerConfig;
     private final BlockingQueue<BatchLog> successQueue;
     private final BlockingQueue<BatchLog> failureQueue;

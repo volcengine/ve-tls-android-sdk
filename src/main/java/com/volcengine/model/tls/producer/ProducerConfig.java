@@ -5,8 +5,8 @@ import com.volcengine.model.tls.exception.LogException;
 import lombok.Getter;
 import lombok.ToString;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Getter
 @ToString
@@ -39,7 +39,7 @@ public class ProducerConfig {
     private int maxReservedAttempts = DEFAULT_RESERVED_ATTEMPTS;
     private ClientConfig clientConfig;
     private int shardCount = DEFAULT_SHARD_COUNT;
-    private final static Log log = LogFactory.getLog(ProducerConfig.class);
+    private final static Logger log = LoggerFactory.getLogger(ProducerConfig.class);
 
     public ProducerConfig(String endpoint, String region, String accessKey, String accessSecret, String token) {
         clientConfig = new ClientConfig(endpoint, region, accessKey, accessSecret, token);

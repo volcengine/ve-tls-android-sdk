@@ -7,8 +7,8 @@ import com.volcengine.service.tls.RetryManager;
 import com.volcengine.service.tls.SendBatchTask;
 import com.volcengine.service.tls.TLSLogClient;
 import lombok.Data;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +30,7 @@ public class BatchLog implements Delayed {
     EvictingQueue<Attempt> reservedAttempts;
     int attemptCount;
     long createMs;
-    private static final Log LOG = LogFactory.getLog(BatchLog.class);
+    private static final Logger LOG = LoggerFactory.getLogger(BatchLog.class);
 
     private BatchLog() {
     }

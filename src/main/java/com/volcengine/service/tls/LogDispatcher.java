@@ -8,8 +8,8 @@ import com.volcengine.model.tls.pb.PutLogRequest;
 import com.volcengine.model.tls.producer.BatchLog;
 import com.volcengine.model.tls.producer.CallBack;
 import com.volcengine.model.tls.producer.ProducerConfig;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,7 +24,7 @@ public class LogDispatcher {
     private final String producerName;
     private final BlockingQueue<BatchLog> successQueue;
     private final BlockingQueue<BatchLog> failureQueue;
-    private static final Log LOG = LogFactory.getLog(LogDispatcher.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LogDispatcher.class);
     private final AtomicInteger addLogLock = new AtomicInteger(0);
     private volatile boolean closed = true;
     private final Semaphore memoryLock;
