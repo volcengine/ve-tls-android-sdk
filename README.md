@@ -45,7 +45,8 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
 
 
 ### SDK使用方法
-**方式一**：使用client用于创建project、topic等资源，方法为同步阻塞
+**方式一**：使用client用于创建project、topic等资源，方法为同步阻塞<br>
+[**更多Demo参考**](https://github.com/volcengine/ve-tls-android-sdk/tree/master/src/main/java/com/volcengine/demo)
 
 ```java
 // 初始化client
@@ -70,7 +71,7 @@ logs.add(item);
 PutLogsRequestV2 putLogsRequestV2 = new PutLogsRequestV2(logs, topicId, null, LZ4, "test-path", "test-file");
 PutLogsResponse putLogsResponse = client.putLogsV2(putLogsRequestV2);
 ```
-**方式二**：使用producer写入日志，支持异步非阻塞
+**方式二**：使用producer写入日志，支持异步非阻塞<br>producer更多[**配置参考**](https://github.com/volcengine/ve-tls-android-sdk/blob/master/src/main/java/com/volcengine/model/tls/producer/Producer.md)
 ```java
 // 初始化producer
 Producer producer = ProducerImpl.defaultProducer(
@@ -88,5 +89,4 @@ LogItem item = new LogItem(System.currentTimeMillis());
 item.addContent("test-key", "test-value");
 producer.sendLogV2("", topicId, "test-source", "test-file", item, callBack);
 ```
-**更多Demo参考**
-https://github.com/volcengine/ve-tls-android-sdk/tree/master/src/main/java/com/volcengine/demo
+
