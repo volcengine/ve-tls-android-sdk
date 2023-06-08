@@ -7,8 +7,7 @@ import com.volcengine.util.HashUtils;
 import com.volcengine.model.Credentials;
 import com.volcengine.model.RequestParam;
 import com.volcengine.model.SignRequest;
-import org.apache.commons.codec.binary.Hex;
-import com.volcengine.util.StringUtils;
+import com.volcengine.util.*;
 import com.volcengine.model.*;
 
 import java.nio.ByteBuffer;

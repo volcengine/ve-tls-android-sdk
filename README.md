@@ -71,9 +71,9 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
 
 ### 安全凭证配置
 
-火山引擎SDK for Java支持以下几种方式进行凭证管理：
+火山引擎TLS SDK for ANDROID支持以下几种方式进行凭证管理：
 
-*注意：代码中Your AK及Your SK需要分别替换为您的AK及SK。*
+*注意：代码中accessKey及secretKey需要分别替换为您的AK及SK。*
 
 **方式一**：使用client用于创建project、topic等资源，方法为同步阻塞
 
@@ -81,7 +81,7 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
 // 初始化client
 ClientConfig clientConfig = new ClientConfig(endPoint, region, accessKey, secretKey, token);
 TLSLogClient client = ClientBuilder.newClient(clientConfig);
-// 调用业务接口
+// 
 CreateProjectRequest project = new CreateProjectRequest(projectName, region, description);
 CreateProjectResponse createProjectResponse = client.createProject(project);
 ```
