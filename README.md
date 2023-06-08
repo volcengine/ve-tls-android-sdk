@@ -26,7 +26,7 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
 
 ## 相关配置
 1. 创建安卓项目。
-2. Gradle配置jcenter()，并引入SDK。
+2. Gradle配置mavenCentral()，并引入SDK。
 ```xml
    implementation 'com.volcengine:volc-tls-android-sdk:1.1.1'
 ```
