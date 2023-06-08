@@ -7,7 +7,6 @@ import com.volcengine.model.*;
 import com.volcengine.model.Credentials;
 import okhttp3.*;
 import okio.Buffer;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -27,7 +26,7 @@ public class VolcengineInterceptor implements Interceptor {
     }
 
     @Override
-    public Response intercept(@NotNull Chain chain) throws IOException {
+    public Response intercept(Chain chain) throws IOException {
         Request req = chain.request();
         RequestParam.RequestParamBuilder param = RequestParam.builder();
         param.body(getBytes(req));
