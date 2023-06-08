@@ -1,18 +1,13 @@
-Copyright 2022 Beijing Volcanoengine Technology Ltd.  All rights reserved.  
+Copyright 2023 Beijing Volcanoengine Technology Ltd.  All rights reserved.
 
 Third-party dependencies:  
 
-Apache Commons Lang : Apache License 2.0
-Apache Commons Logging : Apache License 2.0
-commons-codec : Apache License 2.0
 fastjson-alibaba : Apache License 2.0
 google-gson : Apache License 2.0
 Guava InternalFutureFailureAccess and InternalFutures : Apache License 2.0
 Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava : Apache License 2.0
-guava-retrying : Apache License 2.0
 Guava: Google Core Libraries for Java v29.0 : Apache License 2.0
-Hamcrest : BSD 3-clause "New" or "Revised" License
-J2ObjC Annotations : Apache License 2.0
+org.slf4j: MIT License
 JUnit : Eclipse Public License 1.0
 Project Lombok : MIT License
 Protocol Buffer Java API : BSD 3-clause "New" or "Revised" License

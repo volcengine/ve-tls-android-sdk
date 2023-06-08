@@ -4,10 +4,10 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.volcengine</groupId>
-    <version>1.1.4-SNAPSHOT</version>
+    <version>1.1.1</version>
     <artifactId>volc-tls-android-sdk</artifactId>
     <name>volc-tls-android-sdk</name>
-    <url>https://open.volcengineapi.com</url>
+    <url>https://www.volcengine.com/docs/6470/516236</url>
     <description>
         The VOLC Engine TLS SDK for android
     </description>
