@@ -22,7 +22,7 @@ public class Const {
 
     public static final String Action = "Action";
 
-    //sign
+    //sign 敏感扫描忽略
     public static final String XDate = "X-Date";
     public static final String XNotSignBody = "X-NotSignBody";
     public static final String XCredential = "X-Credential";

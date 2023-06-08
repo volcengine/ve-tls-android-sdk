@@ -68,6 +68,7 @@ public class Const {
     public static final String DESCRIBE_KAFKA_CONSUMER = "/DescribeKafkaConsumer";
 
     // download task
+    //敏感扫描忽略
     public static final String CREATE_DOWNLOAD_TASK = "/CreateDownloadTask";
     public static final String DESCRIBE_DOWNLOAD_TASKS = "/DescribeDownloadTasks";
     public static final String DESCRIBE_DOWNLOAD_URL = "/DescribeDownloadUrl";
