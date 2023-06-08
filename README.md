@@ -1,6 +1,6 @@
 <h1 align="center"><img src="https://iam.volccdn.com/obj/volcengine-public/pic/volcengine-icon.png"></h1>
-<h1 align="center">火山引擎ANDROID SDK for TLS</h1> 
-欢迎使用火山引擎SDK for ANDROID，本文档为您介绍如何获取及调用SDK。
+<h1 align="center">火山引擎Android SDK for TLS</h1> 
+欢迎使用火山引擎SDK for Android，本文档为您介绍如何获取及调用SDK。
 
 ## 前置准备
 
@@ -45,7 +45,6 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
 
 
 ### SDK使用方法
-
 **方式一**：使用client用于创建project、topic等资源，方法为同步阻塞
 
 ```java
@@ -89,3 +88,5 @@ LogItem item = new LogItem(System.currentTimeMillis());
 item.addContent("test-key", "test-value");
 producer.sendLogV2("", topicId, "test-source", "test-file", item, callBack);
 ```
+**更多Demo参考**
+https://github.com/volcengine/ve-tls-android-sdk/tree/master/src/main/java/com/volcengine/demo
