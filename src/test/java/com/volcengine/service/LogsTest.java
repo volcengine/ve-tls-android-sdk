@@ -108,7 +108,7 @@ public class LogsTest extends BaseTest {
             // search logs
             SearchLogsRequest searchLogsRequest = new SearchLogsRequest();
             searchLogsRequest.setTopicId(topicId);
-            searchLogsRequest.setQuery("test");
+            searchLogsRequest.setQuery("*");
             //开始时间20220701
             searchLogsRequest.setStartTime(1656604800000L);
             searchLogsRequest.setEndTime(System.currentTimeMillis());
