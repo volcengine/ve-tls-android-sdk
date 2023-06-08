@@ -4,13 +4,13 @@ import com.alibaba.fastjson.JSON;
 import com.volcengine.auth.ISignerV4;
 import com.volcengine.auth.impl.SignerV4Impl;
 import com.volcengine.error.SdkError;
-import com.volcengine.util.Const;
 import com.volcengine.http.DynamicTimeoutInterceptor;
 import com.volcengine.http.OkHttpClientFactory;
 import com.volcengine.http.VolcengineInterceptor;
 import com.volcengine.model.Credentials;
 import com.volcengine.model.*;
 import com.volcengine.model.response.RawResponse;
+import com.volcengine.util.Const;
 import com.volcengine.util.EncodeUtil;
 import okhttp3.*;
 import org.slf4j.Logger;
@@ -118,7 +118,7 @@ public abstract class BaseServiceImpl implements IBaseService {
             return new RawResponse(null, SdkError.ENOAPI.getNumber(), new Exception(SdkError.getErrorDesc(SdkError.ENOAPI)));
         }
         Request.Builder requestBuilder = prepareRequestBuilder(api, params);
-        RequestBody requestBody = RequestBody.create(body, MEDIA_TYPE_JSON);
+        RequestBody requestBody = RequestBody.create(MEDIA_TYPE_JSON, body);
 
         String method = apiInfo.getMethod();
         if (method == Const.GET) {
@@ -324,7 +324,7 @@ public abstract class BaseServiceImpl implements IBaseService {
             compressedData = EncodeUtil.lz4Compress(body);
         }
 
-        RequestBody requestBody = RequestBody.create(compressedData, MEDIA_TYPE_PROTOBUF);
+        RequestBody requestBody = RequestBody.create(MEDIA_TYPE_PROTOBUF,compressedData );
         requestBuilder.header(Const.CONTENT_TYPE, requestBody.contentType().toString());
         requestBuilder.post(requestBody);
         return makeRequest(api, requestBuilder.build());

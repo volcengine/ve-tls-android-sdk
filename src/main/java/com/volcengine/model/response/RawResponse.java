@@ -1,11 +1,10 @@
 package com.volcengine.model.response;
 
 import com.volcengine.model.Header;
-import kotlin.Pair;
 import lombok.Data;
 import okhttp3.Headers;
 
-import java.util.Iterator;
+import java.util.Set;
 
 @Data
 public class RawResponse {
@@ -58,11 +57,10 @@ public class RawResponse {
             return;
         }
         this.headers = new Header[headers.size()];
-        Iterator<Pair<String, String>> iterator = headers.iterator();
+        Set<String> names = headers.names();
         int index = 0;
-        while (iterator.hasNext()) {
-            Pair<String, String> item = iterator.next();
-            this.headers[index] = new Header(item.getFirst(), item.getSecond());
+        for (String name : names) {
+            this.headers[index] = new Header(name, headers.get(name));
             index++;
         }
     }
