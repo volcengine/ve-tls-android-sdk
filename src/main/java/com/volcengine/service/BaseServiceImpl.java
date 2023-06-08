@@ -1,14 +1,15 @@
 package com.volcengine.service;
 
-import com.alibaba.fastjson.JSON;
 import com.volcengine.auth.ISignerV4;
 import com.volcengine.auth.impl.SignerV4Impl;
 import com.volcengine.error.SdkError;
 import com.volcengine.http.DynamicTimeoutInterceptor;
 import com.volcengine.http.OkHttpClientFactory;
 import com.volcengine.http.VolcengineInterceptor;
-import com.volcengine.model.Credentials;
-import com.volcengine.model.*;
+import com.volcengine.model.ApiInfo;
+import com.volcengine.model.Header;
+import com.volcengine.model.NameValuePair;
+import com.volcengine.model.ServiceInfo;
 import com.volcengine.model.response.RawResponse;
 import com.volcengine.util.Const;
 import com.volcengine.util.EncodeUtil;
@@ -16,8 +17,6 @@ import okhttp3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.net.Proxy;
 import java.util.*;
 
@@ -68,48 +67,11 @@ public abstract class BaseServiceImpl implements IBaseService {
         }
 
 
-        init(info);
     }
 
     public BaseServiceImpl(ServiceInfo info, Map<String, ApiInfo> apiInfoList) {
         this(info, null, apiInfoList);
     }
-
-    public void destroy() {
-    }
-
-
-    private void init(ServiceInfo info) {
-        String accessKey = System.getenv(Const.ACCESS_KEY);
-        String secretKey = System.getenv(Const.SECRET_KEY);
-
-        if (accessKey != null && !accessKey.equals("") && secretKey != null && !secretKey.equals("")) {
-            info.getCredentials().setAccessKeyID(accessKey);
-            info.getCredentials().setSecretAccessKey(secretKey);
-        } else {
-            File file = new File(System.getenv("HOME") + "/.volc/config");
-            if (file.exists()) {
-                try {
-                    long length = file.length();
-                    byte[] content = new byte[(int) length];
-                    FileInputStream in = new FileInputStream(file);
-                    in.read(content);
-                    in.close();
-                    Credentials credentials = JSON.parseObject(content, Credentials.class);
-                    if (credentials.getAccessKeyID() != null) {
-                        info.getCredentials().setAccessKeyID(credentials.getAccessKeyID());
-                    }
-                    if (credentials.getSecretAccessKey() != null) {
-                        info.getCredentials().setSecretAccessKey(credentials.getSecretAccessKey());
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    LOG.error("Read file " + file.getName() + " fail.");
-                }
-            }
-        }
-    }
-
 
     @Override
     public RawResponse json(String api, List<NameValuePair> params, String body) {
@@ -148,9 +110,11 @@ public abstract class BaseServiceImpl implements IBaseService {
             int statusCode = response.code();
             Headers headers = response.headers();
             if (statusCode >= 300) {
+                String msg = "";
                 if (body != null) {
-                    return new RawResponse(null, SdkError.EHTTP.getNumber(), new Exception(body.string()), headers, statusCode);
+                    msg = body.string();
                 }
+                return new RawResponse(null, SdkError.EHTTP.getNumber(), new Exception(msg), headers, statusCode);
             }
             if (body != null) {
                 bytes = body.bytes();
@@ -324,7 +288,7 @@ public abstract class BaseServiceImpl implements IBaseService {
             compressedData = EncodeUtil.lz4Compress(body);
         }
 
-        RequestBody requestBody = RequestBody.create(MEDIA_TYPE_PROTOBUF,compressedData );
+        RequestBody requestBody = RequestBody.create(MEDIA_TYPE_PROTOBUF, compressedData);
         requestBuilder.header(Const.CONTENT_TYPE, requestBody.contentType().toString());
         requestBuilder.post(requestBody);
         return makeRequest(api, requestBuilder.build());
