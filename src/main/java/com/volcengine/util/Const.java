@@ -6,8 +6,6 @@ import java.nio.charset.StandardCharsets;
 public class Const {
 
     public static final Charset UTF_8 = StandardCharsets.UTF_8;
-    public static final String ACCESS_KEY = "VOLC_ACCESSKEY";
-    public static final String SECRET_KEY = "VOLC_SECRETKEY";
     public static final String TIME_FORMAT_V4 = "yyyyMMdd'T'HHmmss'Z'";
 
     public static final String CONNECTION_TIMEOUT = "ConnectionTimeout";
@@ -55,7 +53,6 @@ public class Const {
     public static final String ACCEPT_ALL = "*/*";
     public static final String ACCEPT_ENCODING = "Accept-Encoding";
     public static final String GZIP_DEFLATE_BR = "gzip, deflate, br";
-    public static final String SERVICE_NAME = "ServiceName";
     public static final String CONTENT_TYPE = "Content-Type";
     public static final String APPLICATION_X_PROTOBUF = "application/x-protobuf";
     public static final String APPLICATION_JSON ="application/json; charset=utf-8";
