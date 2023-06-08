@@ -2,8 +2,8 @@ package com.volcengine.service;
 
 import com.volcengine.model.tls.Const;
 import com.volcengine.model.tls.FullTextInfo;
+import com.volcengine.model.tls.LogItem;
 import com.volcengine.model.tls.exception.LogException;
-import com.volcengine.model.tls.pb.PutLogRequest;
 import com.volcengine.model.tls.request.*;
 import com.volcengine.model.tls.response.*;
 import org.junit.Test;
@@ -67,23 +67,19 @@ public class LogsTest extends BaseTest {
             System.out.println("create index success,response:" + createIndexResponse);
 
             // put logs
-            PutLogRequest.LogContent logContent = PutLogRequest.LogContent.newBuilder().setKey("test-key-" +
-                    currentTimeMillis).setValue("test-value").build();
-            PutLogRequest.Log log = PutLogRequest.Log.newBuilder().setTime(currentTimeMillis).
-                    addContents(logContent).build();
-            PutLogRequest.LogGroup logGroup = PutLogRequest.LogGroup.newBuilder().
-                    setSource("test-source-" + currentTimeMillis).setFileName("test5.txt").addLogs(log).build();
-            PutLogRequest.LogGroupList logGroupList = PutLogRequest.LogGroupList.newBuilder().
-                    addLogGroups(logGroup).build();
-            PutLogsRequest putLogsRequest = new PutLogsRequest(logGroupList, topicId);
-            putLogsRequest.setCompressType(LZ4);
-//            putLogsRequest.setCompressType(null);
-            PutLogsResponse putLogsResponse = client.putLogs(putLogsRequest);
+            List<LogItem> logs = new ArrayList<>();
+            currentTimeMillis = System.currentTimeMillis();
+            LogItem item = new LogItem(currentTimeMillis);
+            item.addContent("index-", "" + 0);
+            item.addContent("test-key", "test-value");
+            logs.add(item);
+            PutLogsRequestV2 putLogsRequestV2 = new PutLogsRequestV2(logs, topicId, null, LZ4, "test-path", "test-file");
+            PutLogsResponse putLogsResponse = client.putLogsV2(putLogsRequestV2);
             assertTrue(putLogsResponse.getRequestId().length() > 0);
 
             Exception exception = assertThrows(LogException.class, () -> {
-                putLogsRequest.setTopicId("zsq_123");
-                client.putLogs(putLogsRequest);
+                putLogsRequestV2.setTopicId("zsq_123");
+                client.putLogsV2(putLogsRequestV2);
             });
             String expectedMessage = "Invalid argument key TopicId";
             String actualMessage = exception.getMessage();
@@ -105,7 +101,7 @@ public class LogsTest extends BaseTest {
             assertTrue(actualMessage.contains(expectedMessage));
             System.out.println("describe shards success,response:" + describeShardsResponse);
 
-            // wait 30s,index to be queried
+            // wait 60s,index to be queried
 
             Thread.sleep(60000);
 

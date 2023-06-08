@@ -17,63 +17,34 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
 
 ## 获取与安装
 
-推荐通过Maven依赖使用火山引擎SDK for Java
+推荐通过Gradle依赖使用火山引擎SDK for TLS
 
 [![maven](https://img.shields.io/maven-central/v/com.volcengine/volc-sdk-java)](https://search.maven.org/artifact/com.volcengine/volc-sdk-java)
 
-```xml
 
-<dependency>
-    <groupId>com.volcengine</groupId>
-    <artifactId>volc-tls-android-sdk</artifactId>
-    <version>最新版本</version>
-</dependency>
-```
 
-### SNAPSHOT发布说明
-
-[版本号：2.0.1-SNAPSHOT](https://oss.sonatype.org/content/repositories/snapshots/com/volcengine/volc-sdk-java)
-
-*注意：SNAPSHOT版本可能存在潜在问题，源码分支为2.0.0-SNAPSHOT，如您有沟通需求，请提交[工单](https://console.volcengine.com/workorder/create)选择对应产品获得沟通*
-
-#### 变更说明
-
-1. 使用OkHttp作为底层数据交互的http组件库，可以兼容安卓手机端
-2. 解决大量凭证潜在的线程泄露问题
-3. 抽象部分与网络库相关的model，避免冲突
-4. 业务包基本不感知底层变更，理论上可以平滑迁移
-
-如何使用SNAPSHOT版本
-
-1. 添加SNAPSHOT的Maven仓库，SNAPSHOT策略配置请自行查阅文档
-
-```xml
-
-<repository>
-    <id>snapshots-repo</id>
-    <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
-</repository>
-```
-
-2. 添加依赖
-
-```xml
-
-<dependency>
-    <groupId>com.volcengine</groupId>
-    <artifactId>volc-sdk-andriod</artifactId>
-    <version>2.0.1-SNAPSHOT</version>
-</dependency>
-
-```
 
 ## 相关配置
+1. 创建安卓项目。
+2. Gradle配置jcenter()，并引入SDK。
+```xml
+   implementation 'com.volcengine:volc-tls-android-sdk:1.1.1'
+```
+如果有依赖冲突，请使用指定你需要的版本（以okhttp为例子）
+```xml
+      implementation('com.squareup.okhttp3:okhttp') {
+        version {
+        strictly("you version")
+        }
+      }
+```
+3. Android权限
+```xml
+   <uses-permission android:name="android.permission.INTERNET" />
+```
 
-### 安全凭证配置
 
-火山引擎TLS SDK for ANDROID支持以下几种方式进行凭证管理：
-
-*注意：代码中accessKey及secretKey需要分别替换为您的AK及SK。*
+### SDK使用方法
 
 **方式一**：使用client用于创建project、topic等资源，方法为同步阻塞
 
@@ -81,9 +52,24 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
 // 初始化client
 ClientConfig clientConfig = new ClientConfig(endPoint, region, accessKey, secretKey, token);
 TLSLogClient client = ClientBuilder.newClient(clientConfig);
-// 
+// 创建日志项目和主题
 CreateProjectRequest project = new CreateProjectRequest(projectName, region, description);
 CreateProjectResponse createProjectResponse = client.createProject(project);
+// 创建日志主题
+CreateTopicRequest createTopicRequest = new CreateTopicRequest();
+createTopicRequest.setTopicName(topicName);
+createTopicRequest.setProjectId(createProjectResponse.getProjectId());
+createTopicRequest.setTtl(500);
+CreateTopicResponse createTopicResponse = client.createTopic(createTopicRequest);
+// 写入日志
+List<LogItem> logs = new ArrayList<>();
+currentTimeMillis = System.currentTimeMillis();
+LogItem item = new LogItem(currentTimeMillis);
+item.addContent("index-", "" + 0);
+item.addContent("test-key", "test-value");
+logs.add(item);
+PutLogsRequestV2 putLogsRequestV2 = new PutLogsRequestV2(logs, topicId, null, LZ4, "test-path", "test-file");
+PutLogsResponse putLogsResponse = client.putLogsV2(putLogsRequestV2);
 ```
 **方式二**：使用producer写入日志，支持异步非阻塞
 ```java
