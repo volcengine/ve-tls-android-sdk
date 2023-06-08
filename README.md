@@ -6,7 +6,7 @@
 
 ### 服务开通
 
-请确保您已开通了您需要访问的服务。您可前往[火山引擎控制台](https://console.volcengine.com/ )，在左侧菜单中选择或在顶部搜索栏中搜索您需要使用的服务，进入服务控制台内完成开通流程。
+请确保您已开通了日志服务。您可前往[火山引擎控制台](https://console.volcengine.com/ )，在左侧菜单中选择或在顶部搜索栏中搜索日志服务，进入服务控制台内完成开通流程。
 
 ### 获取安全凭证
 
@@ -19,7 +19,7 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
 
 推荐通过Gradle依赖使用火山引擎SDK for TLS
 
-[![maven](https://img.shields.io/maven-central/v/com.volcengine/volc-sdk-java)](https://search.maven.org/artifact/com.volcengine/volc-sdk-java)
+[![maven](https://img.shields.io/maven-central/v/com.volcengine/volc-tls-android-sdk)](https://search.maven.org/artifact/com.volcengine/volc-tls-android-sdk)
 
 
 
