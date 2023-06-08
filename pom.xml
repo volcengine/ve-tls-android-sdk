@@ -23,7 +23,7 @@
     <scm>
         <url>https://github.com/volcengine/ve-tls-android-sdk</url>
         <connection>scm:git:https://github.com/volcengine/ve-tls-android-sdk.git</connection>
-        <developerConnection>scm:git:hhttps://github.com/volcengine/ve-tls-android-sdk.git</developerConnection>
+        <developerConnection>scm:git:https://github.com/volcengine/ve-tls-android-sdk.git</developerConnection>
     </scm>
 
     <developers>
