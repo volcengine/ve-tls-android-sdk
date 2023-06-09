@@ -19,7 +19,7 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
 
 推荐通过Gradle依赖使用火山引擎SDK for TLS
 
-[//]: # ([![maven]&#40;https://img.shields.io/maven-central/v/com.volcengine/volc-tls-android-sdk&#41;]&#40;https://search.maven.org/artifact/com.volcengine/volc-tls-android-sdk&#41;)
+[![maven](https://img.shields.io/maven-central/v/com.volcengine/volc-tls-android-sdk)](https://search.maven.org/artifact/com.volcengine/volc-tls-android-sdk)
 
 
 
