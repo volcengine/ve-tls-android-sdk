@@ -163,5 +163,17 @@ public class BatchLog implements Delayed {
         }
     }
 
-
+    @Override
+    public String toString() {
+        return "BatchLog{" +
+                "batchKey=" + batchKey +
+                ", currentBatchSize=" + currentBatchSize +
+                ", currentBatchCount=" + currentBatchCount +
+                ", callBackList=" + callBackList +
+                ", producerConfig=" + producerConfig +
+                ", reservedAttempts=" + reservedAttempts +
+                ", attemptCount=" + attemptCount +
+                ", createMs=" + createMs +
+                '}';
+    }
 }

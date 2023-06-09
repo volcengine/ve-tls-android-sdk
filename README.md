@@ -28,7 +28,7 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
 1. 创建安卓项目。
 2. Gradle配置mavenCentral()，并引入SDK。
 ```xml
-   implementation 'com.volcengine:volc-tls-android-sdk:1.1.3'
+   implementation 'com.volcengine:volc-tls-android-sdk:1.1.4'
 ```
 如果有依赖冲突，请使用指定你需要的版本（以okhttp为例子）
 ```xml
