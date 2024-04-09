@@ -43,6 +43,10 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
    <uses-permission android:name="android.permission.INTERNET" />
 ```
 
+4. 混淆配置
+```xml
+   -keep class net.jpountz.** { *; }
+```
 
 ### SDK使用方法
 **方式一**：使用client用于创建project、topic等资源，方法为同步阻塞<br>
