@@ -9,3 +9,7 @@ scripts/build.out
 .classpath
 .factorypath
 .project
+
+# vscode
+.vscode
+.devcontainer

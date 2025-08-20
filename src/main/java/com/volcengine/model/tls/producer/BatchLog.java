@@ -30,6 +30,12 @@ public class BatchLog implements Delayed {
     EvictingQueue<Attempt> reservedAttempts;
     int attemptCount;
     long createMs;
+    long nextRetryMs;
+    long retryBackoffMs;
+    long maxRetryBackoffMs;
+    long baseRetryBackoffMs;
+    long baseIncreaseBackoffMs;
+
     private static final Logger LOG = LoggerFactory.getLogger(BatchLog.class);
 
     private BatchLog() {
@@ -43,6 +49,10 @@ public class BatchLog implements Delayed {
         this.attemptCount = 0;
         this.reservedAttempts = EvictingQueue.create(producerConfig.getMaxReservedAttempts());
         this.createMs = System.currentTimeMillis();
+        this.retryBackoffMs = 0;
+        this.maxRetryBackoffMs = 10 * 1000;
+        this.baseRetryBackoffMs = 1000;
+        this.baseIncreaseBackoffMs = 1000;
     }
 
     public boolean tryAdd(PutLogRequest.LogGroup logGroup, int batchSize, CallBack callBack) {
@@ -89,6 +99,17 @@ public class BatchLog implements Delayed {
         fireCallbacks(result);
     }
 
+    public void handleNextTry() {
+        if (attemptCount == 1) {
+            retryBackoffMs += baseRetryBackoffMs;
+        } else {
+            double increaseBackoffMs = Math.random() * baseIncreaseBackoffMs;
+            retryBackoffMs += (long) increaseBackoffMs;
+        }
+        retryBackoffMs = Math.min(retryBackoffMs, maxRetryBackoffMs);
+        nextRetryMs = System.currentTimeMillis() + retryBackoffMs;
+    }
+
     private void fireCallbacks(Result result) {
         for (CallBack callBack : callBackList) {
             callBack.onComplete(result);
@@ -97,12 +118,12 @@ public class BatchLog implements Delayed {
 
     @Override
     public int compareTo(Delayed o) {
-        return 0;
+        return (int) (nextRetryMs - ((BatchLog) o).getNextRetryMs());
     }
 
     @Override
     public long getDelay(TimeUnit unit) {
-        return unit.convert(producerConfig.getLingerMs(), TimeUnit.MILLISECONDS);
+        return unit.convert(nextRetryMs - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
     }
 
     @Data
@@ -169,11 +190,14 @@ public class BatchLog implements Delayed {
                 "batchKey=" + batchKey +
                 ", currentBatchSize=" + currentBatchSize +
                 ", currentBatchCount=" + currentBatchCount +
-                ", callBackList=" + callBackList +
-                ", producerConfig=" + producerConfig +
                 ", reservedAttempts=" + reservedAttempts +
                 ", attemptCount=" + attemptCount +
                 ", createMs=" + createMs +
+                ", nextRetryMs=" + nextRetryMs +
+                ", retryBackoffMs=" + retryBackoffMs +
+                ", maxRetryBackoffMs=" + nextRetryMs +
+                ", baseRetryBackoffMs=" + baseRetryBackoffMs +
+                ", baseIncreaseBackoffMs=" + baseIncreaseBackoffMs +
                 '}';
     }
 }
