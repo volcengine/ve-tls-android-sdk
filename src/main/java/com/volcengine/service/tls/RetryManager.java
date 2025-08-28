@@ -1,5 +1,6 @@
 package com.volcengine.service.tls;
 
+import com.volcengine.model.tls.exception.LogException;
 import com.volcengine.model.tls.producer.BatchLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,14 +20,14 @@ public class RetryManager {
 
     public RetryManager() {
         this.retryLock = new AtomicInteger(0);
-        this.closed = false;
     }
 
-    public void put(BatchLog batchLog) {
-        retryLock.incrementAndGet();
-        if (!closed) {
-            retryBatches.put(batchLog);
+    public void put(BatchLog batchLog) throws LogException {
+        if (closed) {
+            throw new LogException("Producer Error", "closed RetryManager cannot receive logs anymore", null);
         }
+        retryLock.incrementAndGet();
+        retryBatches.put(batchLog);
         retryLock.decrementAndGet();
     }
 
@@ -61,7 +62,34 @@ public class RetryManager {
         return expiredBatches;
     }
 
+    public List<BatchLog> handleRemainingBatches() {
+        if (!closed) {
+            throw new IllegalStateException("cannot get the remaining batches before the retry queue closed");
+        }
+        while (true) {
+            if (!retryInProgress()) {
+                break;
+            }
+        }
+        List<BatchLog> remainingBatches = new ArrayList<>(retryBatches);
+        retryBatches.clear();
+
+        return remainingBatches;
+    }
+
+    private boolean retryInProgress() {
+        return retryLock.get() > 0;
+    }
+
+    public void start() {
+        this.closed = false;
+    }
+
     public void close() {
         this.closed = true;
+    }
+
+    public boolean isClosed() {
+        return closed;
     }
 }

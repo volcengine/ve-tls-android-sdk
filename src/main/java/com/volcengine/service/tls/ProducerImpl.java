@@ -15,8 +15,10 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.volcengine.model.tls.Const.TLS;
@@ -35,6 +37,7 @@ public class ProducerImpl implements Producer {
     private final Mover mover;
 
     public ProducerImpl(ProducerConfig producerConfig) throws LogException {
+        producerConfig.validConfig();
         this.producerConfig = producerConfig;
         this.name = TLS + Const.SEPARATOR + INSTANCE_ID.incrementAndGet();
         BlockingQueue<BatchLog> successQueue = new LinkedBlockingQueue<BatchLog>();
@@ -98,10 +101,10 @@ public class ProducerImpl implements Producer {
     @Override
     public void sendLogV2(String hashKey, String topicId, String source, String filename, LogItem log, CallBack callBack)
             throws InterruptedException, LogException {
-        List<LogItem> items = new ArrayList<>();
         if (log == null) {
             return;
         }
+        List<LogItem> items = new ArrayList<>();
         items.add(log);
         this.sendLogsV2(hashKey, topicId, source, filename, items, callBack);
     }
@@ -139,8 +142,8 @@ public class ProducerImpl implements Producer {
 
     @Override
     public void start() throws LogException {
-        producerConfig.validConfig();
         dispatcher.start();
+        retryManager.start();
         successHandler.start();
         failHandler.start();
         mover.start();
@@ -149,19 +152,126 @@ public class ProducerImpl implements Producer {
 
     @Override
     public void close() throws InterruptedException, LogException {
-        dispatcher.close();
-        successHandler.interrupt();
-        failHandler.interrupt();
-        mover.close();
+        close(30000L);
+    }
+
+    @Override
+    public void close(long timeoutMs) throws InterruptedException, LogException {
+        LogException feedbackException = null;
+        try {
+            timeoutMs = closeMover(timeoutMs);
+        } catch (LogException e) {
+            feedbackException = e;
+        }
+        try {
+            timeoutMs = closeExecutorService(timeoutMs);
+        } catch (LogException e) {
+            if (feedbackException == null) {
+                feedbackException = e;
+            }
+        }
+        try {
+            timeoutMs = closeSuccessHandler(timeoutMs);
+        } catch (LogException e) {
+            if (feedbackException == null) {
+                feedbackException = e;
+            }
+        }
+        try {
+            timeoutMs = closeFailureHandler(timeoutMs);
+        } catch (LogException e) {
+            if (feedbackException == null) {
+                feedbackException = e;
+            }
+        }
+
+        if (feedbackException != null) {
+            throw feedbackException;
+        }
+
         LOG.info(String.format("producer %s closed", name));
+    }
+
+    private long closeMover(long timeoutMs) throws InterruptedException, LogException {
+        long startMs = System.currentTimeMillis();
+
+        dispatcher.close();
+        retryManager.close();
+        mover.close();
+        mover.join(timeoutMs);
+        if (mover.isAlive()) {
+            LOG.warn("producer mover thread is still alive");
+            throw new LogException("Producer Error", "producer mover thread is still alive", null);
+        }
+        LOG.info("producer mover is closed");
+
+        long nowMs = System.currentTimeMillis();
+        return Math.max(0, timeoutMs - nowMs + startMs);
+    }
+
+    private long closeExecutorService(long timeoutMs) throws InterruptedException, LogException {
+        long startMs = System.currentTimeMillis();
+
+        ExecutorService executorService = dispatcher.getExecutorService();
+        executorService.shutdown();
+        if (!executorService.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS)) {
+            LOG.warn("producer executor is not terminated normally");
+            executorService.shutdownNow();
+            throw new LogException("Producer Error", "producer executor is not terminated normally", null);
+        }
+        LOG.info("producer executor service is closed");
+
+        long nowMs = System.currentTimeMillis();
+        return Math.max(0, timeoutMs - nowMs + startMs);
+    }
+
+    private long closeSuccessHandler(long timeoutMs) throws InterruptedException, LogException {
+        long startMs = System.currentTimeMillis();
+
+        successHandler.close();
+        boolean invokedFromCallback = Thread.currentThread() == this.successHandler;
+        if (invokedFromCallback) {
+            LOG.warn("Skip join success batch handler since you have incorrectly invoked close from the producer callback");
+            return timeoutMs;
+        }
+        successHandler.join(timeoutMs);
+        if (successHandler.isAlive()) {
+            LOG.warn("producer success handler thread is still alive");
+            throw new LogException("Producer Error", "producer success handler thread is still alive", null);
+        }
+        LOG.info("producer success handler is closed");
+
+        long nowMs = System.currentTimeMillis();
+        return Math.max(0, timeoutMs - nowMs + startMs);
+    }
+
+    private long closeFailureHandler(long timeoutMs) throws InterruptedException, LogException {
+        long startMs = System.currentTimeMillis();
+
+        failHandler.close();
+        boolean invokedFromCallback = Thread.currentThread() == this.successHandler || Thread.currentThread() == this.failHandler;
+        if (invokedFromCallback) {
+            LOG.warn("Skip join failure batch handler since you have incorrectly invoked close from the producer callback");
+            return timeoutMs;
+        }
+        failHandler.join(timeoutMs);
+        if (failHandler.isAlive()) {
+            LOG.warn("producer failure handler thread is still alive");
+            throw new LogException("Producer Error", "producer failure handler thread is still alive", null);
+        }
+        LOG.info("producer failure handler is closed");
+
+        long nowMs = System.currentTimeMillis();
+        return Math.max(0, timeoutMs - nowMs + startMs);
     }
 
     @Override
     public void closeNow() throws InterruptedException, LogException {
         dispatcher.closeNow();
+        retryManager.close();
+        mover.close();
         successHandler.close();
         failHandler.close();
-        mover.close();
         LOG.info(String.format("producer %s closed now", name));
     }
 

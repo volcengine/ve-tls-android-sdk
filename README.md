@@ -1,5 +1,5 @@
 <h1 align="center"><img src="https://iam.volccdn.com/obj/volcengine-public/pic/volcengine-icon.png"></h1>
-<h1 align="center">火山引擎Android SDK for TLS</h1> 
+<h1 align="center">火山引擎Android SDK for TLS</h1>
 欢迎使用火山引擎SDK for Android，本文档为您介绍如何获取及调用SDK。
 
 ## 前置准备
@@ -28,7 +28,7 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
 1. 创建安卓项目。
 2. Gradle配置mavenCentral()，并引入SDK。
 ```xml
-   implementation 'com.volcengine:volc-tls-android-sdk:1.1.4'
+   implementation 'com.volcengine:volc-tls-android-sdk:1.1.5'
 ```
 如果有依赖冲突，请使用指定你需要的版本（以okhttp为例子）
 ```xml

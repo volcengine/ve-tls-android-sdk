@@ -40,6 +40,12 @@ public class Mover extends Thread {
     @Override
     public void run() {
         handlerTimeout();
+
+        handleRemainingBatch();
+        List<BatchLog> remainingRetryBatches = retryManager.handleRemainingBatches();
+        for (BatchLog log : remainingRetryBatches) {
+            executorService.submit(new SendBatchTask(log, producerConfig, successQueue, failureQueue, client, retryManager));
+        }
     }
 
     private void handlerTimeout() {
@@ -82,6 +88,24 @@ public class Mover extends Thread {
                     new SendBatchTask(log, producerConfig, successQueue, failureQueue, client, retryManager));
         }
         return remains;
+    }
+
+    private void handleRemainingBatch() {
+        LOG.debug("mover" + name + "handler remaining batch");
+        List<BatchLog> batchLogs = new ArrayList<>();
+        for (Map.Entry<BatchLog.BatchKey, BatchLog.BatchManager> entry : batches.entrySet()) {
+            BatchLog.BatchManager batchManager = entry.getValue();
+            synchronized (batchManager) {
+                BatchLog batchLog = batchManager.getBatchLog();
+                if (batchLog == null) {
+                    continue;
+                }
+                batchManager.removeBatch(batchLogs);
+            }
+        }
+        for (BatchLog log : batchLogs) {
+            executorService.submit(new SendBatchTask(log, producerConfig, successQueue, failureQueue, client, retryManager));
+        }
     }
 
     public void close() {
