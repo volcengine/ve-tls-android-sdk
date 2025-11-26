@@ -1,4 +1,4 @@
-package com.volcengine.util;
+package com.volcengine.model.tls.util;
 
 
 import com.volcengine.model.tls.exception.LogException;

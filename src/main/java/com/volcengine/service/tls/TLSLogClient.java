@@ -16,6 +16,9 @@ public interface TLSLogClient {
 
     void setTimeout(int socketTimeout, int connectionTimeout);
 
+    /** 销毁资源，释放HTTP线程与连接池 */
+    void destroy();
+
     /**
      * 日志管理
      *
@@ -35,7 +38,10 @@ public interface TLSLogClient {
 
     WebTracksResponse webTracks(WebTracksRequest request) throws LogException;
 
+    @Deprecated
     DescribeHistogramResponse describeHistogram(DescribeHistogramRequest request) throws LogException;
+
+    DescribeHistogramV1Response describeHistogramV1(DescribeHistogramV1Request request) throws LogException;
 
     /**
      * project
@@ -154,4 +160,5 @@ public interface TLSLogClient {
     DescribeDownloadTasksResponse describeDownloadTasks(DescribeDownloadTasksRequest request) throws LogException;
 
     DescribeDownloadUrlResponse describeDownloadUrl(DescribeDownloadUrlRequest request) throws LogException;
+
 }

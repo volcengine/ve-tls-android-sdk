@@ -12,6 +12,7 @@ public class Const {
     public static final String SOCKET_TIMEOUT = "SocketTimeout";
     public static final String Scheme = "Scheme";
     public static final String Host = "Host";
+    public static final String Port = "Port";
     public static final String Header = "Header";
     public static final String Credentials = "Credentials";
 

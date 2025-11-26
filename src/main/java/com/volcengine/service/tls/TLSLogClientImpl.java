@@ -1,6 +1,8 @@
 package com.volcengine.service.tls;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.volcengine.error.SdkError;
 import com.volcengine.model.ApiInfo;
 import com.volcengine.model.Header;
@@ -13,30 +15,68 @@ import com.volcengine.model.tls.exception.LogException;
 import com.volcengine.model.tls.pb.PutLogRequest;
 import com.volcengine.model.tls.request.*;
 import com.volcengine.model.tls.response.*;
-import com.volcengine.util.AdaptorUtil;
-import com.volcengine.util.MessageUtil;
-import com.volcengine.util.TimeUtil;
+import com.volcengine.model.tls.util.AdaptorUtil;
+import com.volcengine.model.tls.util.MessageUtil;
+import com.volcengine.model.tls.util.TimeUtil;
 import com.volcengine.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.volcengine.model.tls.Const.*;
 import static com.volcengine.model.tls.producer.ProducerConfig.EXTERNAL_ERROR;
 import static com.volcengine.model.tls.producer.ProducerConfig.TOO_MANY_REQUEST_ERROR;
 
 public class TLSLogClientImpl implements TLSLogClient {
+    static {
+        JSON.DEFAULT_GENERATE_FEATURE |= SerializerFeature.DisableCircularReferenceDetect.getMask();
+    }
 
     public static int DEFAULT_RETRY_INTERVAL_MS = 100;
-    public static int REQUEST_TIMEOUT_MS = 60 * 1000;
+    public static int DEFAULT_REQUEST_TIMEOUT_MS = 90 * 1000;
+    public static int DEFAULT_RETRY_COUNTER_MAXIMUM = 50;
+
+    private static AtomicInteger DEFAULT_RETRY_COUNTER = new AtomicInteger(0);
     private ClientConfig config;
     private final TLSHttpUtil httpRequest;
 
     public TLSLogClientImpl(TLSHttpUtil util, ClientConfig config) {
         this.httpRequest = util;
         this.config = config;
+
+        this.httpRequest.setSocketTimeout(60000);
+        this.httpRequest.setConnectionTimeout(60000);
+    }
+
+    private static void increaseCounterByOne() {
+        while (true) {
+            int v = DEFAULT_RETRY_COUNTER.get();
+            if (v >= DEFAULT_RETRY_COUNTER_MAXIMUM) {
+                break;
+            }
+            boolean cas = DEFAULT_RETRY_COUNTER.compareAndSet(v, v + 1);
+            if (cas) {
+                break;
+            }
+        }
+    }
+
+    private static void decreaseCounterByOne() {
+        while (true) {
+            int v = DEFAULT_RETRY_COUNTER.get();
+            if (v <= 0) {
+                break;
+            }
+            boolean cas = DEFAULT_RETRY_COUNTER.compareAndSet(v, v - 1);
+            if (cas) {
+                break;
+            }
+        }
     }
 
     @Override
@@ -60,13 +100,50 @@ public class TLSLogClientImpl implements TLSLogClient {
     public void setTimeout(int socketTimeout, int connectionTimeout) {
         httpRequest.setSocketTimeout(socketTimeout);
         httpRequest.setConnectionTimeout(connectionTimeout);
-        REQUEST_TIMEOUT_MS = socketTimeout;
+        DEFAULT_REQUEST_TIMEOUT_MS = socketTimeout;
+    }
+
+    @Override
+    public void destroy() {
+        httpRequest.destroy();
     }
 
     @Override
     public PutLogsResponse putLogs(PutLogsRequest request) throws LogException {
         if (request == null || !request.CheckValidation()) {
             throw new LogException("InvalidArgument", "Invalid request, Please check it", null);
+        }
+
+        int logCnt = 0;
+        long maxLogTime = Long.MIN_VALUE;
+        long minLogTime = Long.MAX_VALUE;
+
+        for (PutLogRequest.LogGroup logGroup : request.getLogGroupList().getLogGroupsList()) {
+            List<PutLogRequest.Log> logs = logGroup.getLogsList();
+            for (int i = 0; i < logs.size(); i++) {
+                PutLogRequest.Log log = logs.get(i);
+                long time = log.getTime();
+                long normalizedTime;
+                if (time <= 0) {
+                    time = System.currentTimeMillis();
+                    PutLogRequest.Log newLog = log.toBuilder().setTime(time).build();
+                    logs.set(i, newLog);
+                    normalizedTime = time;
+                } else if (time < 1e10) { // s
+                    normalizedTime = time * 1000;
+                } else if (time < 1e15) { // ms
+                    normalizedTime = time;
+                } else { // ns
+                    normalizedTime = time / 1_000_000;
+                }
+                maxLogTime = Math.max(maxLogTime, normalizedTime);
+                minLogTime = Math.min(minLogTime, normalizedTime);
+                logCnt++;
+            }
+        }
+
+        if (logCnt == 0) {
+            throw new LogException("InvalidArgument", "Invalid log num, Please check it", null);
         }
 
         // 1、prepare request
@@ -81,6 +158,11 @@ public class TLSLogClientImpl implements TLSLogClient {
             headers.put(X_TLS_COMPRESS_TYPE, compressType);
             headers.put(X_TLS_BODY_RAW_SIZE, String.valueOf(request.getLogGroupList().toByteArray().length));
         }
+
+        headers.put(Log_Count_Header, String.valueOf(logCnt));
+        headers.put(Earliest_Log_Time_Header, String.valueOf(minLogTime));
+        headers.put(Latest_Log_Time_Header, String.valueOf(maxLogTime));
+
         // 2、check sum and sendRequest
         RawResponse rawResponse = doProtoRetryRequest(PUT_LOGS, params, headers, request.getLogGroupList().toByteArray(), compressType);
         // 3、parse response
@@ -90,28 +172,25 @@ public class TLSLogClientImpl implements TLSLogClient {
     @Override
     public PutLogsResponse putLogsV2(PutLogsRequestV2 request) throws LogException {
         // 1、check params, topic id is required params
-        if (request == null || StringUtils.isEmpty(request.getTopicId()) || request.getLogs() == null) {
+        if (request == null || StringUtils.isEmpty(request.getTopicId()) || request.getLogs() == null || request.getLogs().isEmpty()) {
             throw new LogException("InvalidArgument", "Request is:" + request, null);
         }
-        // 2、prepare request
-        ArrayList<NameValuePair> params = new ArrayList<>();
-        params.add(new NameValuePair(TOPIC_ID, request.getTopicId()));
-        HashMap<String, String> headers = new HashMap<>();
-        if (request.getHashKey() != null) {
-            headers.put(X_TLS_HASHKEY, request.getHashKey());
-        }
-        PutLogRequest.LogGroupList logGroupList = AdaptorUtil.logItems2PbGroupList(request.getPath(), request.getSource(), request.getLogs());
-        String compressType = request.getCompressType();
-        if (compressType != null) {
-            headers.put(X_TLS_COMPRESS_TYPE, compressType);
-            headers.put(X_TLS_BODY_RAW_SIZE, String.valueOf(logGroupList.toByteArray().length));
-        }
-        // 3、check sum and sendRequest
-        RawResponse rawResponse = doProtoRetryRequest(PUT_LOGS, params, headers, logGroupList.toByteArray(), compressType);
-        // 4、parse response
-        return new PutLogsResponse(rawResponse.getHeaders());
-    }
 
+        PutLogsRequest putlogsRequest = new PutLogsRequest();
+        putlogsRequest.setTopicId(request.getTopicId());
+        putlogsRequest.setHashKey(request.getHashKey());
+        putlogsRequest.setCompressType(request.getCompressType());
+
+        PutLogRequest.LogGroupList logGroupList = AdaptorUtil.logItems2PbGroupList(
+            request.getPath(),
+            request.getSource(),
+            request.getLogs()
+        );
+
+        putlogsRequest.setLogGroupList(logGroupList);
+
+        return putLogs(putlogsRequest);
+    }
 
     @Override
     public SearchLogsResponse searchLogs(SearchLogsRequest request) throws LogException {
@@ -122,8 +201,10 @@ public class TLSLogClientImpl implements TLSLogClient {
         // 1、prepare request
         ArrayList<NameValuePair> params = new ArrayList<>();
         String requestBody = JSONObject.toJSONString(request);
+        Map<String, String> headers = new HashMap<>();
+        headers.put(HEADER_API_VERSION, API_VERSION_V_0_2_0);
         // 2、check sum and sendRequest
-        RawResponse rawResponse = sendJsonRequest(SEARCH_LOGS, params, requestBody);
+        RawResponse rawResponse = sendJsonRequest(SEARCH_LOGS, params, requestBody, headers);
         // 3、parse response
         return new SearchLogsResponse(rawResponse.getHeaders()).deSerialize(rawResponse.getData(), SearchLogsResponse.class);
     }
@@ -218,6 +299,7 @@ public class TLSLogClientImpl implements TLSLogClient {
     }
 
     @Override
+    @Deprecated
     public DescribeHistogramResponse describeHistogram(DescribeHistogramRequest request) throws LogException {
         if (request == null || !request.CheckValidation()) {
             throw new LogException("InvalidArgument", "Invalid request, Please check it", null);
@@ -232,6 +314,22 @@ public class TLSLogClientImpl implements TLSLogClient {
 
         // 3. parse response
         return new DescribeHistogramResponse(rawResponse.getHeaders()).deSerialize(rawResponse.getData(), DescribeHistogramResponse.class);
+    }
+
+    public DescribeHistogramV1Response describeHistogramV1(DescribeHistogramV1Request request) throws LogException {
+        if (request == null || !request.CheckValidation()) {
+            throw new LogException("InvalidArgument", "Invalid request, Please check it", null);
+        }
+
+        // 1. prepare request
+        ArrayList<NameValuePair> params = new ArrayList<>();
+        String requestBody = JSONObject.toJSONString(request);
+
+        // 2. check sum and sendRequest
+        RawResponse rawResponse = sendJsonRequest(DESCRIBE_HISTOGRAM_V1, params, requestBody);
+        int a = 1;
+        // 3. parse response
+        return new DescribeHistogramV1Response(rawResponse.getHeaders()).deSerialize(rawResponse.getData(), DescribeHistogramV1Response.class);
     }
 
     /**
@@ -260,12 +358,17 @@ public class TLSLogClientImpl implements TLSLogClient {
     }
 
     private RawResponse sendJsonRequest(String path, ArrayList<NameValuePair> query, String requestBody, Map<String, String> headers) throws LogException {
-        checkMd5(path, requestBody.getBytes());
+        checkMd5(path, requestBody.getBytes(), headers);
 
-        mergeHeaders(path, headers);
+        if (headers == null) {
+            headers = new HashMap<>();
+        }
+        // 默认api版本0.3.0，如果用户有header使用用户自定义的
+        if (!headers.containsKey(HEADER_API_VERSION)) {
+            headers.put(HEADER_API_VERSION, this.config.getApiVersion());
+        }
 
-        RawResponse rawResponse = doRetryRequest(path, query, requestBody);
-        String s = new String(rawResponse.getData());
+        RawResponse rawResponse = doRetryRequest(path, query, requestBody, headers);
         if (rawResponse.getCode() != SdkError.SUCCESS.getNumber()) {
             String[] error = getError(rawResponse);
             throw new LogException(rawResponse.getHttpCode(), error[0], error[1], rawResponse.getFirstHeader(X_TLS_REQUESTID));
@@ -277,7 +380,7 @@ public class TLSLogClientImpl implements TLSLogClient {
         if (headers == null) {
             headers = new HashMap<>();
         }
-        // 默认api版本0.2.0，如果用户有header使用用户自定义的
+        // 默认api版本0.3.0，如果用户有header使用用户自定义的
         if (!headers.containsKey(HEADER_API_VERSION)) {
             headers.put(HEADER_API_VERSION, this.config.getApiVersion());
         }
@@ -290,21 +393,25 @@ public class TLSLogClientImpl implements TLSLogClient {
         apiInfo.setHeader(apiHeader);
     }
 
-    private RawResponse doRetryRequest(String path, ArrayList<NameValuePair> params, String requestBody) throws LogException {
+    private RawResponse doRetryRequest(String path, ArrayList<NameValuePair> params, String requestBody, Map<String, String> headers) throws LogException {
+        // merge headers into ApiInfo, BaseServiceImpl will attach them
+        mergeHeaders(path, headers);
+
         RawResponse rawResponse = null;
-        long expectedQuitTimestamp = System.currentTimeMillis() + REQUEST_TIMEOUT_MS;
+        long expectedQuitTimestamp = System.currentTimeMillis() + DEFAULT_REQUEST_TIMEOUT_MS;
         int tryCount = 0;
         // retry
         while (true) {
             rawResponse = httpRequest.json(path, params, requestBody);
             tryCount += 1;
             // return if request succeed or tryCount >= 5
-            if (tryCount >= config.getRetryCount() || rawResponse.getCode() == SdkError.SUCCESS.getNumber()
-                    || !needRetryStatus(rawResponse.getHttpCode())) {
+            if (tryCount >= 5 || rawResponse.getCode() == SdkError.SUCCESS.getNumber() || !needRetryStatus(rawResponse.getHttpCode())) {
+                decreaseCounterByOne();
                 break;
             }
+            increaseCounterByOne();
             try {
-                long sleepMs = TimeUtil.calcDefaultBackOffMs(tryCount, DEFAULT_RETRY_INTERVAL_MS, expectedQuitTimestamp);
+                long sleepMs = TimeUtil.calcDefaultBackOffMs(DEFAULT_RETRY_COUNTER.get(), DEFAULT_RETRY_INTERVAL_MS, expectedQuitTimestamp);
                 if (sleepMs > 0) {
                     Thread.sleep(sleepMs);
                 }
@@ -315,15 +422,14 @@ public class TLSLogClientImpl implements TLSLogClient {
         //throw exception
         if (rawResponse.getCode() != SdkError.SUCCESS.getNumber()) {
             String[] error = getError(rawResponse);
-            String requestId = rawResponse.getFirstHeader(X_TLS_REQUESTID);
-            throw new LogException(rawResponse.getHttpCode(), error[0], error[1], requestId);
+            throw new LogException(rawResponse.getHttpCode(), error[0], error[1], rawResponse.getFirstHeader(X_TLS_REQUESTID));
         }
         return rawResponse;
     }
 
     //429 or 5xx error retry
     private boolean needRetryStatus(int httpCode) {
-        return httpCode == TOO_MANY_REQUEST_ERROR || httpCode >= EXTERNAL_ERROR;
+        return httpCode == TOO_MANY_REQUEST_ERROR || httpCode >= EXTERNAL_ERROR || httpCode == 0;
     }
 
     /**
@@ -393,7 +499,7 @@ public class TLSLogClientImpl implements TLSLogClient {
     /**
      * @param request isFullName:true for exactly match , false for fuzzy match
      *                project id or name、page size and number are all optional detail see
-     *                {@link DescribeProjectsRequest}
+     *                {@link com.volcengine.model.tls.request.DescribeProjectsRequest}
      * @return DescribeProjectsResponse:list of {@link com.volcengine.model.tls.ProjectInfo} and project count
      * @throws LogException
      */
@@ -412,6 +518,12 @@ public class TLSLogClientImpl implements TLSLogClient {
         }
         if (StringUtils.isNotEmpty(request.getProjectName())) {
             params.add(new NameValuePair(PROJECT_NAME, request.getProjectName()));
+        }
+        if (StringUtils.isNotEmpty(request.getIamProjectName())) {
+            params.add(new NameValuePair(IAM_PROJECT_NAME, request.getIamProjectName()));
+        }
+        if (request.getTags() != null && !request.getTags().isEmpty()) {
+            params.add(new NameValuePair(TAGS, JSON.toJSONString(request.getTags())));
         }
         if (request.getPageNumber() != null) {
             params.add(new NameValuePair(PAGE_NUMBER, String.valueOf(request.getPageNumber())));
@@ -505,6 +617,9 @@ public class TLSLogClientImpl implements TLSLogClient {
         // 1、prepare request
         ArrayList<NameValuePair> params = new ArrayList<>();
         params.add(new NameValuePair(PROJECT_ID, request.getProjectId()));
+        if (request.getProjectName() != null) {
+            params.add(new NameValuePair(PROJECT_NAME, request.getProjectName()));
+        }
         if (request.getIsFullName() != null)
             params.add(new NameValuePair(IS_FULL_NAME, String.valueOf(request.getIsFullName())));
         if (request.getPageNumber() != null) {
@@ -518,6 +633,9 @@ public class TLSLogClientImpl implements TLSLogClient {
         }
         if (StringUtils.isNotEmpty(request.getTopicName())) {
             params.add(new NameValuePair(TOPIC_NAME, request.getTopicName()));
+        }
+        if (request.getTags() != null) {
+            params.add(new NameValuePair(TAGS, JSONObject.toJSONString(request.getTags())));
         }
 
         // 2、check sum and sendRequest
@@ -1136,7 +1254,7 @@ public class TLSLogClientImpl implements TLSLogClient {
                 params.add(new NameValuePair(TOPIC_ID, String.valueOf(request.getTopicId())));
             }
         }
-        String requestBody = JSONObject.toJSONString(request);
+        String requestBody = Const.EMPTY_JSON;
 
         // 3. check sum and sendRequest
         RawResponse rawResponse = sendJsonRequest(DESCRIBE_KAFKA_CONSUMER, params, requestBody);
@@ -1217,18 +1335,20 @@ public class TLSLogClientImpl implements TLSLogClient {
             headers.put(HEADER_API_VERSION, this.config.getApiVersion());
         }
         RawResponse rawResponse = null;
-        long expectedQuitTimestamp = System.currentTimeMillis() + REQUEST_TIMEOUT_MS;
+        long expectedQuitTimestamp = System.currentTimeMillis() + DEFAULT_REQUEST_TIMEOUT_MS;
         int tryCount = 0;
         // retry
         while (true) {
             rawResponse = httpRequest.proto(api, params, headers, body, compressType);
             tryCount += 1;
             // return if request succeed
-            if (tryCount >= config.getRetryCount() || rawResponse.getCode() == SdkError.SUCCESS.getNumber() || !needRetryStatus(rawResponse.getHttpCode())) {
+            if (tryCount >= 5 || rawResponse.getCode() == SdkError.SUCCESS.getNumber() || !needRetryStatus(rawResponse.getHttpCode())) {
+                decreaseCounterByOne();
                 break;
             }
+            increaseCounterByOne();
             try {
-                long sleepMs = TimeUtil.calcDefaultBackOffMs(tryCount, DEFAULT_RETRY_INTERVAL_MS, expectedQuitTimestamp);
+                long sleepMs = TimeUtil.calcDefaultBackOffMs(DEFAULT_RETRY_COUNTER.get(), DEFAULT_RETRY_INTERVAL_MS, expectedQuitTimestamp);
                 if (sleepMs > 0) {
                     Thread.sleep(sleepMs);
                 }
@@ -1244,15 +1364,11 @@ public class TLSLogClientImpl implements TLSLogClient {
         return rawResponse;
     }
 
-    private void checkMd5(String path, byte[] body) throws LogException {
-        ApiInfo apiInfo = httpRequest.getApiInfoList().get(path);
-        List<Header> header = apiInfo.getHeader();
-        if (header == null) {
-            header = new ArrayList<>();
-        }
+    private void checkMd5(String path, byte[] body, Map<String, String> headers) throws LogException {
+        // TODO: 修改MD5请求头的处理逻辑
         String checkSum = MessageUtil.md5CheckSum(body);
         if (checkSum != null) {
-            header.add(new Header(HEADER_CONTENT_MD5, checkSum));
+            headers.put(HEADER_CONTENT_MD5, checkSum);
         }
     }
 
@@ -1261,9 +1377,11 @@ public class TLSLogClientImpl implements TLSLogClient {
         code = SdkError.getErrorDesc(SdkError.getError(response.getCode()));
         if (response.getException() != null) {
             message = response.getException().getMessage();
-            if (message != null && message.contains(ERROR_MESSAGE)) {
-                LogException logException = JSONObject.parseObject(message, LogException.class);
+            try {
+                LogException logException = JSON.parseObject(message, LogException.class);
+                code = logException.getErrorCode();
                 message = logException.getErrorMessage();
+            } catch (Exception ignored) {
             }
         }
         return new String[]{code, message};

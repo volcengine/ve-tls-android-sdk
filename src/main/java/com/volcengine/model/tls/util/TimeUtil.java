@@ -1,4 +1,4 @@
-package com.volcengine.util;
+package com.volcengine.model.tls.util;
 
 public class TimeUtil {
     private TimeUtil() {

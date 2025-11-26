@@ -83,7 +83,9 @@ public abstract class BaseServiceImpl implements IBaseService {
         RequestBody requestBody = RequestBody.create(MEDIA_TYPE_JSON, body);
 
         String method = apiInfo.getMethod();
-        if (method == Const.GET) {
+
+        if (Const.GET.equals(method)) {
+            // OkHttp: GET must not have a request body
             requestBody = null;
             requestBuilder.header(Const.ContentType, Const.APPLICATION_JSON);
         } else {
@@ -246,6 +248,20 @@ public abstract class BaseServiceImpl implements IBaseService {
         return serviceInfo;
     }
 
+    /**
+     * Release OkHttp resources: dispatcher threads and connection pool.
+     */
+    public void destroy() {
+        if (this.httpClient != null) {
+            try {
+                this.httpClient.dispatcher().executorService().shutdown();
+            } catch (Exception ignored) {}
+            try {
+                this.httpClient.connectionPool().evictAll();
+            } catch (Exception ignored) {}
+        }
+    }
+
     @Override
     public void setServiceInfo(ServiceInfo serviceInfo) {
         this.serviceInfo = serviceInfo;
@@ -313,6 +329,9 @@ public abstract class BaseServiceImpl implements IBaseService {
 
         urlBuilder.scheme(serviceInfo.getScheme());
         urlBuilder.host(serviceInfo.getHost());
+        if (serviceInfo.getPort() > 0) {
+            urlBuilder.port(serviceInfo.getPort());
+        }
         urlBuilder.encodedPath(apiInfo.getPath());
         for (NameValuePair pair : mergedNV) {
             urlBuilder.addQueryParameter(pair.getName(), pair.getValue());

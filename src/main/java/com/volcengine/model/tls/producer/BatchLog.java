@@ -10,6 +10,7 @@ import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -117,7 +118,7 @@ public class BatchLog implements Delayed {
     }
 
     @Override
-    public int compareTo(Delayed o) {
+    public int compareTo(@Nonnull Delayed o) {
         return (int) (nextRetryMs - ((BatchLog) o).getNextRetryMs());
     }
 

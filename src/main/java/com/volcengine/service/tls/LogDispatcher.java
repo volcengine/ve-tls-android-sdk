@@ -32,8 +32,8 @@ public class LogDispatcher {
     private final ConcurrentHashMap<BatchLog.BatchKey, BatchLog.BatchManager> batches;
 
     public LogDispatcher(ProducerConfig producerConfig, String producerName, BlockingQueue<BatchLog> successQueue,
-                         BlockingQueue<BatchLog> failureQueue, Semaphore memoryLock, AtomicInteger batchCount
-            , RetryManager retryManager) throws LogException {
+                         BlockingQueue<BatchLog> failureQueue, Semaphore memoryLock,
+                         AtomicInteger batchCount, RetryManager retryManager) throws LogException {
         this.producerConfig = producerConfig;
         this.producerName = producerName;
         this.executorService = Executors.newFixedThreadPool(
@@ -73,8 +73,8 @@ public class LogDispatcher {
     }
 
     public void closeNow() {
-        executorService.shutdownNow();
         this.closed = true;
+        executorService.shutdownNow();
     }
 
     private BatchLog.BatchManager getOrCreateBatchManager(BatchLog.BatchKey batchKey) {
@@ -100,17 +100,17 @@ public class LogDispatcher {
         doAdd(hashKey, topicId, source, filename, logGroup, callBack);
     }
 
-    private void doAdd(String hashKey, String topicId, String source, String filename,
-                       PutLogRequest.LogGroup logGroup, CallBack callBack) throws LogException, InterruptedException {
+    private void doAdd(String hashKey, String topicId, String source, String filename, PutLogRequest.LogGroup logGroup, CallBack callBack)
+            throws LogException, InterruptedException {
         // check status and batch size
         if (closed) {
-            throw new LogException("Producer Error", "dispatcher closed can't add batch anymore", null);
+            throw new LogException("Producer Error", "closed LogDispatcher cannot receive logs anymore", null);
         }
         int batchSize = calculateSize(logGroup);
         producerConfig.checkBatchSize(batchSize);
         // wait add lock
         long maxBlockMs = producerConfig.getMaxBlockMs();
-        LOG.info(String.format("dispatcher %s try acquire memory lock ", producerName));
+        LOG.debug(String.format("dispatcher %s try acquire memory lock ", producerName));
 
         if (maxBlockMs == 0) {
             memoryLock.acquire();
@@ -119,7 +119,7 @@ public class LogDispatcher {
             if (!acquired) {
                 LOG.warn(String.format("Failed to acquire memory within the configured max blocking time %d ms, requiredSizeInBytes=%d, availableSizeInBytes=%d",
                         producerConfig.getMaxBlockMs(), batchSize, memoryLock.availablePermits()));
-                throw new LogException("Producer Error", "dispatcher %s try acquire memory lock failed", null);
+                throw new LogException("Producer Error", String.format("dispatcher %s try acquire memory lock failed", producerName), null);
             }
         }
         // add batch
@@ -150,13 +150,12 @@ public class LogDispatcher {
             boolean success = batchLog.tryAdd(logGroup, batchSize, callBack);
             if (success) {
                 if (batchManager.fullAndSendBatchRequest()) {
-                    batchManager.addNow(producerConfig, executorService, client, successQueue, failureQueue,
-                            batchCount, retryManager);
+                    batchManager.addNow(producerConfig, executorService, client, successQueue, failureQueue, batchCount, retryManager);
                 }
                 return;
-            } else
-                batchManager.addNow(producerConfig, executorService, client, successQueue, failureQueue,
-                        batchCount, retryManager);
+            } else {
+                batchManager.addNow(producerConfig, executorService, client, successQueue, failureQueue, batchCount, retryManager);
+            }
         }
         // no batch create new and try send
         batchLog = new BatchLog(batchKey, producerConfig);
@@ -168,8 +167,7 @@ public class LogDispatcher {
             throw new LogException("Producer Error", "tryAdd batchLog failed", null);
         }
         if (batchManager.fullAndSendBatchRequest()) {
-            batchManager.addNow(producerConfig, executorService, client, successQueue, failureQueue, batchCount,
-                    retryManager);
+            batchManager.addNow(producerConfig, executorService, client, successQueue, failureQueue, batchCount, retryManager);
         }
     }
 

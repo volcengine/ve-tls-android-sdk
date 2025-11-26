@@ -1,6 +1,9 @@
 package com.volcengine.model.tls.request;
 
+import java.util.List;
+
 import com.alibaba.fastjson.annotation.JSONField;
+import com.volcengine.model.tls.TagInfo;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -20,11 +23,27 @@ public class CreateTopicRequest {
     @JSONField(name = SHARD_COUNT)
     Integer shardCount;
     @JSONField(name = AUTO_SPLIT)
-    Boolean autoSplit;
+    Boolean autoSplit = true;
     @JSONField(name = MAX_SPLIT_SHARD)
-    Integer maxSplitShard;
+    Integer maxSplitShard = 50;
     @JSONField(name = ENABLE_TRACKING)
     Boolean enableTracking;
+    @JSONField(name = TIME_KEY)
+    String timeKey;
+    @JSONField(name = TIME_FORMAT)
+    String timeFormat;
+    @JSONField(name = TAGS)
+    List<TagInfo> tags;
+    @JSONField(name = LOG_PUBLIC_IP)
+    Boolean logPublicIP;
+    @JSONField(name = ENABLE_HOT_TTL)
+    boolean enableHotTtl;
+    @JSONField(name = HOT_TTL)
+    Integer hotTtl;
+    @JSONField(name = COLD_TTL)
+    Integer coldTtl;
+    @JSONField(name = ARCHIVE_TTL)
+    Integer archiveTtl;
 
     /**
      * @return 日志主题名称
@@ -136,6 +155,62 @@ public class CreateTopicRequest {
      */
     public void setEnableTracking(Boolean enableTracking) {
         this.enableTracking = enableTracking;
+    }
+
+    /**
+     * @return 日志时间字段的字段名称
+     */
+    public String getTimeKey() {
+        return timeKey;
+    }
+
+    /**
+     * @param timeKey 日志时间字段的字段名称
+     */
+    public void setTimeKey(String timeKey) {
+        this.timeKey = timeKey;
+    }
+
+    /**
+     * @return 时间字段的解析格式
+     */
+    public String getTimeFormat() {
+        return timeFormat;
+    }
+
+    /**
+     * @param timeFormat 时间字段的解析格式
+     */
+    public void setTimeFormat(String timeFormat) {
+        this.timeFormat = timeFormat;
+    }
+
+    /**
+     * @return 日志主题标签信息
+     */
+    public List<TagInfo> getTags() {
+        return tags;
+    }
+
+    /**
+     * @param tags 日志主题标签信息
+     */
+    public void setTags(List<TagInfo> tags) {
+        this.tags = tags;
+    }
+
+    /**
+     * @return 是否开启记录外网IP功能
+     */
+    public Boolean getLogPublicIP() {
+        return logPublicIP;
+    }
+
+    /**
+     * @param logPublicIP 是否开启记录外网IP功能
+     */
+    public void setLogPublicIP(Boolean logPublicIP) {
+        this.logPublicIP = logPublicIP;
     }
 
     /**

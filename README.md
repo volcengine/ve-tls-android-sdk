@@ -53,7 +53,7 @@ Key。更多信息可参考[访问密钥帮助文档](https://www.volcengine.com
 [**更多Demo参考**](https://github.com/volcengine/ve-tls-android-sdk/tree/master/src/main/java/com/volcengine/demo)
 
 ```java
-// 初始化client
+// 初始化client（每次调用返回独立实例，凭证相互隔离）
 ClientConfig clientConfig = new ClientConfig(endPoint, region, accessKey, secretKey, token);
 TLSLogClient client = ClientBuilder.newClient(clientConfig);
 // 创建日志项目和主题
@@ -74,6 +74,9 @@ item.addContent("test-key", "test-value");
 logs.add(item);
 PutLogsRequestV2 putLogsRequestV2 = new PutLogsRequestV2(logs, topicId, null, LZ4, "test-path", "test-file");
 PutLogsResponse putLogsResponse = client.putLogsV2(putLogsRequestV2);
+
+// 用完释放资源，避免线程泄露
+client.destroy();
 ```
 **方式二**：使用producer写入日志，支持异步非阻塞<br>producer更多[**配置参考**](https://github.com/volcengine/ve-tls-android-sdk/blob/master/src/main/java/com/volcengine/model/tls/producer/Producer.md)
 ```java
@@ -92,5 +95,33 @@ CallBack callBack = new CallBack() {
 LogItem item = new LogItem(System.currentTimeMillis());
 item.addContent("test-key", "test-value");
 producer.sendLogV2("", topicId, "test-source", "test-file", item, callBack);
+```
+
+#### 多用户凭证隔离（示例）
+```java
+// user1
+ClientConfig cfg1 = new ClientConfig(endpoint, region, "AK_user1", "SK_user1", "ST_user1");
+TLSLogClient c1 = ClientBuilder.newClient(cfg1);
+// user2
+ClientConfig cfg2 = new ClientConfig(endpoint, region, "AK_user2", "SK_user2", "ST_user2");
+TLSLogClient c2 = ClientBuilder.newClient(cfg2);
+
+// 分别调用接口，服务端按各自凭证鉴权
+DescribeProjectsRequest req = new DescribeProjectsRequest();
+c1.describeProjects(req);
+c2.describeProjects(req);
+
+// 释放资源
+c1.destroy();
+c2.destroy();
+```
+
+#### 使用带端口的 Endpoint（联调/测试）
+- 支持格式：`http://host:port` 或 `https://host:port`
+- 例如使用 OkHttp MockWebServer 联调时：
+```java
+String endpoint = "http://" + server.getHostName() + ":" + server.getPort();
+ClientConfig cfg = new ClientConfig(endpoint, region, ak, sk, token);
+TLSLogClient client = ClientBuilder.newClient(cfg);
 ```
 

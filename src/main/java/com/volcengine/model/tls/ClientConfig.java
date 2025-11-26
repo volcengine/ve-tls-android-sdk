@@ -8,7 +8,7 @@ import lombok.Data;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import static com.volcengine.model.tls.Const.API_VERSION_V_0_2_0;
+import static com.volcengine.model.tls.Const.API_VERSION_V_0_3_0;
 import static com.volcengine.model.tls.Const.TLS;
 
 @Data
@@ -29,7 +29,7 @@ public class ClientConfig {
 
     public ClientConfig(String endPoint, String region, String accessKeyId, String accessKeySecret,
                         String securityToken) {
-        this(endPoint, region, accessKeyId, accessKeySecret, securityToken, API_VERSION_V_0_2_0);
+        this(endPoint, region, accessKeyId, accessKeySecret, securityToken, API_VERSION_V_0_3_0);
     }
 
     public ClientConfig(String endPoint, String region, String accessKeyId, String accessKeySecret) {
@@ -50,32 +50,48 @@ public class ClientConfig {
     }
 
     public static ServiceInfo initServiceInfo(ClientConfig config) {
-        String endPoint = config.getEndpoint().toLowerCase();
-        String[] url = endPoint.split("\\/\\/");
-        String schema = endPoint.startsWith(com.volcengine.util.Const.HTTPS) ?
+        String endPoint = config.getEndpoint();
+        String schema = endPoint.toLowerCase().startsWith(com.volcengine.util.Const.HTTPS) ?
                 com.volcengine.util.Const.HTTPS : com.volcengine.util.Const.HTTP;
-        return new ServiceInfo(
-                new HashMap<String, Object>() {
-                    {
-                        put(com.volcengine.util.Const.CONNECTION_TIMEOUT,
-                                config.getConnectionTimeout());
-                        put(com.volcengine.util.Const.SOCKET_TIMEOUT,
-                                config.getSocketTimeout());
-                        put(com.volcengine.util.Const.Scheme, schema);
-                        put(com.volcengine.util.Const.Host, url[1]);
-                        put(com.volcengine.util.Const.Header, new ArrayList<Header>() {
-                            {
-                                add(new Header(com.volcengine.util.Const.ACCEPT,
-                                        com.volcengine.util.Const.ACCEPT_ALL));
-                                add(new Header(com.volcengine.util.Const.ACCEPT_ENCODING,
-                                        com.volcengine.util.Const.GZIP_DEFLATE_BR));
-                                add(new Header(Const.REGION, config.getRegion()));
-                            }
-                        });
-                        put(com.volcengine.util.Const.Credentials, new Credentials(config.getRegion(), TLS));
-                    }
+        String hostOnly = null;
+        int port = 0;
+        try {
+            java.net.URI uri = java.net.URI.create(endPoint);
+            hostOnly = uri.getHost();
+            int p = uri.getPort();
+            port = p < 0 ? 0 : p;
+        } catch (Exception ignore) {
+            String[] url = endPoint.split("\\/\\/");
+            String h = url.length > 1 ? url[1] : endPoint;
+            int idx = h.indexOf('/');
+            if (idx >= 0) {
+                h = h.substring(0, idx);
+            }
+            int colon = h.indexOf(':');
+            if (colon >= 0) {
+                try {
+                    port = Integer.parseInt(h.substring(colon + 1));
+                } catch (Exception ignored) {
+                    port = 0;
                 }
-        );
+                hostOnly = h.substring(0, colon);
+            } else {
+                hostOnly = h;
+            }
+        }
+        java.util.Map<String, Object> params = new java.util.HashMap<>();
+        params.put(com.volcengine.util.Const.CONNECTION_TIMEOUT, config.getConnectionTimeout());
+        params.put(com.volcengine.util.Const.SOCKET_TIMEOUT, config.getSocketTimeout());
+        params.put(com.volcengine.util.Const.Scheme, schema);
+        params.put(com.volcengine.util.Const.Host, hostOnly);
+        params.put(com.volcengine.util.Const.Port, port);
+        java.util.List<Header> headers = new java.util.ArrayList<>();
+        headers.add(new Header(com.volcengine.util.Const.ACCEPT, com.volcengine.util.Const.ACCEPT_ALL));
+        headers.add(new Header(com.volcengine.util.Const.ACCEPT_ENCODING, com.volcengine.util.Const.GZIP_DEFLATE_BR));
+        headers.add(new Header(Const.REGION, config.getRegion()));
+        params.put(com.volcengine.util.Const.Header, headers);
+        params.put(com.volcengine.util.Const.Credentials, new Credentials(config.getRegion(), TLS));
+        return new ServiceInfo(params);
     }
 
     public void resetAccessKeyToken(String accessKey, String secretKey, String securityToken) {

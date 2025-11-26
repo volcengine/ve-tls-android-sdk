@@ -72,9 +72,6 @@ public class ProducerDemo extends BaseDemo {
             // wait 30s,index to be queried
 
             Thread.sleep(30000);
-            ConsumeLogsRequest consumeLogsRequest = new ConsumeLogsRequest();
-            consumeLogsRequest.setTopicId(topicId);
-            consumeLogsRequest.setShardId(0);
             // delete index topic project
             DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest(topicId);
             DeleteIndexResponse deleteIndexResponse = client.deleteIndex(deleteIndexRequest);

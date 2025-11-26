@@ -26,6 +26,7 @@ public class Mover extends Thread {
 
     public Mover(String name, ProducerConfig producerConfig, LogDispatcher dispatcher, RetryManager retryManager,
                  BlockingQueue<BatchLog> successQueue, BlockingQueue<BatchLog> failureQueue) {
+        setDaemon(true);
         this.name = name;
         this.producerConfig = producerConfig;
         this.retryManager = retryManager;
@@ -110,6 +111,6 @@ public class Mover extends Thread {
 
     public void close() {
         this.closed = true;
-        super.interrupt();
+        interrupt();
     }
 }

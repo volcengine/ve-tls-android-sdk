@@ -5,8 +5,6 @@ import com.volcengine.model.tls.exception.LogException;
 import lombok.Getter;
 import lombok.ToString;
 import com.volcengine.util.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Getter
 @ToString
@@ -16,21 +14,22 @@ public class ProducerConfig {
     public static final int DEFAULT_MAX_BATCH_SIZE = 512 * 1024;
     public static final int MAX_BATCH_SIZE = 8 * 1024 * 1024;
     public static final int DEFAULT_MAX_BATCH_COUNT = 4096;
-    public static final int MAX_BATCH_COUNT = 4096 * 10;
+    public static final int MAX_BATCH_COUNT = 32768;
+    public static final int MAX_LOG_GROUP_COUNT = 10000;
     public static final int DEFAULT_LINGER_MS = 2000;
     public static final int TOO_MANY_REQUEST_ERROR = 429;
     public static final int EXTERNAL_ERROR = 500;
     public static final int MIN_WAIT_MS = 100;
-    public static final int DEFAULT_RETRY_COUNT = 2;
+    public static final int DEFAULT_RETRY_COUNT = 10;
     public static final int DEFAULT_RESERVED_ATTEMPTS = DEFAULT_RETRY_COUNT + 1;
     public static final int MAX_RETRY_COUNT = 4;
     public static final int MAX_RESERVED_ATTEMPTS = MAX_RETRY_COUNT + 1;
     public static final int AVAILABLE_PROCESSORS = Math.max(Runtime.getRuntime().availableProcessors(), 1);
-    public static final int MAX_THREAD_COUNT = Math.max(DEFAULT_MAX_THREAD_COUNT, AVAILABLE_PROCESSORS);
+    public static final int MAX_THREAD_COUNT = AVAILABLE_PROCESSORS;
     public static final int DEFAULT_SHARD_COUNT = 2;
     public static final long DEFAULT_BLOCK_MS = 60 * 1000L;
     private int totalSizeInBytes = DEFAULT_TOTAL_SIZE_IN_BYTES;
-    private int maxThreadCount = DEFAULT_MAX_THREAD_COUNT;
+    private int maxThreadCount = MAX_THREAD_COUNT;
     private int maxBatchSizeBytes = DEFAULT_MAX_BATCH_SIZE;
     private int maxBatchCount = DEFAULT_MAX_BATCH_COUNT;
     private int lingerMs = DEFAULT_LINGER_MS;
@@ -39,11 +38,10 @@ public class ProducerConfig {
     private int maxReservedAttempts = DEFAULT_RESERVED_ATTEMPTS;
     private ClientConfig clientConfig;
     private int shardCount = DEFAULT_SHARD_COUNT;
-    private final static Logger log = LoggerFactory.getLogger(ProducerConfig.class);
 
     public ProducerConfig(String endpoint, String region, String accessKey, String accessSecret, String token) {
         clientConfig = new ClientConfig(endpoint, region, accessKey, accessSecret, token);
-        clientConfig.setRetryCount(1);
+
     }
 
     public ProducerConfig(String endpoint, String region, String accessKey, String accessSecret) {
@@ -51,12 +49,12 @@ public class ProducerConfig {
     }
 
     public static boolean needRetry(int httpCode) {
-        return httpCode == TOO_MANY_REQUEST_ERROR || httpCode >= EXTERNAL_ERROR;
+        return httpCode == TOO_MANY_REQUEST_ERROR || httpCode >= EXTERNAL_ERROR || httpCode == 0;
     }
 
     public void validConfig() throws LogException {
         totalSizeInBytes = (int) validNumber(totalSizeInBytes, 1, Integer.MAX_VALUE, DEFAULT_TOTAL_SIZE_IN_BYTES);
-        maxThreadCount = (int) validNumber(maxThreadCount, 1, MAX_THREAD_COUNT, AVAILABLE_PROCESSORS);
+        maxThreadCount = (int) validNumber(maxThreadCount, 1, MAX_THREAD_COUNT, MAX_THREAD_COUNT);
         maxBatchSizeBytes = (int) validNumber(maxBatchSizeBytes, 1, MAX_BATCH_SIZE, DEFAULT_MAX_BATCH_SIZE);
         maxBatchCount = (int) validNumber(maxBatchCount, 1, MAX_BATCH_COUNT, DEFAULT_MAX_BATCH_COUNT);
         lingerMs = (int) validNumber(lingerMs, MIN_WAIT_MS, Integer.MAX_VALUE, DEFAULT_LINGER_MS);
@@ -67,8 +65,6 @@ public class ProducerConfig {
         if (clientConfig == null || StringUtils.isEmpty(clientConfig.getEndpoint()) || StringUtils.isEmpty(clientConfig.getAccessKeyId()) || StringUtils.isEmpty(clientConfig.getAccessKeySecret()) || StringUtils.isEmpty(clientConfig.getRegion())) {
             throw new LogException("InvalidArgument", String.valueOf(clientConfig), null);
         }
-        log.info("producer config valid success,config:" + this);
-
     }
 
     private long validNumber(Number field, Number min, Number max, Number originDefault) {
@@ -137,7 +133,6 @@ public class ProducerConfig {
             throw new LogException("InvalidArgument", String.valueOf(clientConfig), null);
         }
         this.clientConfig = clientConfig;
-        this.clientConfig.setRetryCount(1);
     }
 
     public void setShardCount(int shardCount) throws LogException {
@@ -156,10 +151,10 @@ public class ProducerConfig {
 
     public void checkBatchSize(int batchSize) throws LogException {
         if (batchSize > MAX_BATCH_SIZE) {
-            throw new LogException("Invalid Arguments", "log batch size" + batchSize + " is larger than MAX_BATCH_SIZE " + MAX_BATCH_SIZE, null);
+            throw new LogException("Invalid Arguments", "log batch size " + batchSize + " is larger than MAX_BATCH_SIZE " + MAX_BATCH_SIZE, null);
         }
         if (batchSize > getTotalSizeInBytes()) {
-            throw new LogException("Invalid Arguments", "log batch size" + batchSize + " is larger than DEFAULT_TOTAL_SIZE_IN_BYTES " + DEFAULT_TOTAL_SIZE_IN_BYTES, null);
+            throw new LogException("Invalid Arguments", "log batch size " + batchSize + " is larger than DEFAULT_TOTAL_SIZE_IN_BYTES " + DEFAULT_TOTAL_SIZE_IN_BYTES, null);
         }
     }
 }

@@ -8,10 +8,13 @@ import com.volcengine.service.tls.TLSLogClientImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.volcengine.model.tls.Const.SOCKET_TIMEOUT_MS;
+import static com.volcengine.model.tls.Const.CONNECTION_TIMEOUT_MS;
+
 
 public class ClientBuilder {
     public static final String HTTP = "http";
-    private static volatile TLSLogClient client;
+    
     private final static Logger log = LoggerFactory.getLogger(ClientBuilder.class);
 
     public ClientBuilder() {
@@ -49,20 +52,14 @@ public class ClientBuilder {
         }
         //init config for service
         ServiceInfo serviceInfo = ClientConfig.initServiceInfo(config);
-        if (client == null) {
-            synchronized (ClientBuilder.class) {
-                if (client == null) {
-                    TLSHttpUtil tlsHttpUtil = new TLSHttpUtil(serviceInfo, TLSHttpUtil.API_INFO_LIST);
-                    tlsHttpUtil.setAccessKey(config.getAccessKeyId());
-                    tlsHttpUtil.setSecretKey(config.getAccessKeySecret());
-                    tlsHttpUtil.setSessionToken(config.getSecurityToken());
-                    tlsHttpUtil.setSocketTimeout(config.getSocketTimeout());
-                    tlsHttpUtil.setConnectionTimeout(config.getConnectionTimeout());
-                    client = new TLSLogClientImpl(tlsHttpUtil, config);
-                }
-            }
-        }
-        return client;
+        TLSHttpUtil tlsHttpUtil = new TLSHttpUtil(serviceInfo, TLSHttpUtil.API_INFO_LIST);
+        tlsHttpUtil.setAccessKey(config.getAccessKeyId());
+        tlsHttpUtil.setSecretKey(config.getAccessKeySecret());
+        tlsHttpUtil.setSessionToken(config.getSecurityToken());
+        tlsHttpUtil.setSocketTimeout(SOCKET_TIMEOUT_MS);
+        tlsHttpUtil.setConnectionTimeout(CONNECTION_TIMEOUT_MS);
+
+        return new TLSLogClientImpl(tlsHttpUtil, config);
     }
 
 }

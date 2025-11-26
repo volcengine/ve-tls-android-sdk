@@ -96,7 +96,8 @@ public final class PutLogRequest {
               break;
             }
             case 18: {
-              java.lang.String s = input.readStringRequireUtf8();
+//              java.lang.String s = input.readStringRequireUtf8();
+              java.lang.String s = input.readString();
 
               value_ = s;
               break;
@@ -130,7 +131,7 @@ public final class PutLogRequest {
         internalGetFieldAccessorTable() {
       return PutLogRequest.internal_static_pb_LogContent_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              LogContent.class, Builder.class);
+              PutLogRequest.LogContent.class, PutLogRequest.LogContent.Builder.class);
     }
 
     public static final int KEY_FIELD_NUMBER = 1;
@@ -254,10 +255,10 @@ public final class PutLogRequest {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof LogContent)) {
+      if (!(obj instanceof PutLogRequest.LogContent)) {
         return super.equals(obj);
       }
-      LogContent other = (LogContent) obj;
+      PutLogRequest.LogContent other = (PutLogRequest.LogContent) obj;
 
       if (!getKey()
           .equals(other.getKey())) return false;
@@ -283,69 +284,69 @@ public final class PutLogRequest {
       return hash;
     }
 
-    public static LogContent parseFrom(
+    public static PutLogRequest.LogContent parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static LogContent parseFrom(
+    public static PutLogRequest.LogContent parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static LogContent parseFrom(
+    public static PutLogRequest.LogContent parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static LogContent parseFrom(
+    public static PutLogRequest.LogContent parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static LogContent parseFrom(byte[] data)
+    public static PutLogRequest.LogContent parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static LogContent parseFrom(
+    public static PutLogRequest.LogContent parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static LogContent parseFrom(java.io.InputStream input)
+    public static PutLogRequest.LogContent parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static LogContent parseFrom(
+    public static PutLogRequest.LogContent parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
-    public static LogContent parseDelimitedFrom(java.io.InputStream input)
+    public static PutLogRequest.LogContent parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
-    public static LogContent parseDelimitedFrom(
+    public static PutLogRequest.LogContent parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static LogContent parseFrom(
+    public static PutLogRequest.LogContent parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static LogContent parseFrom(
+    public static PutLogRequest.LogContent parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -358,7 +359,7 @@ public final class PutLogRequest {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(LogContent prototype) {
+    public static Builder newBuilder(PutLogRequest.LogContent prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -379,7 +380,7 @@ public final class PutLogRequest {
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:LogContent)
-        LogContentOrBuilder {
+        PutLogRequest.LogContentOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
         return PutLogRequest.internal_static_pb_LogContent_descriptor;
@@ -390,7 +391,7 @@ public final class PutLogRequest {
           internalGetFieldAccessorTable() {
         return PutLogRequest.internal_static_pb_LogContent_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                LogContent.class, Builder.class);
+                PutLogRequest.LogContent.class, PutLogRequest.LogContent.Builder.class);
       }
 
       // Construct using PutLogRequest.LogContent.newBuilder()
@@ -426,12 +427,12 @@ public final class PutLogRequest {
 
       @java.lang.Override
       public PutLogRequest.LogContent getDefaultInstanceForType() {
-        return LogContent.getDefaultInstance();
+        return PutLogRequest.LogContent.getDefaultInstance();
       }
 
       @java.lang.Override
       public PutLogRequest.LogContent build() {
-        LogContent result = buildPartial();
+        PutLogRequest.LogContent result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -440,7 +441,7 @@ public final class PutLogRequest {
 
       @java.lang.Override
       public PutLogRequest.LogContent buildPartial() {
-        LogContent result = new LogContent(this);
+        PutLogRequest.LogContent result = new PutLogRequest.LogContent(this);
         result.key_ = key_;
         result.value_ = value_;
         onBuilt();
@@ -481,16 +482,16 @@ public final class PutLogRequest {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof LogContent) {
-          return mergeFrom((LogContent)other);
+        if (other instanceof PutLogRequest.LogContent) {
+          return mergeFrom((PutLogRequest.LogContent)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(LogContent other) {
-        if (other == LogContent.getDefaultInstance()) return this;
+      public Builder mergeFrom(PutLogRequest.LogContent other) {
+        if (other == PutLogRequest.LogContent.getDefaultInstance()) return this;
         if (!other.getKey().isEmpty()) {
           key_ = other.key_;
           onChanged();
@@ -514,11 +515,11 @@ public final class PutLogRequest {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        LogContent parsedMessage = null;
+        PutLogRequest.LogContent parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (LogContent) e.getUnfinishedMessage();
+          parsedMessage = (PutLogRequest.LogContent) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -696,12 +697,12 @@ public final class PutLogRequest {
     }
 
     // @@protoc_insertion_point(class_scope:LogContent)
-    private static final LogContent DEFAULT_INSTANCE;
+    private static final PutLogRequest.LogContent DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new LogContent();
+      DEFAULT_INSTANCE = new PutLogRequest.LogContent();
     }
 
-    public static LogContent getDefaultInstance() {
+    public static PutLogRequest.LogContent getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
@@ -749,12 +750,12 @@ public final class PutLogRequest {
     /**
      * <code>repeated .LogContent Contents = 2;</code>
      */
-    java.util.List<LogContent>
+    java.util.List<PutLogRequest.LogContent> 
         getContentsList();
     /**
      * <code>repeated .LogContent Contents = 2;</code>
      */
-    LogContent getContents(int index);
+    PutLogRequest.LogContent getContents(int index);
     /**
      * <code>repeated .LogContent Contents = 2;</code>
      */
@@ -762,12 +763,12 @@ public final class PutLogRequest {
     /**
      * <code>repeated .LogContent Contents = 2;</code>
      */
-    java.util.List<? extends LogContentOrBuilder>
+    java.util.List<? extends PutLogRequest.LogContentOrBuilder> 
         getContentsOrBuilderList();
     /**
      * <code>repeated .LogContent Contents = 2;</code>
      */
-    LogContentOrBuilder getContentsOrBuilder(
+    PutLogRequest.LogContentOrBuilder getContentsOrBuilder(
         int index);
   }
   /**
@@ -824,11 +825,11 @@ public final class PutLogRequest {
             }
             case 18: {
               if (!((mutable_bitField0_ & 0x00000001) != 0)) {
-                contents_ = new java.util.ArrayList<LogContent>();
+                contents_ = new java.util.ArrayList<PutLogRequest.LogContent>();
                 mutable_bitField0_ |= 0x00000001;
               }
               contents_.add(
-                  input.readMessage(LogContent.parser(), extensionRegistry));
+                  input.readMessage(PutLogRequest.LogContent.parser(), extensionRegistry));
               break;
             }
             default: {
@@ -863,7 +864,7 @@ public final class PutLogRequest {
         internalGetFieldAccessorTable() {
       return PutLogRequest.internal_static_pb_Log_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              Log.class, Builder.class);
+              PutLogRequest.Log.class, PutLogRequest.Log.Builder.class);
     }
 
     public static final int TIME_FIELD_NUMBER = 1;
@@ -882,19 +883,19 @@ public final class PutLogRequest {
     }
 
     public static final int CONTENTS_FIELD_NUMBER = 2;
-    private java.util.List<LogContent> contents_;
+    private java.util.List<PutLogRequest.LogContent> contents_;
     /**
      * <code>repeated .LogContent Contents = 2;</code>
      */
     @java.lang.Override
-    public java.util.List<LogContent> getContentsList() {
+    public java.util.List<PutLogRequest.LogContent> getContentsList() {
       return contents_;
     }
     /**
      * <code>repeated .LogContent Contents = 2;</code>
      */
     @java.lang.Override
-    public java.util.List<? extends LogContentOrBuilder>
+    public java.util.List<? extends PutLogRequest.LogContentOrBuilder> 
         getContentsOrBuilderList() {
       return contents_;
     }
@@ -968,10 +969,10 @@ public final class PutLogRequest {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof Log)) {
+      if (!(obj instanceof PutLogRequest.Log)) {
         return super.equals(obj);
       }
-      Log other = (Log) obj;
+      PutLogRequest.Log other = (PutLogRequest.Log) obj;
 
       if (getTime()
           != other.getTime()) return false;
@@ -1000,69 +1001,69 @@ public final class PutLogRequest {
       return hash;
     }
 
-    public static Log parseFrom(
+    public static PutLogRequest.Log parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static Log parseFrom(
+    public static PutLogRequest.Log parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static Log parseFrom(
+    public static PutLogRequest.Log parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static Log parseFrom(
+    public static PutLogRequest.Log parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static Log parseFrom(byte[] data)
+    public static PutLogRequest.Log parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static Log parseFrom(
+    public static PutLogRequest.Log parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static Log parseFrom(java.io.InputStream input)
+    public static PutLogRequest.Log parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static Log parseFrom(
+    public static PutLogRequest.Log parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
-    public static Log parseDelimitedFrom(java.io.InputStream input)
+    public static PutLogRequest.Log parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
-    public static Log parseDelimitedFrom(
+    public static PutLogRequest.Log parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static Log parseFrom(
+    public static PutLogRequest.Log parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static Log parseFrom(
+    public static PutLogRequest.Log parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -1075,7 +1076,7 @@ public final class PutLogRequest {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(Log prototype) {
+    public static Builder newBuilder(PutLogRequest.Log prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -1096,7 +1097,7 @@ public final class PutLogRequest {
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:Log)
-        LogOrBuilder {
+        PutLogRequest.LogOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
         return PutLogRequest.internal_static_pb_Log_descriptor;
@@ -1107,7 +1108,7 @@ public final class PutLogRequest {
           internalGetFieldAccessorTable() {
         return PutLogRequest.internal_static_pb_Log_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                Log.class, Builder.class);
+                PutLogRequest.Log.class, PutLogRequest.Log.Builder.class);
       }
 
       // Construct using PutLogRequest.Log.newBuilder()
@@ -1148,12 +1149,12 @@ public final class PutLogRequest {
 
       @java.lang.Override
       public PutLogRequest.Log getDefaultInstanceForType() {
-        return Log.getDefaultInstance();
+        return PutLogRequest.Log.getDefaultInstance();
       }
 
       @java.lang.Override
       public PutLogRequest.Log build() {
-        Log result = buildPartial();
+        PutLogRequest.Log result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -1162,7 +1163,7 @@ public final class PutLogRequest {
 
       @java.lang.Override
       public PutLogRequest.Log buildPartial() {
-        Log result = new Log(this);
+        PutLogRequest.Log result = new PutLogRequest.Log(this);
         int from_bitField0_ = bitField0_;
         result.time_ = time_;
         if (contentsBuilder_ == null) {
@@ -1212,16 +1213,16 @@ public final class PutLogRequest {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof Log) {
-          return mergeFrom((Log)other);
+        if (other instanceof PutLogRequest.Log) {
+          return mergeFrom((PutLogRequest.Log)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(Log other) {
-        if (other == Log.getDefaultInstance()) return this;
+      public Builder mergeFrom(PutLogRequest.Log other) {
+        if (other == PutLogRequest.Log.getDefaultInstance()) return this;
         if (other.getTime() != 0L) {
           setTime(other.getTime());
         }
@@ -1266,11 +1267,11 @@ public final class PutLogRequest {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        Log parsedMessage = null;
+        PutLogRequest.Log parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (Log) e.getUnfinishedMessage();
+          parsedMessage = (PutLogRequest.Log) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -1324,22 +1325,22 @@ public final class PutLogRequest {
         return this;
       }
 
-      private java.util.List<LogContent> contents_ =
+      private java.util.List<PutLogRequest.LogContent> contents_ =
         java.util.Collections.emptyList();
       private void ensureContentsIsMutable() {
         if (!((bitField0_ & 0x00000001) != 0)) {
-          contents_ = new java.util.ArrayList<LogContent>(contents_);
+          contents_ = new java.util.ArrayList<PutLogRequest.LogContent>(contents_);
           bitField0_ |= 0x00000001;
          }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-          LogContent, LogContent.Builder, LogContentOrBuilder> contentsBuilder_;
+          PutLogRequest.LogContent, PutLogRequest.LogContent.Builder, PutLogRequest.LogContentOrBuilder> contentsBuilder_;
 
       /**
        * <code>repeated .LogContent Contents = 2;</code>
        */
-      public java.util.List<LogContent> getContentsList() {
+      public java.util.List<PutLogRequest.LogContent> getContentsList() {
         if (contentsBuilder_ == null) {
           return java.util.Collections.unmodifiableList(contents_);
         } else {
@@ -1359,7 +1360,7 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogContent Contents = 2;</code>
        */
-      public LogContent getContents(int index) {
+      public PutLogRequest.LogContent getContents(int index) {
         if (contentsBuilder_ == null) {
           return contents_.get(index);
         } else {
@@ -1370,7 +1371,7 @@ public final class PutLogRequest {
        * <code>repeated .LogContent Contents = 2;</code>
        */
       public Builder setContents(
-          int index, LogContent value) {
+          int index, PutLogRequest.LogContent value) {
         if (contentsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -1387,7 +1388,7 @@ public final class PutLogRequest {
        * <code>repeated .LogContent Contents = 2;</code>
        */
       public Builder setContents(
-          int index, LogContent.Builder builderForValue) {
+          int index, PutLogRequest.LogContent.Builder builderForValue) {
         if (contentsBuilder_ == null) {
           ensureContentsIsMutable();
           contents_.set(index, builderForValue.build());
@@ -1400,7 +1401,7 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogContent Contents = 2;</code>
        */
-      public Builder addContents(LogContent value) {
+      public Builder addContents(PutLogRequest.LogContent value) {
         if (contentsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -1417,7 +1418,7 @@ public final class PutLogRequest {
        * <code>repeated .LogContent Contents = 2;</code>
        */
       public Builder addContents(
-          int index, LogContent value) {
+          int index, PutLogRequest.LogContent value) {
         if (contentsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -1434,7 +1435,7 @@ public final class PutLogRequest {
        * <code>repeated .LogContent Contents = 2;</code>
        */
       public Builder addContents(
-          LogContent.Builder builderForValue) {
+          PutLogRequest.LogContent.Builder builderForValue) {
         if (contentsBuilder_ == null) {
           ensureContentsIsMutable();
           contents_.add(builderForValue.build());
@@ -1448,7 +1449,7 @@ public final class PutLogRequest {
        * <code>repeated .LogContent Contents = 2;</code>
        */
       public Builder addContents(
-          int index, LogContent.Builder builderForValue) {
+          int index, PutLogRequest.LogContent.Builder builderForValue) {
         if (contentsBuilder_ == null) {
           ensureContentsIsMutable();
           contents_.add(index, builderForValue.build());
@@ -1462,7 +1463,7 @@ public final class PutLogRequest {
        * <code>repeated .LogContent Contents = 2;</code>
        */
       public Builder addAllContents(
-          java.lang.Iterable<? extends LogContent> values) {
+          java.lang.Iterable<? extends PutLogRequest.LogContent> values) {
         if (contentsBuilder_ == null) {
           ensureContentsIsMutable();
           com.google.protobuf.AbstractMessageLite.Builder.addAll(
@@ -1502,14 +1503,14 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogContent Contents = 2;</code>
        */
-      public LogContent.Builder getContentsBuilder(
+      public PutLogRequest.LogContent.Builder getContentsBuilder(
           int index) {
         return getContentsFieldBuilder().getBuilder(index);
       }
       /**
        * <code>repeated .LogContent Contents = 2;</code>
        */
-      public LogContentOrBuilder getContentsOrBuilder(
+      public PutLogRequest.LogContentOrBuilder getContentsOrBuilder(
           int index) {
         if (contentsBuilder_ == null) {
           return contents_.get(index);  } else {
@@ -1519,7 +1520,7 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogContent Contents = 2;</code>
        */
-      public java.util.List<? extends LogContentOrBuilder>
+      public java.util.List<? extends PutLogRequest.LogContentOrBuilder> 
            getContentsOrBuilderList() {
         if (contentsBuilder_ != null) {
           return contentsBuilder_.getMessageOrBuilderList();
@@ -1530,31 +1531,31 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogContent Contents = 2;</code>
        */
-      public LogContent.Builder addContentsBuilder() {
+      public PutLogRequest.LogContent.Builder addContentsBuilder() {
         return getContentsFieldBuilder().addBuilder(
-            LogContent.getDefaultInstance());
+            PutLogRequest.LogContent.getDefaultInstance());
       }
       /**
        * <code>repeated .LogContent Contents = 2;</code>
        */
-      public LogContent.Builder addContentsBuilder(
+      public PutLogRequest.LogContent.Builder addContentsBuilder(
           int index) {
         return getContentsFieldBuilder().addBuilder(
-            index, LogContent.getDefaultInstance());
+            index, PutLogRequest.LogContent.getDefaultInstance());
       }
       /**
        * <code>repeated .LogContent Contents = 2;</code>
        */
-      public java.util.List<LogContent.Builder>
+      public java.util.List<PutLogRequest.LogContent.Builder> 
            getContentsBuilderList() {
         return getContentsFieldBuilder().getBuilderList();
       }
       private com.google.protobuf.RepeatedFieldBuilderV3<
-          LogContent, LogContent.Builder, LogContentOrBuilder>
+          PutLogRequest.LogContent, PutLogRequest.LogContent.Builder, PutLogRequest.LogContentOrBuilder> 
           getContentsFieldBuilder() {
         if (contentsBuilder_ == null) {
           contentsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-              LogContent, LogContent.Builder, LogContentOrBuilder>(
+              PutLogRequest.LogContent, PutLogRequest.LogContent.Builder, PutLogRequest.LogContentOrBuilder>(
                   contents_,
                   ((bitField0_ & 0x00000001) != 0),
                   getParentForChildren(),
@@ -1580,12 +1581,12 @@ public final class PutLogRequest {
     }
 
     // @@protoc_insertion_point(class_scope:Log)
-    private static final Log DEFAULT_INSTANCE;
+    private static final PutLogRequest.Log DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new Log();
+      DEFAULT_INSTANCE = new PutLogRequest.Log();
     }
 
-    public static Log getDefaultInstance() {
+    public static PutLogRequest.Log getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
@@ -1732,7 +1733,7 @@ public final class PutLogRequest {
         internalGetFieldAccessorTable() {
       return PutLogRequest.internal_static_pb_LogTag_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              LogTag.class, Builder.class);
+              PutLogRequest.LogTag.class, PutLogRequest.LogTag.Builder.class);
     }
 
     public static final int KEY_FIELD_NUMBER = 1;
@@ -1856,10 +1857,10 @@ public final class PutLogRequest {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof LogTag)) {
+      if (!(obj instanceof PutLogRequest.LogTag)) {
         return super.equals(obj);
       }
-      LogTag other = (LogTag) obj;
+      PutLogRequest.LogTag other = (PutLogRequest.LogTag) obj;
 
       if (!getKey()
           .equals(other.getKey())) return false;
@@ -1885,69 +1886,69 @@ public final class PutLogRequest {
       return hash;
     }
 
-    public static LogTag parseFrom(
+    public static PutLogRequest.LogTag parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static LogTag parseFrom(
+    public static PutLogRequest.LogTag parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static LogTag parseFrom(
+    public static PutLogRequest.LogTag parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static LogTag parseFrom(
+    public static PutLogRequest.LogTag parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static LogTag parseFrom(byte[] data)
+    public static PutLogRequest.LogTag parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static LogTag parseFrom(
+    public static PutLogRequest.LogTag parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static LogTag parseFrom(java.io.InputStream input)
+    public static PutLogRequest.LogTag parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static LogTag parseFrom(
+    public static PutLogRequest.LogTag parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
-    public static LogTag parseDelimitedFrom(java.io.InputStream input)
+    public static PutLogRequest.LogTag parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
-    public static LogTag parseDelimitedFrom(
+    public static PutLogRequest.LogTag parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static LogTag parseFrom(
+    public static PutLogRequest.LogTag parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static LogTag parseFrom(
+    public static PutLogRequest.LogTag parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -1960,7 +1961,7 @@ public final class PutLogRequest {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(LogTag prototype) {
+    public static Builder newBuilder(PutLogRequest.LogTag prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -1981,7 +1982,7 @@ public final class PutLogRequest {
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:LogTag)
-        LogTagOrBuilder {
+        PutLogRequest.LogTagOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
         return PutLogRequest.internal_static_pb_LogTag_descriptor;
@@ -1992,7 +1993,7 @@ public final class PutLogRequest {
           internalGetFieldAccessorTable() {
         return PutLogRequest.internal_static_pb_LogTag_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                LogTag.class, Builder.class);
+                PutLogRequest.LogTag.class, PutLogRequest.LogTag.Builder.class);
       }
 
       // Construct using PutLogRequest.LogTag.newBuilder()
@@ -2028,12 +2029,12 @@ public final class PutLogRequest {
 
       @java.lang.Override
       public PutLogRequest.LogTag getDefaultInstanceForType() {
-        return LogTag.getDefaultInstance();
+        return PutLogRequest.LogTag.getDefaultInstance();
       }
 
       @java.lang.Override
       public PutLogRequest.LogTag build() {
-        LogTag result = buildPartial();
+        PutLogRequest.LogTag result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -2042,7 +2043,7 @@ public final class PutLogRequest {
 
       @java.lang.Override
       public PutLogRequest.LogTag buildPartial() {
-        LogTag result = new LogTag(this);
+        PutLogRequest.LogTag result = new PutLogRequest.LogTag(this);
         result.key_ = key_;
         result.value_ = value_;
         onBuilt();
@@ -2083,16 +2084,16 @@ public final class PutLogRequest {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof LogTag) {
-          return mergeFrom((LogTag)other);
+        if (other instanceof PutLogRequest.LogTag) {
+          return mergeFrom((PutLogRequest.LogTag)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(LogTag other) {
-        if (other == LogTag.getDefaultInstance()) return this;
+      public Builder mergeFrom(PutLogRequest.LogTag other) {
+        if (other == PutLogRequest.LogTag.getDefaultInstance()) return this;
         if (!other.getKey().isEmpty()) {
           key_ = other.key_;
           onChanged();
@@ -2116,11 +2117,11 @@ public final class PutLogRequest {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        LogTag parsedMessage = null;
+        PutLogRequest.LogTag parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (LogTag) e.getUnfinishedMessage();
+          parsedMessage = (PutLogRequest.LogTag) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -2298,12 +2299,12 @@ public final class PutLogRequest {
     }
 
     // @@protoc_insertion_point(class_scope:LogTag)
-    private static final LogTag DEFAULT_INSTANCE;
+    private static final PutLogRequest.LogTag DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new LogTag();
+      DEFAULT_INSTANCE = new PutLogRequest.LogTag();
     }
 
-    public static LogTag getDefaultInstance() {
+    public static PutLogRequest.LogTag getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
@@ -2341,12 +2342,12 @@ public final class PutLogRequest {
     /**
      * <code>repeated .Log Logs = 1;</code>
      */
-    java.util.List<Log>
+    java.util.List<PutLogRequest.Log> 
         getLogsList();
     /**
      * <code>repeated .Log Logs = 1;</code>
      */
-    Log getLogs(int index);
+    PutLogRequest.Log getLogs(int index);
     /**
      * <code>repeated .Log Logs = 1;</code>
      */
@@ -2354,12 +2355,12 @@ public final class PutLogRequest {
     /**
      * <code>repeated .Log Logs = 1;</code>
      */
-    java.util.List<? extends LogOrBuilder>
+    java.util.List<? extends PutLogRequest.LogOrBuilder> 
         getLogsOrBuilderList();
     /**
      * <code>repeated .Log Logs = 1;</code>
      */
-    LogOrBuilder getLogsOrBuilder(
+    PutLogRequest.LogOrBuilder getLogsOrBuilder(
         int index);
 
     /**
@@ -2377,12 +2378,12 @@ public final class PutLogRequest {
     /**
      * <code>repeated .LogTag LogTags = 3;</code>
      */
-    java.util.List<LogTag>
+    java.util.List<PutLogRequest.LogTag> 
         getLogTagsList();
     /**
      * <code>repeated .LogTag LogTags = 3;</code>
      */
-    LogTag getLogTags(int index);
+    PutLogRequest.LogTag getLogTags(int index);
     /**
      * <code>repeated .LogTag LogTags = 3;</code>
      */
@@ -2390,12 +2391,12 @@ public final class PutLogRequest {
     /**
      * <code>repeated .LogTag LogTags = 3;</code>
      */
-    java.util.List<? extends LogTagOrBuilder>
+    java.util.List<? extends PutLogRequest.LogTagOrBuilder> 
         getLogTagsOrBuilderList();
     /**
      * <code>repeated .LogTag LogTags = 3;</code>
      */
-    LogTagOrBuilder getLogTagsOrBuilder(
+    PutLogRequest.LogTagOrBuilder getLogTagsOrBuilder(
         int index);
 
     /**
@@ -2483,11 +2484,11 @@ public final class PutLogRequest {
               break;
             case 10: {
               if (!((mutable_bitField0_ & 0x00000001) != 0)) {
-                logs_ = new java.util.ArrayList<Log>();
+                logs_ = new java.util.ArrayList<PutLogRequest.Log>();
                 mutable_bitField0_ |= 0x00000001;
               }
               logs_.add(
-                  input.readMessage(Log.parser(), extensionRegistry));
+                  input.readMessage(PutLogRequest.Log.parser(), extensionRegistry));
               break;
             }
             case 18: {
@@ -2498,11 +2499,11 @@ public final class PutLogRequest {
             }
             case 26: {
               if (!((mutable_bitField0_ & 0x00000002) != 0)) {
-                logTags_ = new java.util.ArrayList<LogTag>();
+                logTags_ = new java.util.ArrayList<PutLogRequest.LogTag>();
                 mutable_bitField0_ |= 0x00000002;
               }
               logTags_.add(
-                  input.readMessage(LogTag.parser(), extensionRegistry));
+                  input.readMessage(PutLogRequest.LogTag.parser(), extensionRegistry));
               break;
             }
             case 34: {
@@ -2552,23 +2553,23 @@ public final class PutLogRequest {
         internalGetFieldAccessorTable() {
       return PutLogRequest.internal_static_pb_LogGroup_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              LogGroup.class, Builder.class);
+              PutLogRequest.LogGroup.class, PutLogRequest.LogGroup.Builder.class);
     }
 
     public static final int LOGS_FIELD_NUMBER = 1;
-    private java.util.List<Log> logs_;
+    private java.util.List<PutLogRequest.Log> logs_;
     /**
      * <code>repeated .Log Logs = 1;</code>
      */
     @java.lang.Override
-    public java.util.List<Log> getLogsList() {
+    public java.util.List<PutLogRequest.Log> getLogsList() {
       return logs_;
     }
     /**
      * <code>repeated .Log Logs = 1;</code>
      */
     @java.lang.Override
-    public java.util.List<? extends LogOrBuilder>
+    public java.util.List<? extends PutLogRequest.LogOrBuilder> 
         getLogsOrBuilderList() {
       return logs_;
     }
@@ -2634,19 +2635,19 @@ public final class PutLogRequest {
     }
 
     public static final int LOGTAGS_FIELD_NUMBER = 3;
-    private java.util.List<LogTag> logTags_;
+    private java.util.List<PutLogRequest.LogTag> logTags_;
     /**
      * <code>repeated .LogTag LogTags = 3;</code>
      */
     @java.lang.Override
-    public java.util.List<LogTag> getLogTagsList() {
+    public java.util.List<PutLogRequest.LogTag> getLogTagsList() {
       return logTags_;
     }
     /**
      * <code>repeated .LogTag LogTags = 3;</code>
      */
     @java.lang.Override
-    public java.util.List<? extends LogTagOrBuilder>
+    public java.util.List<? extends PutLogRequest.LogTagOrBuilder> 
         getLogTagsOrBuilderList() {
       return logTags_;
     }
@@ -2822,10 +2823,10 @@ public final class PutLogRequest {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof LogGroup)) {
+      if (!(obj instanceof PutLogRequest.LogGroup)) {
         return super.equals(obj);
       }
-      LogGroup other = (LogGroup) obj;
+      PutLogRequest.LogGroup other = (PutLogRequest.LogGroup) obj;
 
       if (!getLogsList()
           .equals(other.getLogsList())) return false;
@@ -2867,69 +2868,69 @@ public final class PutLogRequest {
       return hash;
     }
 
-    public static LogGroup parseFrom(
+    public static PutLogRequest.LogGroup parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static LogGroup parseFrom(
+    public static PutLogRequest.LogGroup parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static LogGroup parseFrom(
+    public static PutLogRequest.LogGroup parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static LogGroup parseFrom(
+    public static PutLogRequest.LogGroup parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static LogGroup parseFrom(byte[] data)
+    public static PutLogRequest.LogGroup parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static LogGroup parseFrom(
+    public static PutLogRequest.LogGroup parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static LogGroup parseFrom(java.io.InputStream input)
+    public static PutLogRequest.LogGroup parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static LogGroup parseFrom(
+    public static PutLogRequest.LogGroup parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
-    public static LogGroup parseDelimitedFrom(java.io.InputStream input)
+    public static PutLogRequest.LogGroup parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
-    public static LogGroup parseDelimitedFrom(
+    public static PutLogRequest.LogGroup parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static LogGroup parseFrom(
+    public static PutLogRequest.LogGroup parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static LogGroup parseFrom(
+    public static PutLogRequest.LogGroup parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -2942,7 +2943,7 @@ public final class PutLogRequest {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(LogGroup prototype) {
+    public static Builder newBuilder(PutLogRequest.LogGroup prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -2963,7 +2964,7 @@ public final class PutLogRequest {
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:LogGroup)
-        LogGroupOrBuilder {
+        PutLogRequest.LogGroupOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
         return PutLogRequest.internal_static_pb_LogGroup_descriptor;
@@ -2974,7 +2975,7 @@ public final class PutLogRequest {
           internalGetFieldAccessorTable() {
         return PutLogRequest.internal_static_pb_LogGroup_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                LogGroup.class, Builder.class);
+                PutLogRequest.LogGroup.class, PutLogRequest.LogGroup.Builder.class);
       }
 
       // Construct using PutLogRequest.LogGroup.newBuilder()
@@ -3026,12 +3027,12 @@ public final class PutLogRequest {
 
       @java.lang.Override
       public PutLogRequest.LogGroup getDefaultInstanceForType() {
-        return LogGroup.getDefaultInstance();
+        return PutLogRequest.LogGroup.getDefaultInstance();
       }
 
       @java.lang.Override
       public PutLogRequest.LogGroup build() {
-        LogGroup result = buildPartial();
+        PutLogRequest.LogGroup result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -3040,7 +3041,7 @@ public final class PutLogRequest {
 
       @java.lang.Override
       public PutLogRequest.LogGroup buildPartial() {
-        LogGroup result = new LogGroup(this);
+        PutLogRequest.LogGroup result = new PutLogRequest.LogGroup(this);
         int from_bitField0_ = bitField0_;
         if (logsBuilder_ == null) {
           if (((bitField0_ & 0x00000001) != 0)) {
@@ -3101,16 +3102,16 @@ public final class PutLogRequest {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof LogGroup) {
-          return mergeFrom((LogGroup)other);
+        if (other instanceof PutLogRequest.LogGroup) {
+          return mergeFrom((PutLogRequest.LogGroup)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(LogGroup other) {
-        if (other == LogGroup.getDefaultInstance()) return this;
+      public Builder mergeFrom(PutLogRequest.LogGroup other) {
+        if (other == PutLogRequest.LogGroup.getDefaultInstance()) return this;
         if (logsBuilder_ == null) {
           if (!other.logs_.isEmpty()) {
             if (logs_.isEmpty()) {
@@ -3190,11 +3191,11 @@ public final class PutLogRequest {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        LogGroup parsedMessage = null;
+        PutLogRequest.LogGroup parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (LogGroup) e.getUnfinishedMessage();
+          parsedMessage = (PutLogRequest.LogGroup) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -3205,22 +3206,22 @@ public final class PutLogRequest {
       }
       private int bitField0_;
 
-      private java.util.List<Log> logs_ =
+      private java.util.List<PutLogRequest.Log> logs_ =
         java.util.Collections.emptyList();
       private void ensureLogsIsMutable() {
         if (!((bitField0_ & 0x00000001) != 0)) {
-          logs_ = new java.util.ArrayList<Log>(logs_);
+          logs_ = new java.util.ArrayList<PutLogRequest.Log>(logs_);
           bitField0_ |= 0x00000001;
          }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-          Log, Log.Builder, LogOrBuilder> logsBuilder_;
+          PutLogRequest.Log, PutLogRequest.Log.Builder, PutLogRequest.LogOrBuilder> logsBuilder_;
 
       /**
        * <code>repeated .Log Logs = 1;</code>
        */
-      public java.util.List<Log> getLogsList() {
+      public java.util.List<PutLogRequest.Log> getLogsList() {
         if (logsBuilder_ == null) {
           return java.util.Collections.unmodifiableList(logs_);
         } else {
@@ -3240,7 +3241,7 @@ public final class PutLogRequest {
       /**
        * <code>repeated .Log Logs = 1;</code>
        */
-      public Log getLogs(int index) {
+      public PutLogRequest.Log getLogs(int index) {
         if (logsBuilder_ == null) {
           return logs_.get(index);
         } else {
@@ -3251,7 +3252,7 @@ public final class PutLogRequest {
        * <code>repeated .Log Logs = 1;</code>
        */
       public Builder setLogs(
-          int index, Log value) {
+          int index, PutLogRequest.Log value) {
         if (logsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -3268,7 +3269,7 @@ public final class PutLogRequest {
        * <code>repeated .Log Logs = 1;</code>
        */
       public Builder setLogs(
-          int index, Log.Builder builderForValue) {
+          int index, PutLogRequest.Log.Builder builderForValue) {
         if (logsBuilder_ == null) {
           ensureLogsIsMutable();
           logs_.set(index, builderForValue.build());
@@ -3281,7 +3282,7 @@ public final class PutLogRequest {
       /**
        * <code>repeated .Log Logs = 1;</code>
        */
-      public Builder addLogs(Log value) {
+      public Builder addLogs(PutLogRequest.Log value) {
         if (logsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -3298,7 +3299,7 @@ public final class PutLogRequest {
        * <code>repeated .Log Logs = 1;</code>
        */
       public Builder addLogs(
-          int index, Log value) {
+          int index, PutLogRequest.Log value) {
         if (logsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -3315,7 +3316,7 @@ public final class PutLogRequest {
        * <code>repeated .Log Logs = 1;</code>
        */
       public Builder addLogs(
-          Log.Builder builderForValue) {
+          PutLogRequest.Log.Builder builderForValue) {
         if (logsBuilder_ == null) {
           ensureLogsIsMutable();
           logs_.add(builderForValue.build());
@@ -3329,7 +3330,7 @@ public final class PutLogRequest {
        * <code>repeated .Log Logs = 1;</code>
        */
       public Builder addLogs(
-          int index, Log.Builder builderForValue) {
+          int index, PutLogRequest.Log.Builder builderForValue) {
         if (logsBuilder_ == null) {
           ensureLogsIsMutable();
           logs_.add(index, builderForValue.build());
@@ -3343,7 +3344,7 @@ public final class PutLogRequest {
        * <code>repeated .Log Logs = 1;</code>
        */
       public Builder addAllLogs(
-          java.lang.Iterable<? extends Log> values) {
+          java.lang.Iterable<? extends PutLogRequest.Log> values) {
         if (logsBuilder_ == null) {
           ensureLogsIsMutable();
           com.google.protobuf.AbstractMessageLite.Builder.addAll(
@@ -3383,14 +3384,14 @@ public final class PutLogRequest {
       /**
        * <code>repeated .Log Logs = 1;</code>
        */
-      public Log.Builder getLogsBuilder(
+      public PutLogRequest.Log.Builder getLogsBuilder(
           int index) {
         return getLogsFieldBuilder().getBuilder(index);
       }
       /**
        * <code>repeated .Log Logs = 1;</code>
        */
-      public LogOrBuilder getLogsOrBuilder(
+      public PutLogRequest.LogOrBuilder getLogsOrBuilder(
           int index) {
         if (logsBuilder_ == null) {
           return logs_.get(index);  } else {
@@ -3400,7 +3401,7 @@ public final class PutLogRequest {
       /**
        * <code>repeated .Log Logs = 1;</code>
        */
-      public java.util.List<? extends LogOrBuilder>
+      public java.util.List<? extends PutLogRequest.LogOrBuilder> 
            getLogsOrBuilderList() {
         if (logsBuilder_ != null) {
           return logsBuilder_.getMessageOrBuilderList();
@@ -3411,31 +3412,31 @@ public final class PutLogRequest {
       /**
        * <code>repeated .Log Logs = 1;</code>
        */
-      public Log.Builder addLogsBuilder() {
+      public PutLogRequest.Log.Builder addLogsBuilder() {
         return getLogsFieldBuilder().addBuilder(
-            Log.getDefaultInstance());
+            PutLogRequest.Log.getDefaultInstance());
       }
       /**
        * <code>repeated .Log Logs = 1;</code>
        */
-      public Log.Builder addLogsBuilder(
+      public PutLogRequest.Log.Builder addLogsBuilder(
           int index) {
         return getLogsFieldBuilder().addBuilder(
-            index, Log.getDefaultInstance());
+            index, PutLogRequest.Log.getDefaultInstance());
       }
       /**
        * <code>repeated .Log Logs = 1;</code>
        */
-      public java.util.List<Log.Builder>
+      public java.util.List<PutLogRequest.Log.Builder> 
            getLogsBuilderList() {
         return getLogsFieldBuilder().getBuilderList();
       }
       private com.google.protobuf.RepeatedFieldBuilderV3<
-          Log, Log.Builder, LogOrBuilder>
+          PutLogRequest.Log, PutLogRequest.Log.Builder, PutLogRequest.LogOrBuilder> 
           getLogsFieldBuilder() {
         if (logsBuilder_ == null) {
           logsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-              Log, Log.Builder, LogOrBuilder>(
+              PutLogRequest.Log, PutLogRequest.Log.Builder, PutLogRequest.LogOrBuilder>(
                   logs_,
                   ((bitField0_ & 0x00000001) != 0),
                   getParentForChildren(),
@@ -3521,22 +3522,22 @@ public final class PutLogRequest {
         return this;
       }
 
-      private java.util.List<LogTag> logTags_ =
+      private java.util.List<PutLogRequest.LogTag> logTags_ =
         java.util.Collections.emptyList();
       private void ensureLogTagsIsMutable() {
         if (!((bitField0_ & 0x00000002) != 0)) {
-          logTags_ = new java.util.ArrayList<LogTag>(logTags_);
+          logTags_ = new java.util.ArrayList<PutLogRequest.LogTag>(logTags_);
           bitField0_ |= 0x00000002;
          }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-          LogTag, LogTag.Builder, LogTagOrBuilder> logTagsBuilder_;
+          PutLogRequest.LogTag, PutLogRequest.LogTag.Builder, PutLogRequest.LogTagOrBuilder> logTagsBuilder_;
 
       /**
        * <code>repeated .LogTag LogTags = 3;</code>
        */
-      public java.util.List<LogTag> getLogTagsList() {
+      public java.util.List<PutLogRequest.LogTag> getLogTagsList() {
         if (logTagsBuilder_ == null) {
           return java.util.Collections.unmodifiableList(logTags_);
         } else {
@@ -3556,7 +3557,7 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogTag LogTags = 3;</code>
        */
-      public LogTag getLogTags(int index) {
+      public PutLogRequest.LogTag getLogTags(int index) {
         if (logTagsBuilder_ == null) {
           return logTags_.get(index);
         } else {
@@ -3567,7 +3568,7 @@ public final class PutLogRequest {
        * <code>repeated .LogTag LogTags = 3;</code>
        */
       public Builder setLogTags(
-          int index, LogTag value) {
+          int index, PutLogRequest.LogTag value) {
         if (logTagsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -3584,7 +3585,7 @@ public final class PutLogRequest {
        * <code>repeated .LogTag LogTags = 3;</code>
        */
       public Builder setLogTags(
-          int index, LogTag.Builder builderForValue) {
+          int index, PutLogRequest.LogTag.Builder builderForValue) {
         if (logTagsBuilder_ == null) {
           ensureLogTagsIsMutable();
           logTags_.set(index, builderForValue.build());
@@ -3597,7 +3598,7 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogTag LogTags = 3;</code>
        */
-      public Builder addLogTags(LogTag value) {
+      public Builder addLogTags(PutLogRequest.LogTag value) {
         if (logTagsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -3614,7 +3615,7 @@ public final class PutLogRequest {
        * <code>repeated .LogTag LogTags = 3;</code>
        */
       public Builder addLogTags(
-          int index, LogTag value) {
+          int index, PutLogRequest.LogTag value) {
         if (logTagsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -3631,7 +3632,7 @@ public final class PutLogRequest {
        * <code>repeated .LogTag LogTags = 3;</code>
        */
       public Builder addLogTags(
-          LogTag.Builder builderForValue) {
+          PutLogRequest.LogTag.Builder builderForValue) {
         if (logTagsBuilder_ == null) {
           ensureLogTagsIsMutable();
           logTags_.add(builderForValue.build());
@@ -3645,7 +3646,7 @@ public final class PutLogRequest {
        * <code>repeated .LogTag LogTags = 3;</code>
        */
       public Builder addLogTags(
-          int index, LogTag.Builder builderForValue) {
+          int index, PutLogRequest.LogTag.Builder builderForValue) {
         if (logTagsBuilder_ == null) {
           ensureLogTagsIsMutable();
           logTags_.add(index, builderForValue.build());
@@ -3659,7 +3660,7 @@ public final class PutLogRequest {
        * <code>repeated .LogTag LogTags = 3;</code>
        */
       public Builder addAllLogTags(
-          java.lang.Iterable<? extends LogTag> values) {
+          java.lang.Iterable<? extends PutLogRequest.LogTag> values) {
         if (logTagsBuilder_ == null) {
           ensureLogTagsIsMutable();
           com.google.protobuf.AbstractMessageLite.Builder.addAll(
@@ -3699,14 +3700,14 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogTag LogTags = 3;</code>
        */
-      public LogTag.Builder getLogTagsBuilder(
+      public PutLogRequest.LogTag.Builder getLogTagsBuilder(
           int index) {
         return getLogTagsFieldBuilder().getBuilder(index);
       }
       /**
        * <code>repeated .LogTag LogTags = 3;</code>
        */
-      public LogTagOrBuilder getLogTagsOrBuilder(
+      public PutLogRequest.LogTagOrBuilder getLogTagsOrBuilder(
           int index) {
         if (logTagsBuilder_ == null) {
           return logTags_.get(index);  } else {
@@ -3716,7 +3717,7 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogTag LogTags = 3;</code>
        */
-      public java.util.List<? extends LogTagOrBuilder>
+      public java.util.List<? extends PutLogRequest.LogTagOrBuilder> 
            getLogTagsOrBuilderList() {
         if (logTagsBuilder_ != null) {
           return logTagsBuilder_.getMessageOrBuilderList();
@@ -3727,31 +3728,31 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogTag LogTags = 3;</code>
        */
-      public LogTag.Builder addLogTagsBuilder() {
+      public PutLogRequest.LogTag.Builder addLogTagsBuilder() {
         return getLogTagsFieldBuilder().addBuilder(
-            LogTag.getDefaultInstance());
+            PutLogRequest.LogTag.getDefaultInstance());
       }
       /**
        * <code>repeated .LogTag LogTags = 3;</code>
        */
-      public LogTag.Builder addLogTagsBuilder(
+      public PutLogRequest.LogTag.Builder addLogTagsBuilder(
           int index) {
         return getLogTagsFieldBuilder().addBuilder(
-            index, LogTag.getDefaultInstance());
+            index, PutLogRequest.LogTag.getDefaultInstance());
       }
       /**
        * <code>repeated .LogTag LogTags = 3;</code>
        */
-      public java.util.List<LogTag.Builder>
+      public java.util.List<PutLogRequest.LogTag.Builder> 
            getLogTagsBuilderList() {
         return getLogTagsFieldBuilder().getBuilderList();
       }
       private com.google.protobuf.RepeatedFieldBuilderV3<
-          LogTag, LogTag.Builder, LogTagOrBuilder>
+          PutLogRequest.LogTag, PutLogRequest.LogTag.Builder, PutLogRequest.LogTagOrBuilder> 
           getLogTagsFieldBuilder() {
         if (logTagsBuilder_ == null) {
           logTagsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-              LogTag, LogTag.Builder, LogTagOrBuilder>(
+              PutLogRequest.LogTag, PutLogRequest.LogTag.Builder, PutLogRequest.LogTagOrBuilder>(
                   logTags_,
                   ((bitField0_ & 0x00000002) != 0),
                   getParentForChildren(),
@@ -3949,12 +3950,12 @@ public final class PutLogRequest {
     }
 
     // @@protoc_insertion_point(class_scope:LogGroup)
-    private static final LogGroup DEFAULT_INSTANCE;
+    private static final PutLogRequest.LogGroup DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new LogGroup();
+      DEFAULT_INSTANCE = new PutLogRequest.LogGroup();
     }
 
-    public static LogGroup getDefaultInstance() {
+    public static PutLogRequest.LogGroup getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
@@ -3992,12 +3993,12 @@ public final class PutLogRequest {
     /**
      * <code>repeated .LogGroup LogGroups = 1;</code>
      */
-    java.util.List<LogGroup>
+    java.util.List<PutLogRequest.LogGroup> 
         getLogGroupsList();
     /**
      * <code>repeated .LogGroup LogGroups = 1;</code>
      */
-    LogGroup getLogGroups(int index);
+    PutLogRequest.LogGroup getLogGroups(int index);
     /**
      * <code>repeated .LogGroup LogGroups = 1;</code>
      */
@@ -4005,12 +4006,12 @@ public final class PutLogRequest {
     /**
      * <code>repeated .LogGroup LogGroups = 1;</code>
      */
-    java.util.List<? extends LogGroupOrBuilder>
+    java.util.List<? extends PutLogRequest.LogGroupOrBuilder> 
         getLogGroupsOrBuilderList();
     /**
      * <code>repeated .LogGroup LogGroups = 1;</code>
      */
-    LogGroupOrBuilder getLogGroupsOrBuilder(
+    PutLogRequest.LogGroupOrBuilder getLogGroupsOrBuilder(
         int index);
   }
   /**
@@ -4062,11 +4063,11 @@ public final class PutLogRequest {
               break;
             case 10: {
               if (!((mutable_bitField0_ & 0x00000001) != 0)) {
-                logGroups_ = new java.util.ArrayList<LogGroup>();
+                logGroups_ = new java.util.ArrayList<PutLogRequest.LogGroup>();
                 mutable_bitField0_ |= 0x00000001;
               }
               logGroups_.add(
-                  input.readMessage(LogGroup.parser(), extensionRegistry));
+                  input.readMessage(PutLogRequest.LogGroup.parser(), extensionRegistry));
               break;
             }
             default: {
@@ -4101,23 +4102,23 @@ public final class PutLogRequest {
         internalGetFieldAccessorTable() {
       return PutLogRequest.internal_static_pb_LogGroupList_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              LogGroupList.class, Builder.class);
+              PutLogRequest.LogGroupList.class, PutLogRequest.LogGroupList.Builder.class);
     }
 
     public static final int LOGGROUPS_FIELD_NUMBER = 1;
-    private java.util.List<LogGroup> logGroups_;
+    private java.util.List<PutLogRequest.LogGroup> logGroups_;
     /**
      * <code>repeated .LogGroup LogGroups = 1;</code>
      */
     @java.lang.Override
-    public java.util.List<LogGroup> getLogGroupsList() {
+    public java.util.List<PutLogRequest.LogGroup> getLogGroupsList() {
       return logGroups_;
     }
     /**
      * <code>repeated .LogGroup LogGroups = 1;</code>
      */
     @java.lang.Override
-    public java.util.List<? extends LogGroupOrBuilder>
+    public java.util.List<? extends PutLogRequest.LogGroupOrBuilder> 
         getLogGroupsOrBuilderList() {
       return logGroups_;
     }
@@ -4184,10 +4185,10 @@ public final class PutLogRequest {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof LogGroupList)) {
+      if (!(obj instanceof PutLogRequest.LogGroupList)) {
         return super.equals(obj);
       }
-      LogGroupList other = (LogGroupList) obj;
+      PutLogRequest.LogGroupList other = (PutLogRequest.LogGroupList) obj;
 
       if (!getLogGroupsList()
           .equals(other.getLogGroupsList())) return false;
@@ -4211,69 +4212,69 @@ public final class PutLogRequest {
       return hash;
     }
 
-    public static LogGroupList parseFrom(
+    public static PutLogRequest.LogGroupList parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static LogGroupList parseFrom(
+    public static PutLogRequest.LogGroupList parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static LogGroupList parseFrom(
+    public static PutLogRequest.LogGroupList parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static LogGroupList parseFrom(
+    public static PutLogRequest.LogGroupList parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static LogGroupList parseFrom(byte[] data)
+    public static PutLogRequest.LogGroupList parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static LogGroupList parseFrom(
+    public static PutLogRequest.LogGroupList parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static LogGroupList parseFrom(java.io.InputStream input)
+    public static PutLogRequest.LogGroupList parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static LogGroupList parseFrom(
+    public static PutLogRequest.LogGroupList parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
-    public static LogGroupList parseDelimitedFrom(java.io.InputStream input)
+    public static PutLogRequest.LogGroupList parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
-    public static LogGroupList parseDelimitedFrom(
+    public static PutLogRequest.LogGroupList parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static LogGroupList parseFrom(
+    public static PutLogRequest.LogGroupList parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static LogGroupList parseFrom(
+    public static PutLogRequest.LogGroupList parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -4286,7 +4287,7 @@ public final class PutLogRequest {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(LogGroupList prototype) {
+    public static Builder newBuilder(PutLogRequest.LogGroupList prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -4307,7 +4308,7 @@ public final class PutLogRequest {
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:LogGroupList)
-        LogGroupListOrBuilder {
+        PutLogRequest.LogGroupListOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
         return PutLogRequest.internal_static_pb_LogGroupList_descriptor;
@@ -4318,7 +4319,7 @@ public final class PutLogRequest {
           internalGetFieldAccessorTable() {
         return PutLogRequest.internal_static_pb_LogGroupList_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                LogGroupList.class, Builder.class);
+                PutLogRequest.LogGroupList.class, PutLogRequest.LogGroupList.Builder.class);
       }
 
       // Construct using PutLogRequest.LogGroupList.newBuilder()
@@ -4357,12 +4358,12 @@ public final class PutLogRequest {
 
       @java.lang.Override
       public PutLogRequest.LogGroupList getDefaultInstanceForType() {
-        return LogGroupList.getDefaultInstance();
+        return PutLogRequest.LogGroupList.getDefaultInstance();
       }
 
       @java.lang.Override
       public PutLogRequest.LogGroupList build() {
-        LogGroupList result = buildPartial();
+        PutLogRequest.LogGroupList result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -4371,7 +4372,7 @@ public final class PutLogRequest {
 
       @java.lang.Override
       public PutLogRequest.LogGroupList buildPartial() {
-        LogGroupList result = new LogGroupList(this);
+        PutLogRequest.LogGroupList result = new PutLogRequest.LogGroupList(this);
         int from_bitField0_ = bitField0_;
         if (logGroupsBuilder_ == null) {
           if (((bitField0_ & 0x00000001) != 0)) {
@@ -4420,16 +4421,16 @@ public final class PutLogRequest {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof LogGroupList) {
-          return mergeFrom((LogGroupList)other);
+        if (other instanceof PutLogRequest.LogGroupList) {
+          return mergeFrom((PutLogRequest.LogGroupList)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(LogGroupList other) {
-        if (other == LogGroupList.getDefaultInstance()) return this;
+      public Builder mergeFrom(PutLogRequest.LogGroupList other) {
+        if (other == PutLogRequest.LogGroupList.getDefaultInstance()) return this;
         if (logGroupsBuilder_ == null) {
           if (!other.logGroups_.isEmpty()) {
             if (logGroups_.isEmpty()) {
@@ -4471,11 +4472,11 @@ public final class PutLogRequest {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        LogGroupList parsedMessage = null;
+        PutLogRequest.LogGroupList parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (LogGroupList) e.getUnfinishedMessage();
+          parsedMessage = (PutLogRequest.LogGroupList) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -4486,22 +4487,22 @@ public final class PutLogRequest {
       }
       private int bitField0_;
 
-      private java.util.List<LogGroup> logGroups_ =
+      private java.util.List<PutLogRequest.LogGroup> logGroups_ =
         java.util.Collections.emptyList();
       private void ensureLogGroupsIsMutable() {
         if (!((bitField0_ & 0x00000001) != 0)) {
-          logGroups_ = new java.util.ArrayList<LogGroup>(logGroups_);
+          logGroups_ = new java.util.ArrayList<PutLogRequest.LogGroup>(logGroups_);
           bitField0_ |= 0x00000001;
          }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-          LogGroup, LogGroup.Builder, LogGroupOrBuilder> logGroupsBuilder_;
+          PutLogRequest.LogGroup, PutLogRequest.LogGroup.Builder, PutLogRequest.LogGroupOrBuilder> logGroupsBuilder_;
 
       /**
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
-      public java.util.List<LogGroup> getLogGroupsList() {
+      public java.util.List<PutLogRequest.LogGroup> getLogGroupsList() {
         if (logGroupsBuilder_ == null) {
           return java.util.Collections.unmodifiableList(logGroups_);
         } else {
@@ -4521,7 +4522,7 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
-      public LogGroup getLogGroups(int index) {
+      public PutLogRequest.LogGroup getLogGroups(int index) {
         if (logGroupsBuilder_ == null) {
           return logGroups_.get(index);
         } else {
@@ -4532,7 +4533,7 @@ public final class PutLogRequest {
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
       public Builder setLogGroups(
-          int index, LogGroup value) {
+          int index, PutLogRequest.LogGroup value) {
         if (logGroupsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -4549,7 +4550,7 @@ public final class PutLogRequest {
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
       public Builder setLogGroups(
-          int index, LogGroup.Builder builderForValue) {
+          int index, PutLogRequest.LogGroup.Builder builderForValue) {
         if (logGroupsBuilder_ == null) {
           ensureLogGroupsIsMutable();
           logGroups_.set(index, builderForValue.build());
@@ -4562,7 +4563,7 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
-      public Builder addLogGroups(LogGroup value) {
+      public Builder addLogGroups(PutLogRequest.LogGroup value) {
         if (logGroupsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -4579,7 +4580,7 @@ public final class PutLogRequest {
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
       public Builder addLogGroups(
-          int index, LogGroup value) {
+          int index, PutLogRequest.LogGroup value) {
         if (logGroupsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -4596,7 +4597,7 @@ public final class PutLogRequest {
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
       public Builder addLogGroups(
-          LogGroup.Builder builderForValue) {
+          PutLogRequest.LogGroup.Builder builderForValue) {
         if (logGroupsBuilder_ == null) {
           ensureLogGroupsIsMutable();
           logGroups_.add(builderForValue.build());
@@ -4610,7 +4611,7 @@ public final class PutLogRequest {
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
       public Builder addLogGroups(
-          int index, LogGroup.Builder builderForValue) {
+          int index, PutLogRequest.LogGroup.Builder builderForValue) {
         if (logGroupsBuilder_ == null) {
           ensureLogGroupsIsMutable();
           logGroups_.add(index, builderForValue.build());
@@ -4624,7 +4625,7 @@ public final class PutLogRequest {
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
       public Builder addAllLogGroups(
-          java.lang.Iterable<? extends LogGroup> values) {
+          java.lang.Iterable<? extends PutLogRequest.LogGroup> values) {
         if (logGroupsBuilder_ == null) {
           ensureLogGroupsIsMutable();
           com.google.protobuf.AbstractMessageLite.Builder.addAll(
@@ -4664,14 +4665,14 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
-      public LogGroup.Builder getLogGroupsBuilder(
+      public PutLogRequest.LogGroup.Builder getLogGroupsBuilder(
           int index) {
         return getLogGroupsFieldBuilder().getBuilder(index);
       }
       /**
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
-      public LogGroupOrBuilder getLogGroupsOrBuilder(
+      public PutLogRequest.LogGroupOrBuilder getLogGroupsOrBuilder(
           int index) {
         if (logGroupsBuilder_ == null) {
           return logGroups_.get(index);  } else {
@@ -4681,7 +4682,7 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
-      public java.util.List<? extends LogGroupOrBuilder>
+      public java.util.List<? extends PutLogRequest.LogGroupOrBuilder> 
            getLogGroupsOrBuilderList() {
         if (logGroupsBuilder_ != null) {
           return logGroupsBuilder_.getMessageOrBuilderList();
@@ -4692,31 +4693,31 @@ public final class PutLogRequest {
       /**
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
-      public LogGroup.Builder addLogGroupsBuilder() {
+      public PutLogRequest.LogGroup.Builder addLogGroupsBuilder() {
         return getLogGroupsFieldBuilder().addBuilder(
-            LogGroup.getDefaultInstance());
+            PutLogRequest.LogGroup.getDefaultInstance());
       }
       /**
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
-      public LogGroup.Builder addLogGroupsBuilder(
+      public PutLogRequest.LogGroup.Builder addLogGroupsBuilder(
           int index) {
         return getLogGroupsFieldBuilder().addBuilder(
-            index, LogGroup.getDefaultInstance());
+            index, PutLogRequest.LogGroup.getDefaultInstance());
       }
       /**
        * <code>repeated .LogGroup LogGroups = 1;</code>
        */
-      public java.util.List<LogGroup.Builder>
+      public java.util.List<PutLogRequest.LogGroup.Builder> 
            getLogGroupsBuilderList() {
         return getLogGroupsFieldBuilder().getBuilderList();
       }
       private com.google.protobuf.RepeatedFieldBuilderV3<
-          LogGroup, LogGroup.Builder, LogGroupOrBuilder>
+          PutLogRequest.LogGroup, PutLogRequest.LogGroup.Builder, PutLogRequest.LogGroupOrBuilder> 
           getLogGroupsFieldBuilder() {
         if (logGroupsBuilder_ == null) {
           logGroupsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-              LogGroup, LogGroup.Builder, LogGroupOrBuilder>(
+              PutLogRequest.LogGroup, PutLogRequest.LogGroup.Builder, PutLogRequest.LogGroupOrBuilder>(
                   logGroups_,
                   ((bitField0_ & 0x00000001) != 0),
                   getParentForChildren(),
@@ -4742,12 +4743,12 @@ public final class PutLogRequest {
     }
 
     // @@protoc_insertion_point(class_scope:LogGroupList)
-    private static final LogGroupList DEFAULT_INSTANCE;
+    private static final PutLogRequest.LogGroupList DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new LogGroupList();
+      DEFAULT_INSTANCE = new PutLogRequest.LogGroupList();
     }
 
-    public static LogGroupList getDefaultInstance() {
+    public static PutLogRequest.LogGroupList getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
