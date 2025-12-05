@@ -1,10 +1,6 @@
 package com.volcengine.service;
 
 import com.volcengine.model.tls.FullTextInfo;
-import com.volcengine.model.tls.LogItem;
-import com.volcengine.model.tls.exception.LogException;
-import com.volcengine.model.tls.producer.CallBack;
-import com.volcengine.model.tls.producer.Result;
 import com.volcengine.model.tls.request.CreateIndexRequest;
 import com.volcengine.model.tls.request.CreateProjectRequest;
 import com.volcengine.model.tls.request.CreateTopicRequest;
@@ -17,23 +13,11 @@ import com.volcengine.model.tls.response.CreateTopicResponse;
 import com.volcengine.model.tls.response.DeleteIndexResponse;
 import com.volcengine.model.tls.response.DeleteProjectResponse;
 import com.volcengine.model.tls.response.DeleteTopicResponse;
-import com.volcengine.model.tls.consumer.ConsumerConfig;
-import com.volcengine.service.tls.Producer;
-import com.volcengine.service.tls.ProducerImpl;
 //import com.volcengine.service.tls.consumer.Consumer;
 //import com.volcengine.service.tls.consumer.ConsumerImpl;
 //import com.volcengine.service.tls.consumer.LogProcessor;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Test;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static com.volcengine.model.tls.Const.LZ4;
-import static org.junit.Assert.assertTrue;
 
 public class ConsumerSmokeTest extends BaseTest {
 
