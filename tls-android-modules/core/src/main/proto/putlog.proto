@@ -1,0 +1,32 @@
+syntax = "proto3";
+package com.volcengine.model.tls.pb;
+option java_package = "com.volcengine.model.tls.pb";
+option java_outer_classname = "PutLogRequest";
+
+message LogContent {
+  string Key = 1;
+  string Value = 2;
+}
+
+message Log {
+  int64 Time = 1;
+  repeated LogContent Contents = 2;
+  oneof OptionalTimeNs { fixed32 TimeNs = 3; }
+}
+
+message LogTag {
+  string Key = 1;
+  string Value = 2;
+}
+
+message LogGroup {
+  repeated Log Logs = 1;
+  string Source = 2;
+  repeated LogTag LogTags = 3;
+  string FileName = 4;
+  string ContextFlow = 5;
+}
+
+message LogGroupList {
+  repeated LogGroup LogGroups = 1;
+}

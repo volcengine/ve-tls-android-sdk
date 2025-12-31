@@ -1,0 +1,29 @@
+pluginManagement {
+  repositories {
+    gradlePluginPortal()
+    google()
+    mavenCentral()
+    maven { url 'https://maven.aliyun.com/repository/google' }
+    maven { url 'https://maven.aliyun.com/repository/public' }
+  }
+}
+
+plugins {
+  id 'com.android.application' version '8.4.0' apply false
+  id 'com.android.library' version '8.4.0' apply false
+}
+
+dependencyResolutionManagement {
+  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+  repositories {
+    google()
+    mavenCentral()
+    maven { url 'https://maven.aliyun.com/repository/google' }
+    maven { url 'https://maven.aliyun.com/repository/public' }
+  }
+}
+
+include ':core', ':full', ':app', ':app-empty', ':producer', ':integration-tests'
+project(':producer').projectDir = new File('producer-lite')
+project(':integration-tests').projectDir = new File('integration-tests')
+project(':producer').projectDir = new File('producer-lite')

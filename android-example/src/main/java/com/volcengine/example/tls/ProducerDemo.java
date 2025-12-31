@@ -1,97 +1,77 @@
 package com.volcengine.example.tls;
 
-import com.volcengine.model.tls.ClientBuilder;
-import com.volcengine.model.tls.ClientConfig;
-import com.volcengine.model.tls.FullTextInfo;
-import com.volcengine.model.tls.LogItem;
-import com.volcengine.model.tls.exception.LogException;
+import com.volcengine.tls.android.producer.LogProducerClient;
+import com.volcengine.tls.android.producer.LogProducerConfig;
 import com.volcengine.model.tls.producer.CallBack;
 import com.volcengine.model.tls.producer.Result;
-import com.volcengine.model.tls.request.*;
-import com.volcengine.model.tls.response.*;
-import com.volcengine.service.tls.Producer;
-import com.volcengine.service.tls.ProducerImpl;
-import com.volcengine.service.tls.TLSLogClient;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import static com.volcengine.model.tls.Const.LZ4;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ProducerDemo {
     public static void main(String[] args) throws Exception {
-        String endPoint = System.getenv("endPoint");
-        String region = System.getenv("region");
-        String ak = System.getenv("ak");
-        String sk = System.getenv("sk");
-        String token = System.getenv("token");
-        int topicTtl = envIntOr("TOPIC_TTL", 7);
-        int indexWaitSeconds = envIntOr("INDEX_WAIT_SECONDS", 60);
-        int produceCount = envIntOr("PRODUCE_COUNT", 20);
-        boolean doSearch = envBoolOr("DO_SEARCH", true);
-        int searchWindowSeconds = envIntOr("SEARCH_WINDOW_SECONDS", 60);
+        // Initialize Config
+        String endPoint = envOr("endPoint", "");
+        String region = envOr("region", "");
+        String accessKeyId = envOr("ak", "");
+        String accessKeySecret = envOr("sk", "");
+        String token = envOr("token", "");
+        String topicId = envOr("topicId", "");
 
-        // Create resources via client
-        ClientConfig cfg = new ClientConfig(endPoint, region, ak, sk, token);
-        TLSLogClient client = ClientBuilder.newClient(cfg);
-        String projectName = "producer-demo-project-" + System.currentTimeMillis();
-        CreateProjectResponse cpr = client.createProject(new CreateProjectRequest(projectName, region, "producer demo"));
-        String projectId = cpr.getProjectId();
-        String topicName = "producer-demo-topic-" + System.currentTimeMillis();
-        CreateTopicRequest ctr = new CreateTopicRequest();
-        ctr.setProjectId(projectId);
-        ctr.setTopicName(topicName);
-        ctr.setTtl(topicTtl);
-        CreateTopicResponse ctResp = client.createTopic(ctr);
-        String topicId = ctResp.getTopicId();
-        client.createIndex(new CreateIndexRequest(topicId, new FullTextInfo(false, ",-;", false), null));
+        LogProducerConfig config = new LogProducerConfig()
+                .setEndpoint(endPoint)
+                .setRegion(region)
+                .setAccessKeyId(accessKeyId)
+                .setAccessKeySecret(accessKeySecret)
+                .setSecurityToken(token)
+                .setTopicId(topicId)
+                .setCompressType("lz4"); // Ensure LZ4 is set
 
-        // Wait for index to be ready
-        Thread.sleep(indexWaitSeconds * 1000L);
-
-        // Produce logs
-        Producer producer = ProducerImpl.defaultProducer(endPoint, region, ak, sk, token);
-        producer.start();
-
-        CallBack cb = new CallBack() {
-            @Override
-            public void onComplete(Result result) {
-                System.out.println("producer result: " + result);
-            }
-        };
-
-        List<LogItem> logs = new ArrayList<>();
-        for (int i = 0; i < produceCount; i++) {
-            LogItem it = new LogItem(System.currentTimeMillis());
-            it.addContent("key", "value-" + i);
-            logs.add(it);
+        LogProducerClient client = new LogProducerClient(config);
+        if (endPoint.isEmpty() || region.isEmpty() || accessKeyId.isEmpty() || accessKeySecret.isEmpty() || topicId.isEmpty()) {
+            System.err.println("Missing env: endPoint/region/ak/sk/topicId");
+            return;
         }
-        producer.sendLogsV2("", topicId, "android-example", "producer-demo", logs, cb);
-        producer.close();
+        client.start();
+        
+        System.out.println("LogProducerClient started.");
 
-        // Optional: search to verify
-        if (doSearch) {
-            try {
-                SearchLogsRequest slr = new SearchLogsRequest();
-                slr.setTopicId(topicId);
-                slr.setQuery("*");
-                slr.setStartTime(System.currentTimeMillis() - (searchWindowSeconds * 1000L));
-                slr.setEndTime(System.currentTimeMillis());
-                SearchLogsResponse slResp = client.searchLogs(slr);
-                System.out.println("Search count: " + (slResp.getLogs() == null ? 0 : slResp.getLogs().size()));
-            } catch (LogException e) { /* ignore */ }
+        // Send logs using Producer client
+        for (int i = 0; i < 5; i++) {
+            Map<String, String> kv = new HashMap<>();
+            kv.put("index", String.valueOf(i));
+            kv.put("data", "LogProducerClient test " + i);
+            kv.put("time", String.valueOf(System.currentTimeMillis()));
+            
+            client.sendLog(kv, new CallBack() {
+                @Override
+                public void onComplete(Result result) {
+                    boolean ok = result.isSuccess();
+                    java.util.List<com.volcengine.model.tls.producer.Attempt> ats = result.getAttempts();
+                    com.volcengine.model.tls.producer.Attempt last = null;
+                    if (ats != null && !ats.isEmpty()) { last = ats.get(ats.size()-1); }
+                    if (ok) {
+                        String req = last != null ? String.valueOf(last.getRequestId()) : "";
+                        System.out.println("Send success reqId=" + req + " attempts=" + result.getAttemptCount());
+                    } else {
+                        String http = last != null ? String.valueOf(last.getHttpCode()) : "";
+                        String code = last != null ? String.valueOf(last.getErrorCode()) : "";
+                        String msg = last != null ? String.valueOf(last.getErrorMessage()) : "";
+                        System.out.println("Send failed http=" + http + " code=" + code + " msg=" + msg + " attempts=" + result.getAttemptCount());
+                    }
+                }
+            });
         }
-
-        // Cleanup
-        client.deleteIndex(new DeleteIndexRequest(topicId));
-        client.deleteTopic(new DeleteTopicRequest(topicId));
-        client.deleteProject(new DeleteProjectRequest(projectId));
-        client.destroy();
+        
+        // Wait for sending to finish
+        Thread.sleep(3000);
+        
+        client.close();
+        System.out.println("LogProducerClient closed.");
     }
 
-    private static String envOr(String name, String def) {
-        String v = System.getenv(name);
-        return v != null && !v.isEmpty() ? v : def;
+    private static String envOr(String key, String defaultValue) {
+        String value = System.getenv(key);
+        return value != null ? value : defaultValue;
     }
 
     private static int envIntOr(String name, int def) {

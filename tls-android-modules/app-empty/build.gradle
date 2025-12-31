@@ -1,0 +1,58 @@
+plugins {
+  id 'com.android.application'
+}
+
+android {
+  namespace 'com.volcengine.tls.android.empty'
+  compileSdk 34
+
+  defaultConfig {
+    applicationId 'com.volcengine.tls.android.empty'
+    minSdk 21
+    targetSdk 34
+    versionCode 1
+    versionName '1.0.0'
+  }
+  signingConfigs {
+    debug {
+      storeFile file("../app/debug.keystore")
+      storePassword "android"
+      keyAlias "androiddebugkey"
+      keyPassword "android"
+    }
+    release {
+      storeFile file("../app/debug.keystore")
+      storePassword "android"
+      keyAlias "androiddebugkey"
+      keyPassword "android"
+    }
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+      shrinkResources false
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+      signingConfig signingConfigs.release
+    }
+    debug {
+      minifyEnabled false
+      shrinkResources false
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+      signingConfig signingConfigs.debug
+    }
+  }
+  packagingOptions {
+    exclude 'darwin/**'
+    exclude 'linux/**'
+    exclude 'win/**'
+    exclude 'google/protobuf/**'
+  }
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+  }
+}
+
+dependencies {
+}
