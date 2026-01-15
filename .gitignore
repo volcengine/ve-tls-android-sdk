@@ -1,15 +1,62 @@
-.idea
-.settings
-settings.json
-target
+# macOS
 .DS_Store
-*.iml
-scripts/build.out
-*.swp
-.classpath
-.factorypath
-.project
 
-# vscode
-.vscode
-.devcontainer
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Gradle/Android build outputs
+.gradle/
+**/build/
+**/captures/
+**/.externalNativeBuild/
+**/outputs/
+*.log
+
+# Artifacts
+**/*.apk
+**/*.aab
+
+# Local config
+local.properties
+key.properties
+
+# Keystores (do not commit any signing keys)
+**/debug.keystore
+**/*.jks
+**/*.keystore
+
+# Benchmark and temporary files
+**/benchmark/*.json
+**/benchmark/*.csv
+
+# Maven
+target/
+android-example/.classpath.txt
+tls_config.properties
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# IntelliJ extra
+*.ipr
+*.iws
+
+# Temp files
+*.tmp
+*.swp
+*.swo
+*.bak
+*.trace
+
+# Reports and lint outputs
+**/reports/
+**/lint-results*.html
+**/lint-results*.xml
+
+# Local env
+.env
+.trae

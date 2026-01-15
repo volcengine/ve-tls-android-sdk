@@ -1,0 +1,102 @@
+plugins {
+  id 'com.android.library'
+  id 'maven-publish'
+  id 'signing'
+}
+
+android {
+  namespace 'com.volcengine.tls.android.producer'
+  compileSdk 34
+  defaultConfig {
+    minSdk 19
+    targetSdk 34
+    consumerProguardFiles 'consumer-rules.pro'
+  }
+  buildTypes {
+    release {
+      minifyEnabled false
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+    }
+    debug {
+      minifyEnabled false
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+    }
+  }
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+  }
+  publishing {
+    singleVariant("release") {
+      withSourcesJar()
+    }
+  }
+}
+
+dependencies {
+  api project(':core')
+}
+
+group = 'com.volcengine'
+version = '2.0.0'
+
+afterEvaluate {
+  publishing {
+    publications {
+      release(MavenPublication) {
+        from components.release
+        groupId = project.group
+        artifactId = 'tls-android-producer'
+        version = project.version
+        pom {
+          name = 'tls-android-producer'
+          description = 'VOLC Engine TLS Producer SDK for Android'
+          url = 'https://github.com/volcengine/ve-tls-android-sdk'
+          licenses {
+            license {
+              name = 'The Apache Software License, Version 2.0'
+              url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+              distribution = 'repo'
+            }
+          }
+          developers {
+            developer {
+              id = 'volcproducts'
+              name = 'VOLC TLS ANDROID SDK'
+            }
+          }
+          scm {
+            url = 'https://github.com/volcengine/ve-tls-android-sdk'
+            connection = 'scm:git:https://github.com/volcengine/ve-tls-android-sdk.git'
+            developerConnection = 'scm:git:https://github.com/volcengine/ve-tls-android-sdk.git'
+          }
+        }
+      }
+    }
+    repositories {
+      maven {
+        name = 'sonatype'
+        url = uri('https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/')
+        credentials {
+          username = findProperty('ossrhUsername') ?: System.getenv('OSSRH_USERNAME')
+          password = findProperty('ossrhPassword') ?: System.getenv('OSSRH_PASSWORD')
+        }
+      }
+    }
+  }
+
+  signing {
+    def key = findProperty('signingKey') ?: System.getenv('SIGNING_KEY')
+    def pw = findProperty('signingPassword') ?: System.getenv('SIGNING_PASSWORD')
+    if (key != null && pw != null) {
+      useInMemoryPgpKeys(key, pw)
+      sign publishing.publications
+    } else {
+      def gpgKeyName = findProperty('signing.gnupg.keyName') ?: System.getenv('SIGNING_GPG_KEYNAME')
+      if (gpgKeyName != null) {
+        useGpgCmd()
+        sign publishing.publications
+      }
+    }
+  }
+}

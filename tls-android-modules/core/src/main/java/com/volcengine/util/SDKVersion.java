@@ -1,0 +1,31 @@
+package com.volcengine.util;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.Properties;
+
+public class SDKVersion {
+    private static final Logger LOG = LoggerFactory.getLogger(SDKVersion.class);
+    private static String VERSION = "Unknown";
+    private static String AGENT = "volc-sdk-android/Unknown";
+    private static String MODULE = "android";
+    static {
+        final Properties properties = new Properties();
+        try {
+            java.io.InputStream in = SDKVersion.class.getClassLoader().getResourceAsStream("com/volcengine/version");
+            if (in != null) {
+                properties.load(in);
+                String v = properties.getProperty("version");
+                if (v != null && !v.isEmpty()) { VERSION = v; }
+                String m = properties.getProperty("module");
+                if (m != null && !m.isEmpty()) { MODULE = m; }
+            }
+        } catch (IOException e) { }
+        AGENT = "volc-tls-android/" + MODULE + "/v" + VERSION;
+    }
+    public static String getVERSION() { return VERSION; }
+    public static String getAGENT() { return AGENT; }
+    public static String getMODULE() { return MODULE; }
+}
