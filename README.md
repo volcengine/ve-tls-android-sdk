@@ -4,6 +4,10 @@
 
 该仓库提供在 Android/Java 环境下访问火山引擎 TLS（日志服务）的 SDK 与示例，支持同步 Client API 与异步 Producer 发送。已针对移动端体积与稳定性做优化：可选网络栈（OkHttp 3.x）、压缩（lz4/zlib）、R8 裁剪与安全日志映射。
 
+从 0 到 1 接入文档请优先阅读：
+- SDK 使用指南（推荐）：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/SDK_USAGE_GUIDE.md
+- 本地配置文件模板（不含真实密钥）：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls_config.properties.example
+
 ## 前置准备
 ### 服务开通
 请先在火山引擎控制台开通日志服务：https://console.volcengine.com/
@@ -27,14 +31,32 @@ Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access 
 
 ## 选择指南（不同场景用哪个包）
 - 只需要发送日志（建议）
-  - 依赖 `:producer`（轻量封装，内部依赖 `:core`）
+  - 依赖 `io.github.volcengine-tls:tls-android-producer`（轻量封装，自动依赖 `tls-android-core`）
   - Android 应用或 SDK 集成优先选择该包以获得更小体积与更少依赖
 - 需要完整管理能力（创建 Project/Topic/Index、检索等）
-  - 依赖 `:full`（携带完整 Client API），内部依赖 `:core`
+  - 依赖 `io.github.volcengine-tls:tls-android-full`（携带完整 Client API），自动依赖 `tls-android-core`
   - 体积较大，适合工具类或后管应用
 
 ## 获取与安装
-### 模块依赖（多模块工程）
+### 方式 A：从 Maven Central 使用（推荐）
+在应用项目的仓库中确保包含 `mavenCentral()`，然后直接添加依赖：
+
+```groovy
+dependencies {
+  // 轻量发送（推荐）
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.1'
+  // 如需完整能力（管理+发送）
+  // implementation 'io.github.volcengine-tls:tls-android-full:2.0.1'
+  // 仅当使用 lz4 压缩时引入，否则可省略
+  implementation 'net.jpountz.lz4:lz4:1.3.0'
+}
+```
+
+说明：
+- `tls-android-producer` / `tls-android-full` 会自动拉取 `tls-android-core`，无需手动声明 core。
+- 从 2.0.1 起已发布 Gradle Module Metadata（`.module`），Gradle/AGP 可直接解析到 AAR 变体，无需 `@aar`。
+
+### 方式 B：源码方式接入（仓库开发/二次开发）
 在工程的 `settings.gradle` 中包含需要的模块：
 
 ```groovy
@@ -112,7 +134,10 @@ client.destroy();
 - 第一步：添加依赖与权限
   ```groovy
   dependencies {
-    implementation 'com.volcengine:volc-tls-android-sdk:2.0.0'
+    // 轻量发送（推荐）
+    implementation 'io.github.volcengine-tls:tls-android-producer:2.0.1'
+    // 如需完整能力（管理+发送）
+    // implementation 'io.github.volcengine-tls:tls-android-full:2.0.1'
     // 使用 lz4 压缩时引入，否则可省略
     implementation 'net.jpountz.lz4:lz4:1.3.0'
   }
@@ -183,9 +208,8 @@ client.destroy();
 - 构造 `LogProducerClient`，写入一条简单日志（`Map<String,String>`），回调 `result.isSuccess()` 为 `true`
 - 在服务端查询对应 `topicId` 的最新日志，确认字段（time/timeNs/contents/group tags）与期望一致
 
-## 本次更新与迁移指南（1.1.5 → 2.0.0）
-- 依赖升级：使用 `com.volcengine:volc-tls-android-sdk:2.0.0`。
-- 模块选择：推荐依赖 `:producer`（映射到 `producer-lite`），仅发送日志场景更轻量；完整能力依赖 `:full`。
+## 本次更新与迁移指南（1.1.5 → 2.0.x）
+- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer:2.0.1`（轻量发送）或 `io.github.volcengine-tls:tls-android-full:2.0.1`（完整能力）。
 - 写日志统一路径：高频接口统一走 Map→LogItem→AdaptorUtil→PutLogRequest.LogGroup，避免分叉路径。
   - 入口：LogProducerClient 的 `sendLog(Map)` 与带 `time/timeNs` 的重载
   - 转换：统一在 AdaptorUtil 中完成时间归一、内容填充与 group tags 拼接

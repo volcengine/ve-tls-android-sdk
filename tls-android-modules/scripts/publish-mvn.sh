@@ -7,6 +7,8 @@ cd "$DIR"
 SERVER_ID=${SERVER_ID:-sonatype-nexus-staging}
 DEPLOY_URL=${DEPLOY_URL:-https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/}
 VERSION=2.0.0
+GPG_KEYID=${PGP_KEYID:-}
+GPG_PASSPHRASE=${PGP_PASSPHRASE:-}
 TARGET_DIR="$DIR/maven-publish/target"
 mkdir -p "$TARGET_DIR"
 
@@ -25,21 +27,31 @@ if [ "${DRY_RUN:-0}" = "1" ]; then
   exit 0;
 fi
 
-mvn -q gpg:sign-and-deploy-file \
+export GPG_TTY="$(tty || true)"
+
+MAVEN_GPG_ARGS=()
+if [ -n "$GPG_KEYID" ]; then
+  MAVEN_GPG_ARGS+=("-Dgpg.keyname=$GPG_KEYID")
+fi
+if [ -n "$GPG_PASSPHRASE" ]; then
+  MAVEN_GPG_ARGS+=("-Dgpg.passphrase=$GPG_PASSPHRASE" "-Dgpg.useagent=true")
+fi
+
+mvn -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg gpg:sign-and-deploy-file \
   -Durl="$DEPLOY_URL" -DrepositoryId="$SERVER_ID" \
   -DpomFile="maven-publish/pom-core.xml" \
   -Dfile="$CORE_AAR" \
   -Dfiles="$TARGET_DIR/tls-android-core-$VERSION-sources.jar" \
   -Dclassifiers=sources -Dtypes=jar
 
-mvn -q gpg:sign-and-deploy-file \
+mvn -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg gpg:sign-and-deploy-file \
   -Durl="$DEPLOY_URL" -DrepositoryId="$SERVER_ID" \
   -DpomFile="maven-publish/pom-producer.xml" \
   -Dfile="$PRODUCER_AAR" \
   -Dfiles="$TARGET_DIR/tls-android-producer-$VERSION-sources.jar" \
   -Dclassifiers=sources -Dtypes=jar
 
-mvn -q gpg:sign-and-deploy-file \
+mvn -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg gpg:sign-and-deploy-file \
   -Durl="$DEPLOY_URL" -DrepositoryId="$SERVER_ID" \
   -DpomFile="maven-publish/pom-full.xml" \
   -Dfile="$FULL_AAR" \

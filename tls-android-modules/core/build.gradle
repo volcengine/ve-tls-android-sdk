@@ -47,8 +47,8 @@ plugins {
     // after migration, core is self-contained; no dependency on :full
   }
 
-group = 'com.volcengine'
-version = '2.0.0'
+group = 'io.github.volcengine-tls'
+version = '2.0.1'
 
 afterEvaluate {
   publishing {
@@ -65,7 +65,7 @@ afterEvaluate {
           licenses {
             license {
               name = 'The Apache Software License, Version 2.0'
-              url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+              url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
               distribution = 'repo'
             }
           }

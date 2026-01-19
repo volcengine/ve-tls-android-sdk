@@ -3,6 +3,7 @@ plugins {
 }
 
 nexusPublishing {
+  packageGroup = 'io.github.volcengine-tls'
   repositories {
     sonatype {
       nexusUrl.set(uri('https://s01.oss.sonatype.org/service/local/'))
