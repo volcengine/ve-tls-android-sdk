@@ -5,14 +5,14 @@
 ## 你需要先知道的两件事
 
 - SDK 依赖坐标（Maven Central）
-  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.1`
-  - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.1`
+    - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.1`
+    - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.1`
 - 必要参数（后面会用到）
-  - `endpoint`：TLS 接入域名，形如 `https://tls-cn-xxx.volces.com`
-  - `region`：地域标识，例如 `cn-xxx`
-  - `topicId`：日志主题 ID（Producer 发日志必填）
-  - `accessKeyId/accessKeySecret`：AK/SK
-  - `securityToken`：STS 临时凭证可选（没有就传空/不设置）
+    - `endpoint`：TLS 接入域名，形如 `https://tls-cn-xxx.volces.com`
+    - `region`：地域标识，例如 `cn-xxx`
+    - `topicId`：日志主题 ID（Producer 发日志必填）
+    - `accessKeyId/accessKeySecret`：AK/SK
+    - `securityToken`：STS 临时凭证可选（没有就传空/不设置）
 
 ## 第 0 步：在控制台准备资源与凭证
 
@@ -35,6 +35,74 @@
 - SecretAccessKey（SK）
 
 如果你使用 STS 临时鉴权，还需要拿到 `securityToken`（可选）。
+
+## 运行演示 App（tls-android-modules/app）
+
+如果你想先验证“能跑起来 + 能发日志”，推荐直接运行仓库自带的演示 App（`tls-android-modules/app`）。
+
+### 1. 下载源码并导入 Android Studio
+
+1. 在 GitHub 下载源码：https://github.com/volcengine/ve-tls-android-sdk/tree/master-2.0
+2. 用 Android Studio 打开项目（推荐直接打开仓库根目录）
+3. 等待 Gradle Sync 完成
+
+### 2. 配置 TLS 参数（推荐用 adb 写入配置文件）
+
+1. 从模板复制一份配置文件并填入你的真实参数：
+    - 模板：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls_config.properties.example
+    - 重命名为：`tls_config.properties`
+2. 关键字段说明：
+    - `endPoint`：你的 TLS Endpoint（建议 https）
+    - `region`：地域（如 cn-xxx）
+    - `ak/sk`：访问密钥
+    - `topicId`：日志主题 ID
+    - `token`：STS token（可空）
+    - `compress`：`lz4` 或 `zlib`
+
+### 3A. 在真机上安装并运行
+
+1. 连接 Android 设备并开启 USB 调试
+2. 执行 `adb devices`，确认设备已连接
+3. 写入配置文件（包名固定为 `com.volcengine.tls.android.demo`）：
+
+```bash
+adb shell mkdir -p /sdcard/Android/data/com.volcengine.tls.android.demo/files
+adb push tls_config.properties /sdcard/Android/data/com.volcengine.tls.android.demo/files/tls_config.properties
+```
+
+4. 在 Android Studio 顶部设备选择框里选中你的手机
+5. 点击 Run（Run 'app'），等待安装完成并自动启动
+
+### 3B. 在 Android Studio 模拟器（虚拟机）上安装并运行
+
+1. Android Studio → Device Manager → Create device，创建并启动一个 Emulator（建议选择带 Google APIs 的镜像）
+2. 执行 `adb devices`，确认出现类似 `emulator-5554	device`
+3. 写入配置文件（对模拟器同样生效）：
+
+```bash
+adb shell mkdir -p /sdcard/Android/data/com.volcengine.tls.android.demo/files
+adb push tls_config.properties /sdcard/Android/data/com.volcengine.tls.android.demo/files/tls_config.properties
+```
+
+4. 回到 Android Studio 顶部设备选择框，选择该 Emulator
+5. 点击 Run（Run 'app'），等待安装完成并自动启动
+
+说明：
+- 演示 App 已配置 `network_security_config` 允许明文流量，但仍建议使用 https endpoint。
+- 演示 App 有两个入口页面（Launcher）：`MainActivity`（发送日志）与 `BenchmarkActivity`（压测），你可以在桌面看到两个入口图标。
+
+### 4. 启动 App 并发送日志
+
+1. 打开 `TLS Producer Demo`（发送日志页面）
+2. 点击 “Start Sending Logs”
+3. 界面会持续打印发送结果（成功/失败与重试信息）
+
+### 5. 控制台验证
+
+在 TLS 控制台进入对应 `topicId` 的 Topic，打开检索页：
+- 时间范围选择最近 15 分钟
+- 查询语句先用 `*`（全量），或按字段过滤（如 `key:value`）
+- 看到你刚发送的日志后，即验证成功
 
 ## Android 应用接入（推荐：Producer 异步发送）
 
@@ -108,11 +176,20 @@ android {
 - 外部私有目录（推荐，方便 adb 写入）：`/sdcard/Android/data/<你的包名>/files/tls_config.properties`
 - 内部私有目录：`/data/data/<你的包名>/files/tls_config.properties`
 
-使用 adb 写入示例：
+使用 adb 写入示例（以演示 App 包名 `com.volcengine.tls.android.demo` 为例）：
 
 ```bash
-adb push tls_config.properties /sdcard/Android/data/<你的包名>/files/tls_config.properties
+adb shell mkdir -p /sdcard/Android/data/com.volcengine.tls.android.demo/files
+adb push tls_config.properties /sdcard/Android/data/com.volcengine.tls.android.demo/files/tls_config.properties
 ```
+
+连接 Android Studio 模拟器（虚拟机）：
+
+```bash
+adb devices
+```
+
+如果你在 Android Studio 的 Device Manager 里启动了模拟器，这里通常会看到类似 `emulator-5554 device` 的条目；后续 `adb push/adb shell` 会默认对它生效。
 
 ### 5. 初始化并启动 Producer
 
@@ -185,31 +262,90 @@ client.close();
 建议你按下面“截图式步骤”逐步核对（不同控制台 UI 可能略有差异，但路径一致）：
 
 1. 打开火山引擎控制台并进入日志服务（TLS）
-   - 截图点：顶部服务入口与左侧导航栏
+    - 截图点：顶部服务入口与左侧导航栏
 2. 进入你创建的 Project
-   - 截图点：Project 列表中目标项目的名称/ID
+    - 截图点：Project 列表中目标项目的名称/ID
 3. 进入 Topic 列表，找到 `topicId` 对应的 Topic
-   - 截图点：Topic 列表中的 TopicName 与 TopicId
+    - 截图点：Topic 列表中的 TopicName 与 TopicId
 4. 打开“日志查询/检索”（Search/Query）
-   - 截图点：检索页面的 Topic 选择框与时间范围选择器
+    - 截图点：检索页面的 Topic 选择框与时间范围选择器
 5. 输入查询条件并执行
-   - 建议先用 `*`（全量）或按你写入的字段过滤（例如 `key:value`）
-   - 截图点：查询语句与返回的第一条日志详情
+    - 建议先用 `*`（全量）或按你写入的字段过滤（例如 `key:value`）
+    - 截图点：查询语句与返回的第一条日志详情
 6. 在结果里确认关键字段
-   - `key/value` 是否一致
-   - `ts/time` 是否在你刚发送的时间附近
-   - 来源/文件名（如你设置了 source/file）是否符合预期
+    - `key/value` 是否一致
+    - `ts/time` 是否在你刚发送的时间附近
+    - 来源/文件名（如你设置了 source/file）是否符合预期
 
 ### 9. R8/混淆（Release 建议做）
 
 Release 打包开启 R8 后，如遇运行时反射/序列化相关问题，按需添加 keep。示例规则可直接参考：
 - [proguard-rules.pro](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/app/proguard-rules.pro)
 
-最小建议（按你项目的实际依赖增删）：
-- `com.volcengine.*`
-- `okhttp3.*` / `okio.*`
-- `com.google.protobuf.*`
-- 如果使用 lz4：`net.jpountz.*`
+你也可以直接复制下面的模板到你自己的 `app/proguard-rules.pro`（按你实际依赖增删）。
+
+#### Producer（只发送日志）模板
+
+```pro
+-keep class com.volcengine.tls.android.producer.** { *; }
+-keep class com.volcengine.model.tls.producer.** { *; }
+-keep class com.volcengine.model.tls.pb.** { *; }
+-keep class com.volcengine.model.tls.exception.LogException { *; }
+-keep class com.volcengine.service.tls.** { *; }
+-keep class com.volcengine.http.** { *; }
+-keep class com.volcengine.util.** { *; }
+
+-keep class com.google.protobuf.** { *; }
+-dontwarn com.google.protobuf.**
+
+-keep class okhttp3.** { *; }
+-keep interface okhttp3.** { *; }
+-keep class okio.** { *; }
+-keepattributes Signature,*Annotation*,InnerClasses,EnclosingMethod
+
+-dontwarn org.conscrypt.**
+-dontwarn org.openjsse.**
+-dontwarn org.bouncycastle.**
+
+-dontwarn org.slf4j.impl.StaticLoggerBinder
+
+# 如果你使用 lz4 压缩，保留下面两行；不用 lz4（compressType=zlib）可删除
+-keep class net.jpountz.** { *; }
+-dontwarn net.jpountz.**
+```
+
+#### Full（管理 + 发送）模板（在 Producer 基础上增加）
+
+```pro
+-keep class com.alibaba.fastjson.** { *; }
+-keepclassmembers class ** { @com.alibaba.fastjson.annotation.JSONField *; }
+-keepclassmembers class com.volcengine.model.tls.** { *; }
+
+-dontwarn java.awt.**
+-dontwarn javax.money.**
+-dontwarn org.javamoney.**
+-dontwarn org.joda.time.**
+-dontwarn org.joda.time.format.**
+
+-dontwarn springfox.documentation.**
+-dontwarn javax.ws.rs.**
+-dontwarn org.glassfish.jersey.**
+-dontwarn javax.servlet.**
+-dontwarn javax.servlet.http.**
+-dontwarn org.springframework.**
+-dontwarn org.springframework.core.**
+-dontwarn org.springframework.http.**
+-dontwarn org.springframework.http.converter.**
+-dontwarn org.springframework.http.server.**
+-dontwarn org.springframework.messaging.**
+-dontwarn org.springframework.util.**
+-dontwarn org.springframework.web.**
+-dontwarn retrofit2.**
+```
+
+验证建议：
+- 先 `assembleRelease` 确保无 R8 “Missing class” 报错
+- 再用 release 包跑一次“初始化 + 发送一条日志 + 控制台查询”，如果仍有反射/序列化相关崩溃，再按堆栈最小化补 keep
 
 ## Android 应用接入（可选：Full 同步 Client API）
 
