@@ -1,8 +1,8 @@
 ## 发布说明
-- 版本策略：SemVer（主.次.修订），当前主版本为 2.0.0（相较 1.1.5 为重大变更）
+- 版本策略：SemVer（主.次.修订），当前主版本为 2.0.1（相较 1.1.5 为重大变更）
 - 最低支持：Android 4.4（API 19）
 - 构建产物：core/full/producer-lite AAR
-- Maven 坐标：推荐使用 `io.github.volcengine-tls`（GitHub 命名空间验证更直接）
+- Maven 坐标：推荐使用 `io.github.volcengine-tls`
 - 工作流：GitHub Actions 自动构建与测试（.github/workflows/android-ci.yml）
 - 发布步骤：
   1. 更新 CHANGELOG 与版本号（如需要）
