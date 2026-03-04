@@ -2,7 +2,7 @@
 
 # Volcengine TLS Android SDK
 
-该仓库提供在 Android/Java 环境下访问火山引擎 TLS（日志服务）的 SDK 与示例，支持同步 Client API 与异步 Producer 发送。已针对移动端体积与稳定性做优化：可选网络栈（OkHttp 3.x）、压缩（lz4/zlib）、R8 裁剪与安全日志映射。
+该仓库提供在 Android/Java 环境下访问火山引擎 TLS（日志服务）的 SDK 与示例，支持同步 Client API 与异步 Producer 发送。已针对移动端体积与稳定性做优化：可选网络栈（OkHttp 3.x）、压缩（lz4）、R8 裁剪与安全日志映射。
 
 从 0 到 1 接入文档请优先阅读：
 - SDK 使用指南（推荐）：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/SDK_USAGE_GUIDE.md
@@ -88,7 +88,7 @@ LogProducerConfig cfg = new LogProducerConfig()
     .setAccessKeySecret(System.getenv("sk"))
     .setSecurityToken(System.getenv("token")) // 可选
     .setTopicId(System.getenv("topicId"))
-    .setCompressType("lz4") // 或 "zlib"
+    .setCompressType("lz4")
     .setSendThreadCount(2)
     .setRetryCount(3)
     .setPacketLogBytes(256 * 1024)
@@ -189,7 +189,7 @@ client.destroy();
 - accessKeyId / accessKeySecret（必填）：AK/SK 凭证
 - topicId（必填）：日志主题 ID
 - securityToken（可选）：临时鉴权场景使用
-- compressType（建议）：`lz4` 或 `zlib`（默认推荐 `lz4`，异常时自动回退到 `zlib`）
+- compressType（建议）：`lz4`
 
 ### 常见易错点与排查
 - Android 12 导出要求：含 `intent-filter` 的 Activity 必须声明 `android:exported="true"`
@@ -198,7 +198,7 @@ client.destroy();
   ```xml
   <uses-permission android:name="android.permission.INTERNET" />
   ```
-- 依赖：仅在需要 `lz4` 时引入 `net.jpountz.lz4:lz4:1.3.0`；否则用 `zlib` 可减少三方依赖
+- 依赖：引入 `net.jpountz.lz4:lz4:1.3.0` 以启用 `lz4` 压缩
 - R8/混淆：避免宽泛 keep 整个 `com.volcengine.*`，让 R8 移除未用代码；按日志最小化补充第三方库 keep
 - 时间戳：仅在需要纳秒级时间时开启 `enableTimeNs`；否则禁用以降低开销
 - 配置来源：不要在 Android 端使用 `System.getenv`；使用 BuildConfig/受控配置文件并妥善管理敏感信息
@@ -236,9 +236,8 @@ client.destroy();
 - LogGroup.LogTags（可选）：组级标签（`groupTags`）在 producer 与 full 均支持
 
 ## 压缩与体积优化
-- 压缩：支持 `lz4` 与 `zlib`
-  - 推荐默认 `lz4`（发送性能更好）；必要时可改为 `zlib`（去除三方依赖）
-  - 发送过程中如 lz4 压缩超时/异常，会自动回退到 zlib 并修正请求头
+- 压缩：推荐使用 `lz4`
+  - 推荐默认 `lz4`
 - 体积：默认网络栈为 OkHttp 3.12.13 + Okio 1.17.5（Java），结合 R8 可获得较小 APK
 - R8：示例 `app` 已开启 R8（minify/shrink），同时提供 keep 规则；如遇运行问题按日志定向补充
 
@@ -307,7 +306,7 @@ client.destroy();
   - 确认 keep 规则完整（okhttp/okio/protobuf/com.volcengine.*）
   - 观察 release 下 Logcat（可在 debug 下绑定 slf4j-simple 输出更多定位信息）
 - 服务端解压异常
-  - 头部含义：`x-tls-compresstype`（lz4/zlib），`x-tls-bodyrawsize`（压缩前长度）
+  - 头部含义：`x-tls-compresstype`（lz4），`x-tls-bodyrawsize`（压缩前长度）
   - 服务端请按压缩前长度作为校验值，并采用有界读取避免内存膨胀
 
 ## 代码参考
