@@ -37,6 +37,13 @@ public class BenchmarkActivity extends Activity {
     private final AtomicLong success = new AtomicLong(0);
     private final AtomicLong failure = new AtomicLong(0);
     private long beginTs;
+    private volatile String lastError;
+    private final AtomicLong failureLogCount = new AtomicLong(0);
+    private static String maskSecret(String s) {
+        if (s == null || s.isEmpty()) return "";
+        if (s.length() <= 8) return "****";
+        return s.substring(0, 4) + "****" + s.substring(s.length() - 4);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,12 +73,16 @@ public class BenchmarkActivity extends Activity {
 
     private void start(String ct) {
         if (running) return;
+        System.setProperty("tls.debugHeaders", "true");
+        append("Debug tls.debugHeaders=true");
         compressType = ct;
         index.set(0);
         success.set(0);
         failure.set(0);
         latencies.clear();
         startMap.clear();
+        lastError = null;
+        failureLogCount.set(0);
         beginTs = System.currentTimeMillis();
         try {
             if (client == null) {
@@ -88,6 +99,17 @@ public class BenchmarkActivity extends Activity {
                     append("Missing config: endPoint/region/ak/sk/topicId");
                     return;
                 }
+                int threadCount = Runtime.getRuntime().availableProcessors();
+                if (threadCount < 1) { threadCount = 1; }
+                if (threadCount > 2) { threadCount = 2; }
+                append("Config endPoint=" + endPoint);
+                append("Config region=" + region);
+                append("Config topicId=" + topicId);
+                append("Config compress=" + compressType);
+                append("Config ak=" + maskSecret(ak));
+                append("Config sk=" + maskSecret(sk));
+                append("Config token=" + (token == null || token.isEmpty() ? "" : maskSecret(token)));
+                append("Config sendThreadCount=" + threadCount + " retryCount=3");
                 LogProducerConfig cfg = new LogProducerConfig()
                         .setEndpoint(endPoint)
                         .setRegion(region)
@@ -96,7 +118,7 @@ public class BenchmarkActivity extends Activity {
                         .setSecurityToken(token)
                         .setTopicId(topicId)
                         .setCompressType(compressType)
-                        .setSendThreadCount(2)
+                        .setSendThreadCount(threadCount)
                         .setRetryCount(3)
                         .setPacketLogBytes(1024 * 256)
                         .setPacketLogCount(512)
@@ -120,6 +142,7 @@ public class BenchmarkActivity extends Activity {
         long lastReport = System.currentTimeMillis();
         while (running && index.get() < target) {
             long id = index.incrementAndGet();
+            final long fid = id;
             Map<String,String> kv = new HashMap<>();
             kv.put("id", String.valueOf(id));
             kv.put("ts", String.valueOf(System.currentTimeMillis()));
@@ -131,23 +154,39 @@ public class BenchmarkActivity extends Activity {
                     @Override public void onComplete(Result r) {
                         if (r.isSuccess()) {
                             long done = System.currentTimeMillis();
-                            Long s = startMap.remove(Long.valueOf(kv.get("id")));
+                            Long s = startMap.remove(fid);
                             if (s != null) { latencies.add(done - s); }
                             success.incrementAndGet();
                         } else {
                             failure.incrementAndGet();
+                            com.volcengine.model.tls.producer.Attempt a = null;
+                            java.util.List<com.volcengine.model.tls.producer.Attempt> ats = r.getAttempts();
+                            if (ats != null && !ats.isEmpty()) { a = ats.get(ats.size() - 1); }
+                            if (a != null) {
+                                lastError = "Fail attempts=" + r.getAttemptCount() + " http=" + a.getHttpCode() + " code=" + String.valueOf(a.getErrorCode()) + " msg=" + String.valueOf(a.getErrorMessage());
+                                if (a.getRequestId() != null && !a.getRequestId().isEmpty()) { lastError += " reqId=" + a.getRequestId(); }
+                            } else {
+                                lastError = "Fail attempts=" + r.getAttemptCount();
+                            }
+                            long c = failureLogCount.incrementAndGet();
+                            if (c <= 5 || c % 100 == 0) { append(lastError); }
                         }
                     }
                 });
             } catch (Throwable t) {
                 failure.incrementAndGet();
+                lastError = "Fail exception=" + String.valueOf(t);
+                long c = failureLogCount.incrementAndGet();
+                if (c <= 5 || c % 100 == 0) { append(lastError); }
             }
             if (id % 100 == 0) {
                 long now = System.currentTimeMillis();
                 if (now - lastReport > 1000) {
                     long ok = success.get();
                     long fail = failure.get();
-                    append("progress sent=" + id + " ok=" + ok + " fail=" + fail);
+                    String msg = "progress sent=" + id + " ok=" + ok + " fail=" + fail;
+                    if (lastError != null && !lastError.isEmpty()) { msg += " last=" + lastError; }
+                    append(msg);
                     lastReport = now;
                 }
             }

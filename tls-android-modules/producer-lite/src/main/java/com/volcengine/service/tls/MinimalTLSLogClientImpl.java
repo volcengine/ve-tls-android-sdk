@@ -10,6 +10,7 @@ import com.volcengine.model.tls.pb.PutLogRequest;
 import com.volcengine.model.tls.request.*;
 import com.volcengine.model.tls.response.PutLogsResponse;
 import com.volcengine.util.Const;
+import com.volcengine.model.response.RawResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,7 +101,88 @@ public class MinimalTLSLogClientImpl implements TLSLogClient {
 
         byte[] rawBody = request.getLogGroupList().toByteArray();
         RawResponse rawResponse = httpRequest.proto(PUT_LOGS, params, headers, rawBody, compressType);
+        int httpCode = rawResponse.getHttpCode();
+        if (httpCode >= 300) {
+            String reqId = rawResponse.getFirstHeader(X_TLS_REQUESTID);
+            String msg = rawResponse.getException() == null ? "" : String.valueOf(rawResponse.getException().getMessage());
+            byte[] data = rawResponse.getData();
+            byte[] decoded = tryDecodeErrorBody(data);
+            String errCode = extractJsonString(decoded, "ErrorCode");
+            if (errCode == null) { errCode = extractJsonString(decoded, "errorCode"); }
+            String errMsg = extractJsonString(decoded, "ErrorMessage");
+            if (errMsg == null) { errMsg = extractJsonString(decoded, "errorMessage"); }
+            if (errCode != null || errMsg != null) {
+                throw new LogException(httpCode, errCode == null ? "HTTPError" : errCode, errMsg == null ? msg : errMsg, reqId);
+            }
+            throw new LogException(httpCode, "HTTPError", msg, reqId);
+        }
         return new PutLogsResponse(rawResponse.getHeaders());
+    }
+
+    private byte[] tryDecodeErrorBody(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) { return null; }
+        int limit = Math.min(bytes.length, 4096);
+        byte[] head = java.util.Arrays.copyOf(bytes, limit);
+        if (head.length >= 2 && (head[0] == (byte) 0x1f) && (head[1] == (byte) 0x8b)) {
+            try {
+                java.io.ByteArrayInputStream in = new java.io.ByteArrayInputStream(head);
+                java.util.zip.GZIPInputStream gin = new java.util.zip.GZIPInputStream(in);
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[1024];
+                int n;
+                while ((n = gin.read(buf)) > 0 && out.size() < 4096) {
+                    out.write(buf, 0, n);
+                }
+                gin.close();
+                return out.toByteArray();
+            } catch (Exception ignored) {
+            }
+        }
+        return head;
+    }
+
+    private String extractJsonString(byte[] bytes, String key) {
+        if (bytes == null || bytes.length == 0 || key == null || key.isEmpty()) { return null; }
+        byte[] k = ('"' + key + '"').getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        int idx = indexOf(bytes, k, 0);
+        if (idx < 0) { return null; }
+        int colon = indexOf(bytes, new byte[]{':'}, idx + k.length);
+        if (colon < 0) { return null; }
+        int i = colon + 1;
+        while (i < bytes.length && isWhitespace(bytes[i])) { i++; }
+        if (i >= bytes.length || bytes[i] != '"') { return null; }
+        i++;
+        StringBuilder sb = new StringBuilder();
+        boolean esc = false;
+        while (i < bytes.length) {
+            byte b = bytes[i++];
+            if (esc) {
+                sb.append((char) (b & 0xff));
+                esc = false;
+                continue;
+            }
+            if (b == '\\') { esc = true; continue; }
+            if (b == '"') { break; }
+            sb.append((char) (b & 0xff));
+        }
+        String v = sb.toString();
+        return v.isEmpty() ? null : v;
+    }
+
+    private int indexOf(byte[] src, byte[] target, int from) {
+        if (src == null || target == null || target.length == 0) { return -1; }
+        outer:
+        for (int i = Math.max(from, 0); i <= src.length - target.length; i++) {
+            for (int j = 0; j < target.length; j++) {
+                if (src[i + j] != target[j]) { continue outer; }
+            }
+            return i;
+        }
+        return -1;
+    }
+
+    private boolean isWhitespace(byte b) {
+        return b == ' ' || b == '\n' || b == '\r' || b == '\t';
     }
 
     // lite client does not implement putLogsV2 directly; use ProducerImpl for V2

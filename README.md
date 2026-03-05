@@ -44,10 +44,10 @@ Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access 
 ```groovy
 dependencies {
   // 轻量发送（推荐）
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.1'
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
   // 如需完整能力（管理+发送）
-  // implementation 'io.github.volcengine-tls:tls-android-full:2.0.1'
-  // 仅当使用 lz4 压缩时引入，否则可省略
+  // implementation 'io.github.volcengine-tls:tls-android-full:2.0.2'
+  // 仅当使用 lz4 压缩时引入
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
 ```
@@ -55,6 +55,7 @@ dependencies {
 说明：
 - `tls-android-producer` / `tls-android-full` 会自动拉取 `tls-android-core`，无需手动声明 core。
 - 从 2.0.1 起已发布 Gradle Module Metadata（`.module`），Gradle/AGP 可直接解析到 AAR 变体，无需 `@aar`。
+- 如果你的 App 必须支持 `minSdk=16`：请使用 `2.0.2-api16`（兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）。
 
 ### 方式 B：源码方式接入（仓库开发/二次开发）
 在工程的 `settings.gradle` 中包含需要的模块：
@@ -88,7 +89,7 @@ LogProducerConfig cfg = new LogProducerConfig()
     .setAccessKeySecret(System.getenv("sk"))
     .setSecurityToken(System.getenv("token")) // 可选
     .setTopicId(System.getenv("topicId"))
-    .setCompressType("lz4") // 或 "zlib"
+    .setCompressType("lz4")
     .setSendThreadCount(2)
     .setRetryCount(3)
     .setPacketLogBytes(256 * 1024)
@@ -135,9 +136,9 @@ client.destroy();
   ```groovy
   dependencies {
     // 轻量发送（推荐）
-    implementation 'io.github.volcengine-tls:tls-android-producer:2.0.1'
+    implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
     // 如需完整能力（管理+发送）
-    // implementation 'io.github.volcengine-tls:tls-android-full:2.0.1'
+    // implementation 'io.github.volcengine-tls:tls-android-full:2.0.2'
     // 使用 lz4 压缩时引入，否则可省略
     implementation 'net.jpountz.lz4:lz4:1.3.0'
   }
@@ -155,7 +156,7 @@ client.destroy();
       .setAccessKeySecret(BuildConfig.TLS_SK)
       .setSecurityToken(BuildConfig.TLS_TOKEN) // 可为空
       .setTopicId(BuildConfig.TLS_TOPIC_ID)
-      .setCompressType("lz4")
+      .setCompressType("lz4") // 或 "zlib"
       .setSendThreadCount(2)
       .setRetryCount(3)
       .setPacketLogBytes(256 * 1024)
@@ -189,7 +190,7 @@ client.destroy();
 - accessKeyId / accessKeySecret（必填）：AK/SK 凭证
 - topicId（必填）：日志主题 ID
 - securityToken（可选）：临时鉴权场景使用
-- compressType（建议）：`lz4` 或 `zlib`（默认推荐 `lz4`，异常时自动回退到 `zlib`）
+- compressType（建议）：`lz4` 或 `zlib`
 
 ### 常见易错点与排查
 - Android 12 导出要求：含 `intent-filter` 的 Activity 必须声明 `android:exported="true"`
@@ -198,7 +199,7 @@ client.destroy();
   ```xml
   <uses-permission android:name="android.permission.INTERNET" />
   ```
-- 依赖：仅在需要 `lz4` 时引入 `net.jpountz.lz4:lz4:1.3.0`；否则用 `zlib` 可减少三方依赖
+- 依赖：仅在使用 `lz4` 压缩时引入 `net.jpountz.lz4:lz4:1.3.0`；使用 `zlib` 无需额外三方依赖
 - R8/混淆：避免宽泛 keep 整个 `com.volcengine.*`，让 R8 移除未用代码；按日志最小化补充第三方库 keep
 - 时间戳：仅在需要纳秒级时间时开启 `enableTimeNs`；否则禁用以降低开销
 - 配置来源：不要在 Android 端使用 `System.getenv`；使用 BuildConfig/受控配置文件并妥善管理敏感信息
@@ -209,7 +210,7 @@ client.destroy();
 - 在服务端查询对应 `topicId` 的最新日志，确认字段（time/timeNs/contents/group tags）与期望一致
 
 ## 本次更新与迁移指南（1.1.5 → 2.0.x）
-- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer:2.0.1`（轻量发送）或 `io.github.volcengine-tls:tls-android-full:2.0.1`（完整能力）。
+- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer:2.0.2`（轻量发送）或 `io.github.volcengine-tls:tls-android-full:2.0.2`（完整能力）。
 - 写日志统一路径：高频接口统一走 Map→LogItem→AdaptorUtil→PutLogRequest.LogGroup，避免分叉路径。
   - 入口：LogProducerClient 的 `sendLog(Map)` 与带 `time/timeNs` 的重载
   - 转换：统一在 AdaptorUtil 中完成时间归一、内容填充与 group tags 拼接
@@ -237,8 +238,8 @@ client.destroy();
 
 ## 压缩与体积优化
 - 压缩：支持 `lz4` 与 `zlib`
-  - 推荐默认 `lz4`（发送性能更好）；必要时可改为 `zlib`（去除三方依赖）
-  - 发送过程中如 lz4 压缩超时/异常，会自动回退到 zlib 并修正请求头
+  - `lz4`：压缩/解压更快（推荐默认）
+  - `zlib`：无需引入 lz4 依赖，体积更小
 - 体积：默认网络栈为 OkHttp 3.12.13 + Okio 1.17.5（Java），结合 R8 可获得较小 APK
 - R8：示例 `app` 已开启 R8（minify/shrink），同时提供 keep 规则；如遇运行问题按日志定向补充
 

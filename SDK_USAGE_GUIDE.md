@@ -5,14 +5,15 @@
 ## 你需要先知道的两件事
 
 - SDK 依赖坐标（Maven Central）
-    - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.1`
-    - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.1`
+  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.2`
+  - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.2`
+  - 如果你的 App 必须支持 `minSdk=16`：使用 `2.0.2-api16`（仅提供兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）
 - 必要参数（后面会用到）
-    - `endpoint`：TLS 接入域名，形如 `https://tls-cn-xxx.volces.com`
-    - `region`：地域标识，例如 `cn-xxx`
-    - `topicId`：日志主题 ID（Producer 发日志必填）
-    - `accessKeyId/accessKeySecret`：AK/SK
-    - `securityToken`：STS 临时凭证可选（没有就传空/不设置）
+  - `endpoint`：TLS 接入域名，形如 `https://tls-cn-xxx.volces.com`
+  - `region`：地域标识，例如 `cn-xxx`
+  - `topicId`：日志主题 ID（Producer 发日志必填）
+  - `accessKeyId/accessKeySecret`：AK/SK
+  - `securityToken`：STS 临时凭证可选（没有就传空/不设置）
 
 ## 第 0 步：在控制台准备资源与凭证
 
@@ -49,15 +50,15 @@
 ### 2. 配置 TLS 参数（推荐用 adb 写入配置文件）
 
 1. 从模板复制一份配置文件并填入你的真实参数：
-    - 模板：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls_config.properties.example
-    - 重命名为：`tls_config.properties`
+   - 模板：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls_config.properties.example
+   - 重命名为：`tls_config.properties`
 2. 关键字段说明：
-    - `endPoint`：你的 TLS Endpoint（建议 https）
-    - `region`：地域（如 cn-xxx）
-    - `ak/sk`：访问密钥
-    - `topicId`：日志主题 ID
-    - `token`：STS token（可空）
-    - `compress`：`lz4` 或 `zlib`
+   - `endPoint`：你的 TLS Endpoint（建议 https）
+   - `region`：地域（如 cn-xxx）
+   - `ak/sk`：访问密钥
+   - `topicId`：日志主题 ID
+   - `token`：STS token（可空）
+   - `compress`：`lz4` 或 `zlib`
 
 ### 3A. 在真机上安装并运行
 
@@ -132,8 +133,8 @@ dependencyResolutionManagement {
 ```groovy
 dependencies {
   // 轻量发送（推荐）
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.1'
-  // 使用 lz4 压缩时引入，否则可省略（不用 lz4 时可将 compressType 设为 zlib）
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
+  // 仅当使用 lz4 压缩时引入
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
 ```
@@ -262,20 +263,20 @@ client.close();
 建议你按下面“截图式步骤”逐步核对（不同控制台 UI 可能略有差异，但路径一致）：
 
 1. 打开火山引擎控制台并进入日志服务（TLS）
-    - 截图点：顶部服务入口与左侧导航栏
+   - 截图点：顶部服务入口与左侧导航栏
 2. 进入你创建的 Project
-    - 截图点：Project 列表中目标项目的名称/ID
+   - 截图点：Project 列表中目标项目的名称/ID
 3. 进入 Topic 列表，找到 `topicId` 对应的 Topic
-    - 截图点：Topic 列表中的 TopicName 与 TopicId
+   - 截图点：Topic 列表中的 TopicName 与 TopicId
 4. 打开“日志查询/检索”（Search/Query）
-    - 截图点：检索页面的 Topic 选择框与时间范围选择器
+   - 截图点：检索页面的 Topic 选择框与时间范围选择器
 5. 输入查询条件并执行
-    - 建议先用 `*`（全量）或按你写入的字段过滤（例如 `key:value`）
-    - 截图点：查询语句与返回的第一条日志详情
+   - 建议先用 `*`（全量）或按你写入的字段过滤（例如 `key:value`）
+   - 截图点：查询语句与返回的第一条日志详情
 6. 在结果里确认关键字段
-    - `key/value` 是否一致
-    - `ts/time` 是否在你刚发送的时间附近
-    - 来源/文件名（如你设置了 source/file）是否符合预期
+   - `key/value` 是否一致
+   - `ts/time` 是否在你刚发送的时间附近
+   - 来源/文件名（如你设置了 source/file）是否符合预期
 
 ### 9. R8/混淆（Release 建议做）
 
@@ -309,9 +310,9 @@ Release 打包开启 R8 后，如遇运行时反射/序列化相关问题，按�
 
 -dontwarn org.slf4j.impl.StaticLoggerBinder
 
-# 如果你使用 lz4 压缩，保留下面两行；不用 lz4（compressType=zlib）可删除
--keep class net.jpountz.** { *; }
--dontwarn net.jpountz.**
+ # 如果使用 lz4 压缩，保留下面两行；只用 zlib 可删除
+ -keep class net.jpountz.** { *; }
+ -dontwarn net.jpountz.**
 ```
 
 #### Full（管理 + 发送）模板（在 Producer 基础上增加）
@@ -353,7 +354,7 @@ Release 打包开启 R8 后，如遇运行时反射/序列化相关问题，按�
 
 ```groovy
 dependencies {
-  implementation 'io.github.volcengine-tls:tls-android-full:2.0.1'
+  implementation 'io.github.volcengine-tls:tls-android-full:2.0.2'
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
 ```

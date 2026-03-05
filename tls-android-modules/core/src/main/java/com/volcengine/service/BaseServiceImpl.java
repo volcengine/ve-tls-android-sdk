@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.Proxy;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import static com.volcengine.model.tls.Const.LZ4;
@@ -109,10 +110,12 @@ public abstract class BaseServiceImpl implements IBaseService {
             Headers headers = response.headers();
             if (statusCode >= 300) {
                 String msg = "";
+                byte[] errBytes = null;
                 if (body != null) {
-                    msg = body.string();
+                    errBytes = body.bytes();
+                    msg = formatErrorBody(errBytes);
                 }
-                return new RawResponse(null, SdkError.EHTTP.getNumber(), new Exception(msg), headers, statusCode);
+                return new RawResponse(errBytes, SdkError.EHTTP.getNumber(), new Exception(msg), headers, statusCode);
             }
             if (body != null) {
                 bytes = body.bytes();
@@ -125,6 +128,55 @@ public abstract class BaseServiceImpl implements IBaseService {
                 response.close();
             }
         }
+    }
+
+    private String formatErrorBody(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) { return ""; }
+        int limit = Math.min(bytes.length, 4096);
+        byte[] head = Arrays.copyOf(bytes, limit);
+        String s = new String(head, StandardCharsets.UTF_8);
+        int printable = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '\n' || c == '\r' || c == '\t' || (c >= 0x20 && c != 0x7f)) { printable++; }
+        }
+        if (s.length() > 0 && ((double) printable / (double) s.length()) >= 0.85) {
+            return bytes.length > limit ? (s + "\n...(truncated)") : s;
+        }
+        String b64 = Base64.getEncoder().encodeToString(head);
+        return "base64:" + b64 + (bytes.length > limit ? "...(truncated)" : "");
+    }
+
+    private boolean isDebugHeadersEnabled() {
+        String v = System.getProperty("tls.debugHeaders");
+        if (v == null || v.isEmpty()) { return false; }
+        return "1".equals(v) || "true".equalsIgnoreCase(v) || "yes".equalsIgnoreCase(v);
+    }
+
+    private void logProtoHeaders(String api, Request request) {
+        if (!isDebugHeadersEnabled()) { return; }
+        try {
+            Headers h = request.headers();
+            StringBuilder sb = new StringBuilder();
+            appendHeader(sb, h, com.volcengine.model.tls.Const.X_TLS_COMPRESS_TYPE);
+            appendHeader(sb, h, com.volcengine.model.tls.Const.X_TLS_BODY_RAW_SIZE);
+            appendHeader(sb, h, com.volcengine.model.tls.Const.X_TLS_HASHKEY);
+            appendHeader(sb, h, com.volcengine.model.tls.Const.Log_Count_Header);
+            appendHeader(sb, h, com.volcengine.model.tls.Const.Earliest_Log_Time_Header);
+            appendHeader(sb, h, com.volcengine.model.tls.Const.Latest_Log_Time_Header);
+            appendHeader(sb, h, Const.CONTENT_TYPE);
+            String line = "TLS request api=" + api + " url=" + request.url() + " " + sb.toString().trim();
+            LOG.info(line);
+            System.out.println(line);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void appendHeader(StringBuilder sb, Headers h, String name) {
+        if (sb == null || h == null || name == null) { return; }
+        String v = h.get(name);
+        if (v == null) { return; }
+        sb.append(name).append('=').append(v).append(' ');
     }
 
     private Collection<Header> mergeHeader(List<Header> header1, List<Header> header2) {
@@ -257,11 +309,17 @@ public abstract class BaseServiceImpl implements IBaseService {
             header.put(com.volcengine.model.tls.Const.X_TLS_COMPRESS_TYPE, finalCompressType);
             header.put(com.volcengine.model.tls.Const.X_TLS_BODY_RAW_SIZE, String.valueOf(body.length));
         }
+        if (finalCompressType != null) {
+            requestBuilder.header(com.volcengine.model.tls.Const.X_TLS_COMPRESS_TYPE, finalCompressType);
+            requestBuilder.header(com.volcengine.model.tls.Const.X_TLS_BODY_RAW_SIZE, String.valueOf(body.length));
+        }
 
         RequestBody requestBody = RequestBody.create(MEDIA_TYPE_PROTOBUF, compressedData);
         requestBuilder.header(Const.CONTENT_TYPE, requestBody.contentType().toString());
         requestBuilder.post(requestBody);
-        return makeRequest(api, requestBuilder.build());
+        Request req = requestBuilder.build();
+        logProtoHeaders(api, req);
+        return makeRequest(api, req);
     }
 
     private Request.Builder prepareRequestBuilder(String api, List<NameValuePair> params) {

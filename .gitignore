@@ -35,6 +35,9 @@ key.properties
 target/
 android-example/.classpath.txt
 tls_config.properties
+tls-android-*-sources.jar
+tls-android-*.jar
+**/.attach_pid*
 
 # Eclipse
 .classpath
@@ -60,3 +63,14 @@ tls_config.properties
 # Local env
 .env
 .trae
+
+# Maven Central publish work dirs and artifacts
+tls-android-modules/maven-central-publish/.work-*/
+tls-android-modules/maven-central-publish/dist/
+
+# Local publish/sign artifacts
+**/*.asc
+**/*.md5
+**/*.sha1
+**/*.sha256
+**/*.sha512

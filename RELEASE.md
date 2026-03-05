@@ -1,8 +1,8 @@
 ## 发布说明
-- 版本策略：SemVer（主.次.修订），当前主版本为 2.0.1（相较 1.1.5 为重大变更）
+- 版本策略：SemVer（主.次.修订），当前主版本为 2.0.2（相较 1.1.5 为重大变更）
 - 最低支持：Android 4.4（API 19）
 - 构建产物：core/full/producer-lite AAR
-- Maven 坐标：推荐使用 `io.github.volcengine-tls`
+- Maven 坐标：推荐使用 `io.github.volcengine-tls`（GitHub 命名空间验证更直接）
 - 工作流：GitHub Actions 自动构建与测试（.github/workflows/android-ci.yml）
 - 发布步骤：
   1. 更新 CHANGELOG 与版本号（如需要）
@@ -88,6 +88,6 @@ cd tls-android-modules
 - 发布工程与产物绑定：
   - 聚合 POM：tls-android-modules/maven-central-publish/pom.xml（不发布到中央仓库）
   - 发布坐标：
-    - io.github.volcengine-tls:tls-android-core:2.0.1
-    - io.github.volcengine-tls:tls-android-producer:2.0.1
-    - io.github.volcengine-tls:tls-android-full:2.0.1
+    - io.github.volcengine-tls:tls-android-core:2.0.2
+    - io.github.volcengine-tls:tls-android-producer:2.0.2
+    - io.github.volcengine-tls:tls-android-full:2.0.2

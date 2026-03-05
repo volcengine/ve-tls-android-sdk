@@ -37,25 +37,25 @@ if [ -n "$GPG_PASSPHRASE" ]; then
   MAVEN_GPG_ARGS+=("-Dgpg.passphrase=$GPG_PASSPHRASE" "-Dgpg.useagent=true")
 fi
 
-mvn -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg gpg:sign-and-deploy-file \
+mvn -s ~/.m2/settings.xml -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg gpg:sign-and-deploy-file \
   -Durl="$DEPLOY_URL" -DrepositoryId="$SERVER_ID" \
   -DpomFile="maven-publish/pom-core.xml" \
   -Dfile="$CORE_AAR" \
   -Dfiles="$TARGET_DIR/tls-android-core-$VERSION-sources.jar" \
   -Dclassifiers=sources -Dtypes=jar
 
-mvn -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg gpg:sign-and-deploy-file \
+mvn -s ~/.m2/settings.xml -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg gpg:sign-and-deploy-file \
   -Durl="$DEPLOY_URL" -DrepositoryId="$SERVER_ID" \
   -DpomFile="maven-publish/pom-producer.xml" \
   -Dfile="$PRODUCER_AAR" \
   -Dfiles="$TARGET_DIR/tls-android-producer-$VERSION-sources.jar" \
   -Dclassifiers=sources -Dtypes=jar
 
-mvn -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg gpg:sign-and-deploy-file \
+mvn -s ~/.m2/settings.xml -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg gpg:sign-and-deploy-file \
   -Durl="$DEPLOY_URL" -DrepositoryId="$SERVER_ID" \
   -DpomFile="maven-publish/pom-full.xml" \
   -Dfile="$FULL_AAR" \
   -Dfiles="$TARGET_DIR/tls-android-full-$VERSION-sources.jar" \
   -Dclassifiers=sources -Dtypes=jar
 
-mvn -q -f maven-publish/release-helper-pom.xml nexus-staging:release
+mvn -s ~/.m2/settings.xml -q -f maven-publish/release-helper-pom.xml nexus-staging:release

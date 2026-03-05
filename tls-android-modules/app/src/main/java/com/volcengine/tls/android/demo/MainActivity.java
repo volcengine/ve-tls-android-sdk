@@ -39,6 +39,11 @@ public class MainActivity extends Activity {
     private static final String TAG = "TLS-Demo";
     private TextView logView; // Changed from statusText to logView
     private boolean isRunning = false;
+    private static String maskSecret(String s) {
+        if (s == null || s.isEmpty()) return "";
+        if (s.length() <= 8) return "****";
+        return s.substring(0, 4) + "****" + s.substring(s.length() - 4);
+    }
 
     private final Runnable sendTask = new Runnable() {
         @Override
@@ -59,16 +64,27 @@ public class MainActivity extends Activity {
                                 @Override
                                 public void onComplete(Result result) {
                                     if (result.isSuccess()) {
-                                        appendLog("Producer Success: " + index + " attempts=" + result.getAttemptCount());
+                                        String detail = "attempts=" + result.getAttemptCount();
+                                        java.util.List<com.volcengine.model.tls.producer.Attempt> ats = result.getAttempts();
+                                        if (ats != null && !ats.isEmpty()) {
+                                            com.volcengine.model.tls.producer.Attempt a = ats.get(ats.size() - 1);
+                                            detail += " http=" + a.getHttpCode();
+                                            if (a.getRequestId() != null && !a.getRequestId().isEmpty()) {
+                                                detail += " reqId=" + a.getRequestId();
+                                            }
+                                        }
+                                        appendLog("Producer Success: " + index + " " + detail);
                                         handler.postDelayed(sendTask, 2000);
                                     } else {
                                         com.volcengine.model.tls.producer.Attempt a = null;
                                         java.util.List<com.volcengine.model.tls.producer.Attempt> ats = result.getAttempts();
                                         if (ats != null && ats.size() > 0) { a = ats.get(ats.size()-1); }
                                         if (a != null) {
-                                            appendLog("Producer Failed: http=" + a.getHttpCode() + " code=" + String.valueOf(a.getErrorCode()) + " msg=" + String.valueOf(a.getErrorMessage()));
+                                            String detail = "attempts=" + result.getAttemptCount() + " http=" + a.getHttpCode() + " code=" + String.valueOf(a.getErrorCode()) + " msg=" + String.valueOf(a.getErrorMessage());
+                                            if (a.getRequestId() != null && !a.getRequestId().isEmpty()) { detail += " reqId=" + a.getRequestId(); }
+                                            appendLog("Producer Failed: " + detail);
                                         } else {
-                                            appendLog("Producer Failed");
+                                            appendLog("Producer Failed: attempts=" + result.getAttemptCount());
                                         }
                                         isRunning = false;
                                     }
@@ -127,6 +143,8 @@ public class MainActivity extends Activity {
 
     private void startLogging() {
         if (isRunning) return;
+        System.setProperty("tls.debugHeaders", "true");
+        appendLog("Debug tls.debugHeaders=true");
         
         java.util.Properties props = ConfigLoader.load(this);
         String endPoint = ConfigLoader.get(props, "endPoint");
@@ -140,6 +158,14 @@ public class MainActivity extends Activity {
             appendLog("Missing config: endPoint/region/ak/sk/topicId");
             return;
         }
+        appendLog("Config endPoint=" + endPoint);
+        appendLog("Config region=" + region);
+        appendLog("Config topicId=" + ConfigLoader.get(props, "topicId"));
+        appendLog("Config compress=" + compress);
+        appendLog("Config ak=" + maskSecret(ak));
+        appendLog("Config sk=" + maskSecret(sk));
+        appendLog("Config token=" + (token == null || token.isEmpty() ? "" : maskSecret(token)));
+        appendLog("Config sendThreadCount=1 retryCount=3");
 
         try {
             if (producerClient == null) {
