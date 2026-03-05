@@ -32,6 +32,7 @@ public class LogProducerClient {
         pc.setRetryCount(config.getRetryCount());
         pc.setMaxReservedAttempts(config.getReservedAttempts());
         pc.setMaxThreadCount(config.getSendThreadCount());
+        pc.setCompressType(config.getCompressType());
         if (config.getGroupTags() != null) { pc.setGroupTags(config.getGroupTags()); }
         pc.setEnableTimeNs(config.isEnableTimeNs());
         producer = new ProducerImpl(pc);
@@ -89,6 +90,7 @@ public class LogProducerClient {
         pc.setRetryCount(newConfig.getRetryCount());
         pc.setMaxReservedAttempts(newConfig.getReservedAttempts());
         pc.setMaxThreadCount(newConfig.getSendThreadCount());
+        pc.setCompressType(newConfig.getCompressType());
         if (newConfig.getGroupTags() != null) { pc.setGroupTags(newConfig.getGroupTags()); }
         pc.setEnableTimeNs(newConfig.isEnableTimeNs());
         if (producer != null) { producer.config(pc); }

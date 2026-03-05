@@ -10,6 +10,11 @@ public class RequestBuilder {
     public static PutLogsRequest buildFromBatch(BatchLog batchLog) {
         PutLogRequest.LogGroupList logGroupList = PutLogRequest.LogGroupList.newBuilder().mergeFrom(batchLog.getLogGroupList()).build();
         BatchLog.BatchKey batchKey = batchLog.getBatchKey();
-        return new PutLogsRequest(logGroupList, batchKey.getTopicId(), batchKey.getShardHash(), LZ4);
+        String compressType = null;
+        if (batchLog.getProducerConfig() != null) {
+            compressType = batchLog.getProducerConfig().getCompressType();
+        }
+        if (compressType == null || compressType.isEmpty()) { compressType = LZ4; }
+        return new PutLogsRequest(logGroupList, batchKey.getTopicId(), batchKey.getShardHash(), compressType);
     }
 }

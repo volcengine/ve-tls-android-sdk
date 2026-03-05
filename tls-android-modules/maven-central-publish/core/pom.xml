@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <!-- This module was also published with a richer model, Gradle metadata,  -->
+  <!-- which should be used instead. Do not delete the following line which  -->
+  <!-- is to indicate to Gradle or any Gradle module metadata file consumer  -->
+  <!-- that they should prefer consuming it instead. -->
+  <!-- do_not_remove: published-with-gradle-metadata -->
+
+  <groupId>io.github.volcengine-tls</groupId>
+  <artifactId>tls-android-core</artifactId>
+  <version>${revision}</version>
+  <packaging>pom</packaging>
+  <name>tls-android-core</name>
+  <description>VOLC Engine TLS Core SDK for Android</description>
+  <url>https://github.com/volcengine/ve-tls-android-sdk</url>
+
+  <properties>
+    <revision>2.0.2</revision>
+  </properties>
+
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <scm>
+    <url>https://github.com/volcengine/ve-tls-android-sdk</url>
+    <connection>scm:git:https://github.com/volcengine/ve-tls-android-sdk.git</connection>
+    <developerConnection>scm:git:https://github.com/volcengine/ve-tls-android-sdk.git</developerConnection>
+  </scm>
+
+  <developers>
+    <developer>
+      <id>volcproducts</id>
+      <name>VOLC TLS ANDROID SDK</name>
+    </developer>
+  </developers>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>okhttp</artifactId>
+      <version>3.12.13</version>
+    </dependency>
+    <dependency>
+      <groupId>com.squareup.okio</groupId>
+      <artifactId>okio</artifactId>
+      <version>1.17.5</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-javalite</artifactId>
+      <version>3.23.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.36</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>3.2.8</version>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.5.0</version>
+        <executions>
+          <execution>
+            <id>attach-android-artifacts</id>
+            <phase>package</phase>
+            <goals>
+              <goal>attach-artifact</goal>
+            </goals>
+            <configuration>
+              <artifacts>
+                <artifact>
+                  <file>${project.build.directory}/artifacts/tls-android-core-${project.version}.aar</file>
+                  <type>aar</type>
+                </artifact>
+                <artifact>
+                  <file>${project.build.directory}/artifacts/tls-android-core-${project.version}.module</file>
+                  <type>module</type>
+                </artifact>
+                <artifact>
+                  <file>${project.build.directory}/artifacts/tls-android-core-${project.version}-sources.jar</file>
+                  <type>jar</type>
+                  <classifier>sources</classifier>
+                </artifact>
+                <artifact>
+                  <file>${project.build.directory}/artifacts/tls-android-core-${project.version}-javadoc.jar</file>
+                  <type>jar</type>
+                  <classifier>javadoc</classifier>
+                </artifact>
+              </artifacts>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.8.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <publishingServerId>central</publishingServerId>
+          <tokenAuth>true</tokenAuth>
+          <autoPublish>true</autoPublish>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

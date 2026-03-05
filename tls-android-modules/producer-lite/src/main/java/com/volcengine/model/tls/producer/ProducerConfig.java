@@ -4,6 +4,8 @@ import com.volcengine.model.tls.ClientConfig;
 import com.volcengine.model.tls.exception.LogException;
 import com.volcengine.util.StringUtils;
 
+import static com.volcengine.model.tls.Const.LZ4;
+
 public class ProducerConfig {
     public static final int DEFAULT_TOTAL_SIZE_IN_BYTES = 100 * 1024 * 1024;
     public static final int DEFAULT_MAX_THREAD_COUNT = 50;
@@ -37,6 +39,7 @@ public class ProducerConfig {
     private int shardCount = DEFAULT_SHARD_COUNT;
     private java.util.Map<String,String> groupTags;
     private boolean enableTimeNs = false;
+    private String compressType = LZ4;
 
     public ProducerConfig(String endpoint, String region, String accessKey, String accessSecret, String token) {
         clientConfig = new ClientConfig(endpoint, region, accessKey, accessSecret, token);
@@ -55,6 +58,8 @@ public class ProducerConfig {
         retryCount = (int) validNumber(retryCount, 1, MAX_RETRY_COUNT, DEFAULT_RETRY_COUNT);
         maxReservedAttempts = (int) validNumber(maxReservedAttempts, 2, MAX_RESERVED_ATTEMPTS, DEFAULT_RESERVED_ATTEMPTS);
         shardCount = (int) validNumber(shardCount, 1, Integer.MAX_VALUE, DEFAULT_SHARD_COUNT);
+        if (StringUtils.isEmpty(compressType)) { compressType = LZ4; }
+        if (!(LZ4.equalsIgnoreCase(compressType) || com.volcengine.util.Const.ZLIB.equalsIgnoreCase(compressType))) { compressType = LZ4; }
         if (clientConfig == null || StringUtils.isEmpty(clientConfig.getEndpoint()) || StringUtils.isEmpty(clientConfig.getAccessKeyId()) || StringUtils.isEmpty(clientConfig.getAccessKeySecret()) || StringUtils.isEmpty(clientConfig.getRegion())) {
             throw new LogException("InvalidArgument", String.valueOf(clientConfig), null);
         }
@@ -97,6 +102,7 @@ public class ProducerConfig {
         if (maxReservedAttempts < 2 || maxReservedAttempts > MAX_RESERVED_ATTEMPTS) { throw new LogException("InvalidArgument", String.format("maxReservedAttempts must between 2 to %d,actual:%d", MAX_RESERVED_ATTEMPTS, maxReservedAttempts), null); }
         this.maxReservedAttempts = maxReservedAttempts;
     }
+    public void setCompressType(String compressType) { this.compressType = compressType; }
     public void setClientConfig(ClientConfig clientConfig) throws LogException {
         if (clientConfig == null || StringUtils.isEmpty(clientConfig.getEndpoint()) || StringUtils.isEmpty(clientConfig.getAccessKeyId()) || StringUtils.isEmpty(clientConfig.getAccessKeySecret()) || StringUtils.isEmpty(clientConfig.getRegion())) {
             throw new LogException("InvalidArgument", String.valueOf(clientConfig), null);
@@ -118,6 +124,7 @@ public class ProducerConfig {
     public long getMaxBlockMs() { return maxBlockMs; }
     public int getRetryCount() { return retryCount; }
     public int getMaxReservedAttempts() { return maxReservedAttempts; }
+    public String getCompressType() { return compressType; }
     public ClientConfig getClientConfig() { return clientConfig; }
     public int getShardCount() { return shardCount; }
     public java.util.Map<String,String> getGroupTags() { return groupTags; }

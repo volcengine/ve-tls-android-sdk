@@ -4,6 +4,10 @@
 
 该仓库提供在 Android/Java 环境下访问火山引擎 TLS（日志服务）的 SDK 与示例，支持同步 Client API 与异步 Producer 发送。已针对移动端体积与稳定性做优化：可选网络栈（OkHttp 3.x）、压缩（lz4/zlib）、R8 裁剪与安全日志映射。
 
+从 0 到 1 接入文档请优先阅读：
+- SDK 使用指南（推荐）：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/SDK_USAGE_GUIDE.md
+- 本地配置文件模板（不含真实密钥）：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls_config.properties.example
+
 ## 前置准备
 ### 服务开通
 请先在火山引擎控制台开通日志服务：https://console.volcengine.com/
@@ -27,14 +31,33 @@ Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access 
 
 ## 选择指南（不同场景用哪个包）
 - 只需要发送日志（建议）
-  - 依赖 `:producer`（轻量封装，内部依赖 `:core`）
+  - 依赖 `io.github.volcengine-tls:tls-android-producer`（轻量封装，自动依赖 `tls-android-core`）
   - Android 应用或 SDK 集成优先选择该包以获得更小体积与更少依赖
 - 需要完整管理能力（创建 Project/Topic/Index、检索等）
-  - 依赖 `:full`（携带完整 Client API），内部依赖 `:core`
+  - 依赖 `io.github.volcengine-tls:tls-android-full`（携带完整 Client API），自动依赖 `tls-android-core`
   - 体积较大，适合工具类或后管应用
 
 ## 获取与安装
-### 模块依赖（多模块工程）
+### 方式 A：从 Maven Central 使用（推荐）
+在应用项目的仓库中确保包含 `mavenCentral()`，然后直接添加依赖：
+
+```groovy
+dependencies {
+  // 轻量发送（推荐）
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
+  // 如需完整能力（管理+发送）
+  // implementation 'io.github.volcengine-tls:tls-android-full:2.0.2'
+  // 仅当使用 lz4 压缩时引入
+  implementation 'net.jpountz.lz4:lz4:1.3.0'
+}
+```
+
+说明：
+- `tls-android-producer` / `tls-android-full` 会自动拉取 `tls-android-core`，无需手动声明 core。
+- 从 2.0.1 起已发布 Gradle Module Metadata（`.module`），Gradle/AGP 可直接解析到 AAR 变体，无需 `@aar`。
+- 如果你的 App 必须支持 `minSdk=16`：请使用 `2.0.2-api16`（兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）。
+
+### 方式 B：源码方式接入（仓库开发/二次开发）
 在工程的 `settings.gradle` 中包含需要的模块：
 
 ```groovy
@@ -66,7 +89,7 @@ LogProducerConfig cfg = new LogProducerConfig()
     .setAccessKeySecret(System.getenv("sk"))
     .setSecurityToken(System.getenv("token")) // 可选
     .setTopicId(System.getenv("topicId"))
-    .setCompressType("lz4") // 或 "zlib"
+    .setCompressType("lz4")
     .setSendThreadCount(2)
     .setRetryCount(3)
     .setPacketLogBytes(256 * 1024)
@@ -87,7 +110,7 @@ client.sendLog(kv, result -> {
 client.close();
 ```
 
-更多示例参见：[LogProducerClient.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/producer-lite/src/main/java/com/volcengine/tls/android/producer/LogProducerClient.java)
+更多示例参见：[LogProducerClient.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-lite/src/main/java/com/volcengine/tls/android/producer/LogProducerClient.java)
 
 ### 方式 B：同步 Client API（完整能力）
 
@@ -106,13 +129,16 @@ PutLogsResponse resp = client.putLogsV2(req);
 client.destroy();
 ```
 
-参考完整示例：[TLSLogClientImpl](https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/full/src/main/java/com/volcengine/service/tls/TLSLogClientImpl.java)
+参考完整示例：[TLSLogClientImpl](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/full/src/main/java/com/volcengine/service/tls/TLSLogClientImpl.java)
 
 ### 新手三步接入（Android 应用）
 - 第一步：添加依赖与权限
   ```groovy
   dependencies {
-    implementation 'com.volcengine:volc-tls-android-sdk:2.0.0'
+    // 轻量发送（推荐）
+    implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
+    // 如需完整能力（管理+发送）
+    // implementation 'io.github.volcengine-tls:tls-android-full:2.0.2'
     // 使用 lz4 压缩时引入，否则可省略
     implementation 'net.jpountz.lz4:lz4:1.3.0'
   }
@@ -130,7 +156,7 @@ client.destroy();
       .setAccessKeySecret(BuildConfig.TLS_SK)
       .setSecurityToken(BuildConfig.TLS_TOKEN) // 可为空
       .setTopicId(BuildConfig.TLS_TOPIC_ID)
-      .setCompressType("lz4")
+      .setCompressType("lz4") // 或 "zlib"
       .setSendThreadCount(2)
       .setRetryCount(3)
       .setPacketLogBytes(256 * 1024)
@@ -158,17 +184,41 @@ client.destroy();
 - 仅在需要时启用 `enableTimeNs`，避免每条日志调用 nanoTime 的额外开销
 - R8/混淆：保留 okhttp/okio/protobuf 与 com.volcengine.*，示例规则可复用并按运行日志修正
 
-## 本次更新与迁移指南（1.1.5 → 2.0.0）
-- 依赖升级：使用 `com.volcengine:volc-tls-android-sdk:2.0.0`。
-- 模块选择：推荐依赖 `:producer`（映射到 `producer-lite`），仅发送日志场景更轻量；完整能力依赖 `:full`。
+### 接入必填信息
+- endpoint（必填）：形如 `https://tls-cn-xxx.volces.com`
+- region（必填）：例如 `cn-xxx`
+- accessKeyId / accessKeySecret（必填）：AK/SK 凭证
+- topicId（必填）：日志主题 ID
+- securityToken（可选）：临时鉴权场景使用
+- compressType（建议）：`lz4` 或 `zlib`
+
+### 常见易错点与排查
+- Android 12 导出要求：含 `intent-filter` 的 Activity 必须声明 `android:exported="true"`
+- 网络安全：联调使用 `http` 时需配置 `network_security_config` 允许明文流量
+- 权限：`INTERNET` 必须声明（否则无法联网）
+  ```xml
+  <uses-permission android:name="android.permission.INTERNET" />
+  ```
+- 依赖：仅在使用 `lz4` 压缩时引入 `net.jpountz.lz4:lz4:1.3.0`；使用 `zlib` 无需额外三方依赖
+- R8/混淆：避免宽泛 keep 整个 `com.volcengine.*`，让 R8 移除未用代码；按日志最小化补充第三方库 keep
+- 时间戳：仅在需要纳秒级时间时开启 `enableTimeNs`；否则禁用以降低开销
+- 配置来源：不要在 Android 端使用 `System.getenv`；使用 BuildConfig/受控配置文件并妥善管理敏感信息
+- 本地签名与构建：受限环境无法写入 `~/.android` 时，使用项目自带 `debug.keystore` 并在 `signingConfigs` 指定
+
+### 发布后快速验证
+- 构造 `LogProducerClient`，写入一条简单日志（`Map<String,String>`），回调 `result.isSuccess()` 为 `true`
+- 在服务端查询对应 `topicId` 的最新日志，确认字段（time/timeNs/contents/group tags）与期望一致
+
+## 本次更新与迁移指南（1.1.5 → 2.0.x）
+- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer:2.0.2`（轻量发送）或 `io.github.volcengine-tls:tls-android-full:2.0.2`（完整能力）。
 - 写日志统一路径：高频接口统一走 Map→LogItem→AdaptorUtil→PutLogRequest.LogGroup，避免分叉路径。
   - 入口：LogProducerClient 的 `sendLog(Map)` 与带 `time/timeNs` 的重载
   - 转换：统一在 AdaptorUtil 中完成时间归一、内容填充与 group tags 拼接
   - 参考：
-    - LogProducerClient.java：https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/producer-lite/src/main/java/com/volcengine/tls/android/producer/LogProducerClient.java
-    - AdaptorUtil.java：https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/core/src/main/java/com/volcengine/model/tls/util/AdaptorUtil.java
-    - ProducerImpl.java（lite）：https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/producer-lite/src/main/java/com/volcengine/service/tls/ProducerImpl.java
-    - settings.gradle（模块映射）：https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/settings.gradle
+    - LogProducerClient.java：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-lite/src/main/java/com/volcengine/tls/android/producer/LogProducerClient.java
+    - AdaptorUtil.java：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/core/src/main/java/com/volcengine/model/tls/util/AdaptorUtil.java
+    - ProducerImpl.java（lite）：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-lite/src/main/java/com/volcengine/service/tls/ProducerImpl.java
+    - settings.gradle（模块映射）：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/settings.gradle
 - 时间戳行为：
   - 用户自定义毫秒时间与纳秒时间均支持（`sendLog(kv, timeMillis)` / `sendLog(kv, timeMillis, timeNs)`）
   - 未设置 `timeNs` 且启用 `enableTimeNs=true` 时，发送侧自动补充纳秒值
@@ -176,7 +226,7 @@ client.destroy();
 - 最低支持版本：Android 4.4（API 19）。
 
 ## 日志映射与字段
-统一由公共工具完成：[core/AdaptorUtil.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/core/src/main/java/com/volcengine/model/tls/util/AdaptorUtil.java)
+统一由公共工具完成：[core/AdaptorUtil.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/core/src/main/java/com/volcengine/model/tls/util/AdaptorUtil.java)
 
 - Log.Contents：写入每条日志的 `key/value`
 - Log.Time：优先使用用户传入的毫秒时间；未提供时在发送侧自动生成并归一化
@@ -188,15 +238,15 @@ client.destroy();
 
 ## 压缩与体积优化
 - 压缩：支持 `lz4` 与 `zlib`
-  - 推荐默认 `lz4`（发送性能更好）；必要时可改为 `zlib`（去除三方依赖）
-  - 发送过程中如 lz4 压缩超时/异常，会自动回退到 zlib 并修正请求头
+  - `lz4`：压缩/解压更快（推荐默认）
+  - `zlib`：无需引入 lz4 依赖，体积更小
 - 体积：默认网络栈为 OkHttp 3.12.13 + Okio 1.17.5（Java），结合 R8 可获得较小 APK
 - R8：示例 `app` 已开启 R8（minify/shrink），同时提供 keep 规则；如遇运行问题按日志定向补充
 
 ## 基准测试（Benchmark）
 演示 App 中提供压测页：通过两种压缩模式对比发送吞吐与延迟分布，并导出报告。
-- 启动入口：[AndroidManifest.xml](https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/app/src/main/AndroidManifest.xml)
-- 页面逻辑：[BenchmarkActivity.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/app/src/main/java/com/volcengine/tls/android/demo/BenchmarkActivity.java)
+- 启动入口：[AndroidManifest.xml](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/app/src/main/AndroidManifest.xml)
+- 页面逻辑：[BenchmarkActivity.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/app/src/main/java/com/volcengine/tls/android/demo/BenchmarkActivity.java)
 - 报告导出路径：`/sdcard/Android/data/<app>/files/benchmark/`
 
 ## 运行示例（控制台）
@@ -250,8 +300,8 @@ client.destroy();
 - 路径：.github/workflows/android-ci.yml
 - 说明：
   - 测试用例通过 Assumptions 检查环境变量，不满足时自动跳过，避免本地误触发。
-  - 创建/修改/检索链路参考：[ResourceCRUDIntegrationTest.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/integration-tests/src/test/java/com/volcengine/integration/ResourceCRUDIntegrationTest.java)
-  - 搜索/直方图/分片参考：[SearchIntegrationTest.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/integration-tests/src/test/java/com/volcengine/integration/SearchIntegrationTest.java)
+  - 创建/修改/检索链路参考：[ResourceCRUDIntegrationTest.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/integration-tests/src/test/java/com/volcengine/integration/ResourceCRUDIntegrationTest.java)
+  - 搜索/直方图/分片参考：[SearchIntegrationTest.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/integration-tests/src/test/java/com/volcengine/integration/SearchIntegrationTest.java)
 
 ## 常见问题
 - R8 开启后发送卡住
@@ -263,11 +313,11 @@ client.destroy();
 
 ## 代码参考
 - 发送管线（lite/full）：
-  - [ProducerImpl.java (lite)](https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/producer-lite/src/main/java/com/volcengine/service/tls/ProducerImpl.java)
-  - [ProducerImpl.java (full)](https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/full/src/main/java/com/volcengine/service/tls/ProducerImpl.java)
+  - [ProducerImpl.java (lite)](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-lite/src/main/java/com/volcengine/service/tls/ProducerImpl.java)
+  - [ProducerImpl.java (full)](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/full/src/main/java/com/volcengine/service/tls/ProducerImpl.java)
 - 公共映射工具：
-  - [AdaptorUtil.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/core/src/main/java/com/volcengine/model/tls/util/AdaptorUtil.java)
+  - [AdaptorUtil.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/core/src/main/java/com/volcengine/model/tls/util/AdaptorUtil.java)
 - 压缩与发送：
-  - [BaseServiceImpl.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master/tls-android-modules/core/src/main/java/com/volcengine/service/BaseServiceImpl.java)
+  - [BaseServiceImpl.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/core/src/main/java/com/volcengine/service/BaseServiceImpl.java)
 
 如需进一步体积优化、开关纳秒时间、或自定义日志映射策略，请在 Issue 中说明你的场景，我们会协助提供建议或改造示例。

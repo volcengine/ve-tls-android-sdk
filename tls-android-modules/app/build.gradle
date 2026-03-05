@@ -54,6 +54,7 @@ android {
 
 dependencies {
   implementation project(':producer')
+  //implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
   debugImplementation 'org.slf4j:slf4j-simple:1.7.32'
   // omit lz4 in zlib build to reduce size
   implementation 'net.jpountz.lz4:lz4:1.3.0'

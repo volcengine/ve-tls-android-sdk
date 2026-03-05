@@ -8,7 +8,7 @@ plugins {
   namespace 'com.volcengine.tls.android.core'
   compileSdk 34
   defaultConfig {
-    minSdk 19
+    minSdk ((findProperty('MIN_SDK_OVERRIDE') ?: 19) as int)
     targetSdk 34
     consumerProguardFiles 'consumer-rules.pro'
   }
@@ -47,8 +47,10 @@ plugins {
     // after migration, core is self-contained; no dependency on :full
   }
 
-group = 'com.volcengine'
-version = '2.0.0'
+group = 'io.github.volcengine-tls'
+def baseVersion = (findProperty('POM_VERSION') ?: '2.0.2').toString()
+def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
+version = baseVersion + versionSuffix
 
 afterEvaluate {
   publishing {
@@ -65,7 +67,7 @@ afterEvaluate {
           licenses {
             license {
               name = 'The Apache Software License, Version 2.0'
-              url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+              url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
               distribution = 'repo'
             }
           }
@@ -101,6 +103,12 @@ afterEvaluate {
     if (key != null && pw != null) {
       useInMemoryPgpKeys(key, pw)
       sign publishing.publications
+    } else {
+      def gpgKeyName = findProperty('signing.gnupg.keyName') ?: System.getenv('SIGNING_GPG_KEYNAME')
+      if (gpgKeyName != null) {
+        useGpgCmd()
+        sign publishing.publications
+      }
     }
   }
 }

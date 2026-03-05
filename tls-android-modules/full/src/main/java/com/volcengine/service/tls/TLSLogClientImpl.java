@@ -23,10 +23,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.GZIPInputStream;
 
 import static com.volcengine.model.tls.Const.*;
 import static com.volcengine.model.tls.producer.ProducerConfig.EXTERNAL_ERROR;
@@ -1390,6 +1395,31 @@ public class TLSLogClientImpl implements TLSLogClient {
     private String[] getError(RawResponse response) {
         String code, message = "";
         code = SdkError.getErrorDesc(SdkError.getError(response.getCode()));
+        String bodyCode = null;
+        String bodyMsg = null;
+        byte[] data = response.getData();
+        if (data != null && data.length > 0) {
+            byte[] decoded = tryDecodeErrorBody(data);
+            if (decoded != null && decoded.length > 0) {
+                int limit = Math.min(decoded.length, 4096);
+                String json = new String(decoded, 0, limit, StandardCharsets.UTF_8);
+                try {
+                    JSONObject o = JSON.parseObject(json);
+                    if (o != null) {
+                        bodyCode = o.getString("ErrorCode");
+                        if (bodyCode == null) { bodyCode = o.getString("errorCode"); }
+                        bodyMsg = o.getString("ErrorMessage");
+                        if (bodyMsg == null) { bodyMsg = o.getString("errorMessage"); }
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        if (bodyCode != null || bodyMsg != null) {
+            code = bodyCode == null ? code : bodyCode;
+            message = bodyMsg == null ? "" : bodyMsg;
+            return new String[]{code, message};
+        }
         if (response.getException() != null) {
             message = response.getException().getMessage();
             if (message == null) { message = String.valueOf(response.getException()); }
@@ -1401,5 +1431,27 @@ public class TLSLogClientImpl implements TLSLogClient {
             }
         }
         return new String[]{code, message};
+    }
+
+    private byte[] tryDecodeErrorBody(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) { return null; }
+        int limit = Math.min(bytes.length, 4096);
+        byte[] head = Arrays.copyOf(bytes, limit);
+        if (head.length >= 2 && (head[0] == (byte) 0x1f) && (head[1] == (byte) 0x8b)) {
+            try {
+                ByteArrayInputStream in = new ByteArrayInputStream(head);
+                GZIPInputStream gin = new GZIPInputStream(in);
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                byte[] buf = new byte[1024];
+                int n;
+                while ((n = gin.read(buf)) > 0 && out.size() < 4096) {
+                    out.write(buf, 0, n);
+                }
+                gin.close();
+                return out.toByteArray();
+            } catch (Exception ignored) {
+            }
+        }
+        return head;
     }
 }

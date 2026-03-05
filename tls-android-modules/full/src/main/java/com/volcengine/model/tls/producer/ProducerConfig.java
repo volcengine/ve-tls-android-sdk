@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.ToString;
 import com.volcengine.util.StringUtils;
 
+import static com.volcengine.model.tls.Const.LZ4;
+
 @Getter
 @ToString
 public class ProducerConfig {
@@ -40,6 +42,7 @@ public class ProducerConfig {
     private int shardCount = DEFAULT_SHARD_COUNT;
     private boolean enableTimeNs = false;
     private java.util.Map<String,String> groupTags;
+    private String compressType = LZ4;
 
     public ProducerConfig(String endpoint, String region, String accessKey, String accessSecret, String token) {
         clientConfig = new ClientConfig(endpoint, region, accessKey, accessSecret, token);
@@ -64,9 +67,17 @@ public class ProducerConfig {
         retryCount = (int) validNumber(retryCount, 1, MAX_RETRY_COUNT, DEFAULT_RETRY_COUNT);
         maxReservedAttempts = (int) validNumber(maxReservedAttempts, 2, MAX_RESERVED_ATTEMPTS, DEFAULT_RESERVED_ATTEMPTS);
         shardCount = (int) validNumber(shardCount, 1, Integer.MAX_VALUE, DEFAULT_SHARD_COUNT);
+        if (StringUtils.isEmpty(compressType)) { compressType = LZ4; }
+        if (!(LZ4.equalsIgnoreCase(compressType) || com.volcengine.util.Const.ZLIB.equalsIgnoreCase(compressType))) {
+            compressType = LZ4;
+        }
         if (clientConfig == null || StringUtils.isEmpty(clientConfig.getEndpoint()) || StringUtils.isEmpty(clientConfig.getAccessKeyId()) || StringUtils.isEmpty(clientConfig.getAccessKeySecret()) || StringUtils.isEmpty(clientConfig.getRegion())) {
             throw new LogException("InvalidArgument", String.valueOf(clientConfig), null);
         }
+    }
+
+    public void setCompressType(String compressType) {
+        this.compressType = compressType;
     }
 
     private long validNumber(Number field, Number min, Number max, Number originDefault) {

@@ -3,7 +3,7 @@ set -euo pipefail
 DIR=$(cd "$(dirname "$0")"/.. && pwd)
 cd "$DIR"
 if [ -x "./gradlew" ]; then
-  ./gradlew :producer:publish :core:publish
+  ./gradlew :core:publish :producer:publish :full:publish
 else
-  gradle :producer:publish :core:publish
+  gradle :core:publish :producer:publish :full:publish
 fi

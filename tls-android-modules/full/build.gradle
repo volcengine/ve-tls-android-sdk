@@ -1,12 +1,14 @@
 plugins {
   id 'com.android.library'
+  id 'maven-publish'
+  id 'signing'
 }
 
 android {
   namespace 'com.volcengine.tls.android.full'
   compileSdk 34
   defaultConfig {
-    minSdk 19
+    minSdk ((findProperty('MIN_SDK_OVERRIDE') ?: 19) as int)
     targetSdk 34
     consumerProguardFiles 'consumer-rules.pro'
   }
@@ -19,6 +21,11 @@ android {
   compileOptions {
     sourceCompatibility JavaVersion.VERSION_1_8
     targetCompatibility JavaVersion.VERSION_1_8
+  }
+  publishing {
+    singleVariant("release") {
+      withSourcesJar()
+    }
   }
   testOptions {
     unitTests.returnDefaultValues = true
@@ -33,6 +40,72 @@ dependencies {
   compileOnly 'org.projectlombok:lombok:1.18.20'
   annotationProcessor 'org.projectlombok:lombok:1.18.20'
   testImplementation 'junit:junit:4.13.2'
+}
+
+group = 'io.github.volcengine-tls'
+def baseVersion = (findProperty('POM_VERSION') ?: '2.0.2').toString()
+def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
+version = baseVersion + versionSuffix
+
+afterEvaluate {
+  publishing {
+    publications {
+      release(MavenPublication) {
+        from components.release
+        groupId = project.group
+        artifactId = 'tls-android-full'
+        version = project.version
+        pom {
+          name = 'tls-android-full'
+          description = 'VOLC Engine TLS Full SDK for Android'
+          url = 'https://github.com/volcengine/ve-tls-android-sdk'
+          licenses {
+            license {
+              name = 'The Apache Software License, Version 2.0'
+              url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+              distribution = 'repo'
+            }
+          }
+          developers {
+            developer {
+              id = 'volcproducts'
+              name = 'VOLC TLS ANDROID SDK'
+            }
+          }
+          scm {
+            url = 'https://github.com/volcengine/ve-tls-android-sdk'
+            connection = 'scm:git:https://github.com/volcengine/ve-tls-android-sdk.git'
+            developerConnection = 'scm:git:https://github.com/volcengine/ve-tls-android-sdk.git'
+          }
+        }
+      }
+    }
+    repositories {
+      maven {
+        name = 'sonatype'
+        url = uri('https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/')
+        credentials {
+          username = findProperty('ossrhUsername') ?: System.getenv('OSSRH_USERNAME')
+          password = findProperty('ossrhPassword') ?: System.getenv('OSSRH_PASSWORD')
+        }
+      }
+    }
+  }
+
+  signing {
+    def key = findProperty('signingKey') ?: System.getenv('SIGNING_KEY')
+    def pw = findProperty('signingPassword') ?: System.getenv('SIGNING_PASSWORD')
+    if (key != null && pw != null) {
+      useInMemoryPgpKeys(key, pw)
+      sign publishing.publications
+    } else {
+      def gpgKeyName = findProperty('signing.gnupg.keyName') ?: System.getenv('SIGNING_GPG_KEYNAME')
+      if (gpgKeyName != null) {
+        useGpgCmd()
+        sign publishing.publications
+      }
+    }
+  }
 }
 
 // One-time migration task to copy sources from old src tree into this module
