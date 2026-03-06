@@ -44,9 +44,9 @@ Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access 
 ```groovy
 dependencies {
   // 轻量发送（推荐）
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.3'
   // 如需完整能力（管理+发送）
-  // implementation 'io.github.volcengine-tls:tls-android-full:2.0.2'
+  // implementation 'io.github.volcengine-tls:tls-android-full:2.0.3'
   // 仅当使用 lz4 压缩时引入
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
@@ -55,7 +55,7 @@ dependencies {
 说明：
 - `tls-android-producer` / `tls-android-full` 会自动拉取 `tls-android-core`，无需手动声明 core。
 - 从 2.0.1 起已发布 Gradle Module Metadata（`.module`），Gradle/AGP 可直接解析到 AAR 变体，无需 `@aar`。
-- 如果你的 App 必须支持 `minSdk=16`：请使用 `2.0.2-api16`（兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）。
+- 如果你的 App 必须支持 `minSdk=16`：请使用 `2.0.3-api16`（兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）。
 
 ### 方式 B：源码方式接入（仓库开发/二次开发）
 在工程的 `settings.gradle` 中包含需要的模块：
@@ -136,9 +136,9 @@ client.destroy();
   ```groovy
   dependencies {
     // 轻量发送（推荐）
-    implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
+    implementation 'io.github.volcengine-tls:tls-android-producer:2.0.3'
     // 如需完整能力（管理+发送）
-    // implementation 'io.github.volcengine-tls:tls-android-full:2.0.2'
+    // implementation 'io.github.volcengine-tls:tls-android-full:2.0.3'
     // 使用 lz4 压缩时引入，否则可省略
     implementation 'net.jpountz.lz4:lz4:1.3.0'
   }
@@ -205,12 +205,99 @@ client.destroy();
 - 配置来源：不要在 Android 端使用 `System.getenv`；使用 BuildConfig/受控配置文件并妥善管理敏感信息
 - 本地签名与构建：受限环境无法写入 `~/.android` 时，使用项目自带 `debug.keystore` 并在 `signingConfigs` 指定
 
+### SDK 内部日志（TlsLogger Provider）
+- SDK 内部日志用于排查网络/序列化/重试等运行问题，默认不依赖 slf4j。
+- 默认行为（不调用 `setProvider`）：
+  - Android：自动走 `android.util.Log`，tag 固定为 `TLS-SDK`，消息格式为 `[loggerName] msg`
+  - 纯 Java：自动走 `java.util.logging`（JUL），logger 名为 `loggerName`，level 映射为 `FINE/INFO/WARNING/SEVERE`
+- 自定义接入（推荐在 `Application.onCreate()` 里尽早设置）：
+  ```java
+  import com.volcengine.util.TlsLogger;
+  import com.volcengine.util.TlsLoggerFactory;
+  import com.volcengine.util.TlsLoggerProvider;
+  
+  TlsLoggerFactory.setProvider(new TlsLoggerProvider() {
+    @Override public TlsLogger getLogger(String name) {
+      return new MyAppTlsLogger(name);
+    }
+  });
+  ```
+- 完整示例：桥接到 SLF4J
+  - 依赖（仅 app 引入，SDK 本身不依赖）：
+    ```groovy
+    dependencies {
+      implementation 'org.slf4j:slf4j-api:1.7.36'
+      // Android 示例用 simple 便于快速验证；正式项目建议使用你们现有的 slf4j 绑定实现
+      debugImplementation 'org.slf4j:slf4j-simple:1.7.36'
+    }
+    ```
+  - 初始化（Application.onCreate）：
+    ```java
+    import com.volcengine.util.TlsLogger;
+    import com.volcengine.util.TlsLoggerFactory;
+    import com.volcengine.util.TlsLoggerProvider;
+    import org.slf4j.Logger;
+    import org.slf4j.LoggerFactory;
+    
+    TlsLoggerFactory.setProvider(new TlsLoggerProvider() {
+      @Override public TlsLogger getLogger(String name) {
+        return new TlsLogger() {
+          private final Logger l = LoggerFactory.getLogger(name);
+          @Override public void debug(String msg) { l.debug(msg); }
+          @Override public void debug(String format, Object... args) { l.debug(format, args); }
+          @Override public void info(String msg) { l.info(msg); }
+          @Override public void info(String format, Object... args) { l.info(format, args); }
+          @Override public void warn(String msg) { l.warn(msg); }
+          @Override public void warn(String format, Object... args) { l.warn(format, args); }
+          @Override public void error(String msg) { l.error(msg); }
+          @Override public void error(String msg, Throwable t) { l.error(msg, t); }
+          @Override public void error(String format, Object... args) { l.error(format, args); }
+        };
+      }
+    });
+    ```
+- 完整示例：桥接到 Timber（可选）
+  - 依赖（仅 app 引入）：
+    ```groovy
+    dependencies { implementation 'com.jakewharton.timber:timber:5.0.1' }
+    ```
+  - 初始化（Application.onCreate）：
+    ```java
+    import com.volcengine.util.TlsLogger;
+    import com.volcengine.util.TlsLoggerFactory;
+    import com.volcengine.util.TlsLoggerProvider;
+    import timber.log.Timber;
+    
+    TlsLoggerFactory.setProvider(new TlsLoggerProvider() {
+      @Override public TlsLogger getLogger(String name) {
+        return new TlsLogger() {
+          @Override public void debug(String msg) { Timber.tag(name).d("%s", msg); }
+          @Override public void debug(String format, Object... args) { Timber.tag(name).d(format, args); }
+          @Override public void info(String msg) { Timber.tag(name).i("%s", msg); }
+          @Override public void info(String format, Object... args) { Timber.tag(name).i(format, args); }
+          @Override public void warn(String msg) { Timber.tag(name).w("%s", msg); }
+          @Override public void warn(String format, Object... args) { Timber.tag(name).w(format, args); }
+          @Override public void error(String msg) { Timber.tag(name).e("%s", msg); }
+          @Override public void error(String msg, Throwable t) { Timber.tag(name).e(t, "%s", msg); }
+          @Override public void error(String format, Object... args) { Timber.tag(name).e(format, args); }
+        };
+      }
+    });
+    ```
+- 规则与回退：
+  - Provider 返回 `null` 或抛异常时，会自动回退到默认实现（Android Log / JUL）
+  - `setProvider(...)` 会清空 logger 缓存；建议只设置一次，不要在运行中频繁切换
+- 格式化能力与差异：
+  - SDK 的 `TlsLogger.*(String format, Object... args)` 支持 `{}` 占位符格式化；最后一个参数为 `Throwable` 时会被当作异常
+  - Android 默认 logger：仅 `error(msg, t)` / `error(format, args...)` 会附带 `Throwable`（debug/info/warn 不附带异常重载）
+  - JUL 默认 logger：若最后一个参数为 `Throwable`，debug/info/warn/error 都会以 `logger.log(level, msg, t)` 输出异常
+
 ### 发布后快速验证
 - 构造 `LogProducerClient`，写入一条简单日志（`Map<String,String>`），回调 `result.isSuccess()` 为 `true`
 - 在服务端查询对应 `topicId` 的最新日志，确认字段（time/timeNs/contents/group tags）与期望一致
 
 ## 本次更新与迁移指南（1.1.5 → 2.0.x）
-- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer:2.0.2`（轻量发送）或 `io.github.volcengine-tls:tls-android-full:2.0.2`（完整能力）。
+- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer:2.0.3`（轻量发送）或 `io.github.volcengine-tls:tls-android-full:2.0.3`（完整能力）。
 - 写日志统一路径：高频接口统一走 Map→LogItem→AdaptorUtil→PutLogRequest.LogGroup，避免分叉路径。
   - 入口：LogProducerClient 的 `sendLog(Map)` 与带 `time/timeNs` 的重载
   - 转换：统一在 AdaptorUtil 中完成时间归一、内容填充与 group tags 拼接
@@ -306,7 +393,7 @@ client.destroy();
 ## 常见问题
 - R8 开启后发送卡住
   - 确认 keep 规则完整（okhttp/okio/protobuf/com.volcengine.*）
-  - 观察 release 下 Logcat（可在 debug 下绑定 slf4j-simple 输出更多定位信息）
+  - 观察 release 下 Logcat
 - 服务端解压异常
   - 头部含义：`x-tls-compresstype`（lz4/zlib），`x-tls-bodyrawsize`（压缩前长度）
   - 服务端请按压缩前长度作为校验值，并采用有界读取避免内存膨胀

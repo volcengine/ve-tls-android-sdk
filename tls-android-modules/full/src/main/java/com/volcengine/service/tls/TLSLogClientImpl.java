@@ -19,8 +19,6 @@ import com.volcengine.model.tls.util.AdaptorUtil;
 import com.volcengine.model.tls.util.MessageUtil;
 import com.volcengine.model.tls.util.TimeUtil;
 import com.volcengine.util.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;

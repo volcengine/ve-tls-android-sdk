@@ -5,9 +5,9 @@
 ## 你需要先知道的两件事
 
 - SDK 依赖坐标（Maven Central）
-  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.2`
-  - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.2`
-  - 如果你的 App 必须支持 `minSdk=16`：使用 `2.0.2-api16`（仅提供兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）
+  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.3`
+  - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.3`
+  - 如果你的 App 必须支持 `minSdk=16`：使用 `2.0.3-api16`（仅提供兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）
 - 必要参数（后面会用到）
   - `endpoint`：TLS 接入域名，形如 `https://tls-cn-xxx.volces.com`
   - `region`：地域标识，例如 `cn-xxx`
@@ -133,7 +133,7 @@ dependencyResolutionManagement {
 ```groovy
 dependencies {
   // 轻量发送（推荐）
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.3'
   // 仅当使用 lz4 压缩时引入
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
@@ -285,6 +285,55 @@ Release 打包开启 R8 后，如遇运行时反射/序列化相关问题，按�
 
 你也可以直接复制下面的模板到你自己的 `app/proguard-rules.pro`（按你实际依赖增删）。
 
+### 9.1 依赖冲突与版本约束（强烈建议）
+
+Android 工程里常见的崩溃类型是“依赖版本不兼容”（`NoSuchMethodError` / `NoClassDefFoundError` / `Duplicate class`）。建议在接入前先确认以下关键依赖与 SDK 保持同一条线，避免被其他库“升级/降级”后产生运行时不兼容。
+
+#### 关键依赖版本（SDK 基准）
+
+- OkHttp：`com.squareup.okhttp3:okhttp:3.12.13`
+- Okio：`com.squareup.okio:okio:1.17.5`
+- Protobuf（Lite）：`com.google.protobuf:protobuf-javalite:3.23.2`
+- LZ4（可选，仅当 compress=lz4 时需要）：`net.jpountz.lz4:lz4:1.3.0`
+- Guava（仅 Full 使用）：建议使用 `com.google.guava:guava:* -android` 变体（例如 `31.1-android`）
+
+#### 兼容性约束与注意事项
+
+- OkHttp/Okio：
+  - 如果你的 App 或其他 SDK 使用 OkHttp 4.x/Okio 2.x/3.x，可能触发方法缺失或重复类问题。建议全工程统一到同一主版本线。
+- Protobuf：
+  - 本 SDK 使用 `protobuf-javalite`。如果你同时引入 `protobuf-java`/`protobuf-java-util` 且版本不一致，可能出现 `Duplicate class` 或运行时方法缺失。
+- Guava：
+  - Android 环境建议用 `guava:*-android` 变体，避免与 `guava-jre` 混用。
+
+#### 推荐排查命令（Gradle）
+
+在你的 App 工程执行以下命令定位“是谁带入了不兼容版本”：
+
+```bash
+./gradlew :app:dependencyInsight --dependency okhttp --configuration debugRuntimeClasspath
+./gradlew :app:dependencyInsight --dependency okio --configuration debugRuntimeClasspath
+./gradlew :app:dependencyInsight --dependency protobuf-javalite --configuration debugRuntimeClasspath
+./gradlew :app:dependencyInsight --dependency protobuf-java --configuration debugRuntimeClasspath
+./gradlew :app:dependencyInsight --dependency guava --configuration debugRuntimeClasspath
+```
+
+#### 推荐约束方式（Gradle）
+
+如果你希望强制全工程对齐版本，可在 App 的 `dependencies` 中使用约束（示例以 SDK 基准版本为例）：
+
+```groovy
+dependencies {
+  constraints {
+    implementation("com.squareup.okhttp3:okhttp:3.12.13")
+    implementation("com.squareup.okio:okio:1.17.5")
+    implementation("com.google.protobuf:protobuf-javalite:3.23.2")
+    // Full 使用时可加：
+    // implementation("com.google.guava:guava:31.1-android")
+  }
+}
+```
+
 #### Producer（只发送日志）模板
 
 ```pro
@@ -307,8 +356,6 @@ Release 打包开启 R8 后，如遇运行时反射/序列化相关问题，按�
 -dontwarn org.conscrypt.**
 -dontwarn org.openjsse.**
 -dontwarn org.bouncycastle.**
-
--dontwarn org.slf4j.impl.StaticLoggerBinder
 
  # 如果使用 lz4 压缩，保留下面两行；只用 zlib 可删除
  -keep class net.jpountz.** { *; }
@@ -354,7 +401,7 @@ Release 打包开启 R8 后，如遇运行时反射/序列化相关问题，按�
 
 ```groovy
 dependencies {
-  implementation 'io.github.volcengine-tls:tls-android-full:2.0.2'
+  implementation 'io.github.volcengine-tls:tls-android-full:2.0.3'
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
 ```
@@ -428,3 +475,30 @@ implementation('com.squareup.okhttp3:okhttp') {
 - STS token 是否过期
 
 Producer 回调 `result.getAttempts()` 里通常能看到 httpCode 与 errorMessage（示例实现可参考 [MainActivity.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/app/src/main/java/com/volcengine/tls/android/demo/MainActivity.java)）。
+
+### 5）需要查看/接管 SDK 内部日志（TlsLogger Provider）
+
+SDK 内部日志用于排查网络/序列化/重试等运行问题，默认不依赖 slf4j。
+
+- 默认行为（不调用 `setProvider`）：
+  - Android：自动走 `android.util.Log`，tag 固定为 `TLS-SDK`，消息格式为 `[loggerName] msg`
+  - 纯 Java：自动走 `java.util.logging`（JUL），logger 名为 `loggerName`，level 映射为 `FINE/INFO/WARNING/SEVERE`
+- 自定义接入（推荐在 `Application.onCreate()` 里尽早设置）：
+  ```java
+  import com.volcengine.util.TlsLogger;
+  import com.volcengine.util.TlsLoggerFactory;
+  import com.volcengine.util.TlsLoggerProvider;
+  
+  TlsLoggerFactory.setProvider(new TlsLoggerProvider() {
+    @Override public TlsLogger getLogger(String name) {
+      return new MyAppTlsLogger(name);
+    }
+  });
+  ```
+- 回退与注意事项：
+  - Provider 返回 `null` 或抛异常时，会自动回退到默认实现（Android Log / JUL）
+  - `setProvider(...)` 会清空 logger 缓存；建议只设置一次，不要在运行中频繁切换
+- 格式化能力与差异：
+  - SDK 的 `TlsLogger.*(String format, Object... args)` 支持 `{}` 占位符格式化；最后一个参数为 `Throwable` 时会被当作异常
+  - Android 默认 logger：仅 `error(msg, t)` / `error(format, args...)` 会附带 `Throwable`
+  - JUL 默认 logger：若最后一个参数为 `Throwable`，debug/info/warn/error 都会输出异常堆栈

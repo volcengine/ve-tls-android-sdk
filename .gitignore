@@ -5,6 +5,7 @@
 .idea/
 *.iml
 .vscode/
+.comate/
 
 # Gradle/Android build outputs
 .gradle/
@@ -67,6 +68,14 @@ tls-android-*.jar
 # Maven Central publish work dirs and artifacts
 tls-android-modules/maven-central-publish/.work-*/
 tls-android-modules/maven-central-publish/dist/
+
+# Accidental extracted APK/AAR contents
+tls-android-modules/classes*.dex
+tls-android-modules/resources.arsc
+tls-android-modules/AndroidManifest.xml
+tls-android-modules/META-INF/
+tls-android-modules/okhttp3/
+tls-android-modules/res/
 
 # Local publish/sign artifacts
 **/*.asc

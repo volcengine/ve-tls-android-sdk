@@ -2,8 +2,8 @@ package com.volcengine.service.tls;
 
 import com.volcengine.model.tls.producer.BatchLog;
 import com.volcengine.model.tls.producer.ProducerConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.volcengine.util.TlsLogger;
+import com.volcengine.util.TlsLoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +22,7 @@ public class Mover extends Thread {
     private final ExecutorService executorService;
     private final TLSLogClient client;
     private final ConcurrentHashMap<BatchLog.BatchKey, BatchLog.BatchManager> batches;
-    private static final Logger LOG = LoggerFactory.getLogger(Mover.class);
+    private static final TlsLogger LOG = TlsLoggerFactory.getLogger(Mover.class);
 
     public Mover(String name, ProducerConfig producerConfig, LogDispatcher dispatcher, RetryManager retryManager,
                  BlockingQueue<BatchLog> successQueue, BlockingQueue<BatchLog> failureQueue) {

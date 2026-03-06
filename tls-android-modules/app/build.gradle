@@ -11,6 +11,21 @@ android {
     targetSdk 34
     versionCode 1
     versionName '1.0'
+    buildConfigField 'boolean', 'TLS_USE_SLF4J', 'false'
+  }
+  buildFeatures {
+    buildConfig true
+  }
+  flavorDimensions "logger"
+  productFlavors {
+    noProvider {
+      dimension "logger"
+      buildConfigField 'boolean', 'TLS_USE_SLF4J', 'false'
+    }
+    slf4jProvider {
+      dimension "logger"
+      buildConfigField 'boolean', 'TLS_USE_SLF4J', 'true'
+    }
   }
   signingConfigs {
     debug {
@@ -53,9 +68,10 @@ android {
 }
 
 dependencies {
-  implementation project(':producer')
-  //implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
-  debugImplementation 'org.slf4j:slf4j-simple:1.7.32'
+  noProviderImplementation project(':producer')
+  slf4jProviderImplementation project(':producer')
+  slf4jProviderImplementation 'org.slf4j:slf4j-api:1.7.36'
+  slf4jProviderImplementation 'org.slf4j:slf4j-simple:1.7.36'
   // omit lz4 in zlib build to reduce size
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }

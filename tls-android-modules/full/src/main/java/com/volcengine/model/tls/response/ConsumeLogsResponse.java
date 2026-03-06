@@ -9,8 +9,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 import com.volcengine.model.Header;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.volcengine.util.TlsLogger;
+import com.volcengine.util.TlsLoggerFactory;
 
 import static com.volcengine.model.tls.Const.*;
 
@@ -19,7 +19,7 @@ import static com.volcengine.model.tls.Const.*;
 @ToString(callSuper = true)
 @NoArgsConstructor
 public class ConsumeLogsResponse extends CommonResponse {
-    private static final Logger LOG = LoggerFactory.getLogger(ConsumeLogsResponse.class);
+    private static final TlsLogger LOG = TlsLoggerFactory.getLogger(ConsumeLogsResponse.class);
     
     PutLogRequest.LogGroupList logGroupList;
     String xTlsCursor;
@@ -60,7 +60,7 @@ public class ConsumeLogsResponse extends CommonResponse {
                             builder = builder.addLogGroups(logGroup);
                         }
                     } catch (InvalidProtocolBufferException e) {
-                       LOG.error("LogGroupList parse error, RequestId is: " + getRequestId() + ", skip count " + rawLogGroupList.getLogCount(), e);
+                       LOG.warn("LogGroupList parse error, RequestId is: " + getRequestId() + ", skip count " + rawLogGroupList.getLogCount(), e);
                     }
                 }
             }

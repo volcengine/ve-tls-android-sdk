@@ -2,8 +2,8 @@ package com.volcengine.service.tls;
 
 import com.volcengine.model.tls.exception.LogException;
 import com.volcengine.model.tls.producer.BatchLog;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.volcengine.util.TlsLogger;
+import com.volcengine.util.TlsLoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class RetryManager {
     private final AtomicInteger retryLock;
     private boolean closed;
-    private final static Logger LOG = LoggerFactory.getLogger(RetryManager.class);
+    private final static TlsLogger LOG = TlsLoggerFactory.getLogger(RetryManager.class);
     private final DelayQueue<BatchLog> retryBatches = new DelayQueue<>();
 
     public RetryManager() { this.retryLock = new AtomicInteger(0); }
@@ -35,7 +35,7 @@ public class RetryManager {
             if (remains < 0) { break; }
             BatchLog batch;
             try { batch = retryBatches.poll(remains, TimeUnit.MILLISECONDS); }
-            catch (InterruptedException e) { LOG.info("Interrupted when poll batch from the retry batches"); break; }
+            catch (InterruptedException e) { LOG.debug("Interrupted when poll batch from the retry batches"); break; }
             if (batch == null) { break; }
             expiredBatches.add(batch);
             retryBatches.drainTo(expiredBatches);

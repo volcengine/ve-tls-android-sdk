@@ -8,9 +8,10 @@ import com.volcengine.model.tls.producer.BatchLog;
 import com.volcengine.model.tls.producer.CallBack;
 import com.volcengine.model.tls.producer.ProducerConfig;
 import com.volcengine.model.tls.util.AdaptorUtil;
+import com.volcengine.util.SDKVersion;
 import com.volcengine.util.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.volcengine.util.TlsLogger;
+import com.volcengine.util.TlsLoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.volcengine.model.tls.Const.TLS;
 
 public class ProducerImpl implements Producer {
-    private static final Logger LOG = LoggerFactory.getLogger(ProducerImpl.class);
+    private static final TlsLogger LOG = TlsLoggerFactory.getLogger(ProducerImpl.class);
     private ProducerConfig producerConfig;
     private final LogDispatcher dispatcher;
     private static final AtomicInteger INSTANCE_ID = new AtomicInteger(0);
@@ -124,8 +125,7 @@ public class ProducerImpl implements Producer {
     public void resetAccessKeyToken(String accessKey, String secretKey, String securityToken) throws LogException {
         if (StringUtils.isEmpty(accessKey) || StringUtils.isEmpty(secretKey)) {
             throw new LogException("InvalidArgument",
-                    String.format("reset producer %s access key failed, accessKey is %s, secretKey is %s, token is %s",
-                            name, accessKey, secretKey, securityToken), null);
+                    String.format("reset producer %s access key failed: accessKey/secretKey empty", name), null);
         }
         dispatcher.resetAccessKeyToken(accessKey, secretKey, securityToken);
     }
@@ -137,7 +137,7 @@ public class ProducerImpl implements Producer {
         successHandler.start();
         failHandler.start();
         mover.start();
-        LOG.info(String.format("producer %s started", name));
+        LOG.info(String.format("producer %s started, agent=%s, %s", name, SDKVersion.getAGENT(), safeConfigSummary(producerConfig)));
     }
 
     @Override
@@ -193,7 +193,7 @@ public class ProducerImpl implements Producer {
             LOG.warn("producer mover thread is still alive");
             throw new LogException("Producer Error", "producer mover thread is still alive", null);
         }
-        LOG.info("producer mover is closed");
+        LOG.debug("producer mover is closed");
 
         long nowMs = System.currentTimeMillis();
         return Math.max(0, timeoutMs - nowMs + startMs);
@@ -209,7 +209,7 @@ public class ProducerImpl implements Producer {
             executorService.shutdownNow();
             throw new LogException("Producer Error", "producer executor is not terminated normally", null);
         }
-        LOG.info("producer executor service is closed");
+        LOG.debug("producer executor service is closed");
 
         long nowMs = System.currentTimeMillis();
         return Math.max(0, timeoutMs - nowMs + startMs);
@@ -229,7 +229,7 @@ public class ProducerImpl implements Producer {
             LOG.warn("producer success handler thread is still alive");
             throw new LogException("Producer Error", "producer success handler thread is still alive", null);
         }
-        LOG.info("producer success handler is closed");
+        LOG.debug("producer success handler is closed");
 
         long nowMs = System.currentTimeMillis();
         return Math.max(0, timeoutMs - nowMs + startMs);
@@ -249,7 +249,7 @@ public class ProducerImpl implements Producer {
             LOG.warn("producer failure handler thread is still alive");
             throw new LogException("Producer Error", "producer failure handler thread is still alive", null);
         }
-        LOG.info("producer failure handler is closed");
+        LOG.debug("producer failure handler is closed");
 
         long nowMs = System.currentTimeMillis();
         return Math.max(0, timeoutMs - nowMs + startMs);
@@ -270,7 +270,24 @@ public class ProducerImpl implements Producer {
         if (producerConfig != null) {
             this.producerConfig = producerConfig;
             producerConfig.validConfig();
-            LOG.info(String.format("producer %s configured, config: %s", name, producerConfig));
+            LOG.info(String.format("producer %s configured, %s", name, safeConfigSummary(producerConfig)));
         }
+    }
+
+    private static String safeConfigSummary(ProducerConfig cfg) {
+        if (cfg == null) { return "config=null"; }
+        com.volcengine.model.tls.ClientConfig c = cfg.getClientConfig();
+        String endpoint = c == null ? "" : String.valueOf(c.getEndpoint());
+        String region = c == null ? "" : String.valueOf(c.getRegion());
+        return "endpoint=" + endpoint +
+                ", region=" + region +
+                ", compress=" + String.valueOf(cfg.getCompressType()) +
+                ", threads=" + cfg.getMaxThreadCount() +
+                ", lingerMs=" + cfg.getLingerMs() +
+                ", maxBatchSizeBytes=" + cfg.getMaxBatchSizeBytes() +
+                ", maxBatchCount=" + cfg.getMaxBatchCount() +
+                ", maxBlockMs=" + cfg.getMaxBlockMs() +
+                ", retryCount=" + cfg.getRetryCount() +
+                ", enableTimeNs=" + cfg.isEnableTimeNs();
     }
 }

@@ -1,8 +1,8 @@
 package com.volcengine.service.tls;
 
 import com.volcengine.model.tls.producer.BatchLog;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.volcengine.util.TlsLogger;
+import com.volcengine.util.TlsLoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +16,7 @@ public class BatchHandler extends Thread {
     private final AtomicInteger batchCount;
     private volatile boolean closed;
     private final String name;
-    private final static Logger LOG = LoggerFactory.getLogger(BatchHandler.class);
+    private final static TlsLogger LOG = TlsLoggerFactory.getLogger(BatchHandler.class);
 
     public BatchHandler(String name, Semaphore memoryLock, BlockingQueue<BatchLog> batchQueue, AtomicInteger batchCount) {
         super(name);
@@ -38,7 +38,7 @@ public class BatchHandler extends Thread {
     private void handleBatches() {
         while (!this.closed) {
             try { BatchLog batch = batchQueue.take(); handle(batch); }
-            catch (InterruptedException e) { LOG.info("batch handler " + this.name + " has been interrupted"); }
+            catch (InterruptedException e) { LOG.debug("batch handler " + this.name + " has been interrupted"); }
         }
     }
 

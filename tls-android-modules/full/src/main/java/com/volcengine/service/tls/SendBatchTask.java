@@ -7,15 +7,15 @@ import com.volcengine.model.tls.producer.ProducerConfig;
 import com.volcengine.model.tls.request.PutLogsRequest;
 import com.volcengine.model.tls.request.RequestBuilder;
 import com.volcengine.model.tls.response.PutLogsResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.volcengine.util.TlsLogger;
+import com.volcengine.util.TlsLoggerFactory;
 
 import java.util.concurrent.BlockingQueue;
 
 import static com.volcengine.model.tls.Const.HTTP_STATUS_OK;
 
 public class SendBatchTask implements Runnable {
-    private static final Logger LOG = LoggerFactory.getLogger(SendBatchTask.class);
+    private static final TlsLogger LOG = TlsLoggerFactory.getLogger(SendBatchTask.class);
     private final ProducerConfig producerConfig;
     private final BlockingQueue<BatchLog> successQueue;
     private final BlockingQueue<BatchLog> failureQueue;
@@ -56,7 +56,7 @@ public class SendBatchTask implements Runnable {
     private void putBatchLogToFailureQueue() {
         try {
             failureQueue.put(batchLog);
-            LOG.info("failure queue add batch success, batch: " + batchLog);
+            LOG.debug("failure queue add batch, batch: " + batchLog);
         } catch (InterruptedException ex) {
             LOG.error("failure queue add batch failed, batch: " + batchLog, ex);
         }
@@ -76,7 +76,6 @@ public class SendBatchTask implements Runnable {
         if (needRetry(e)) {
             try {
                 retryManager.put(batchLog);
-                LOG.info("retry queue add batch success, batch: " + batchLog);
                 return;
             } catch (LogException ex) {
                 LOG.warn("retry manager is closed and put batch log to failure queue");
@@ -98,7 +97,6 @@ public class SendBatchTask implements Runnable {
         batchLog.addAttempt(success);
         batchLog.setRetryBackoffMs(0);
         successQueue.add(batchLog);
-        LOG.debug("send batch success, batch: " + batchLog);
     }
 
 }

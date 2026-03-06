@@ -4,8 +4,8 @@ import com.volcengine.model.tls.pb.PutLogRequest;
 import com.volcengine.service.tls.RetryManager;
 import com.volcengine.service.tls.SendBatchTask;
 import com.volcengine.service.tls.TLSLogClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.volcengine.util.TlsLogger;
+import com.volcengine.util.TlsLoggerFactory;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -45,7 +45,7 @@ public class BatchLog implements Delayed {
         public void setBatchLog(BatchLog batchLog) { this.batchLog = batchLog; }
     }
 
-    private static final Logger LOG = LoggerFactory.getLogger(BatchLog.class);
+    private static final TlsLogger LOG = TlsLoggerFactory.getLogger(BatchLog.class);
     private BatchKey batchKey;
     private int currentBatchSize;
     private int currentBatchCount;

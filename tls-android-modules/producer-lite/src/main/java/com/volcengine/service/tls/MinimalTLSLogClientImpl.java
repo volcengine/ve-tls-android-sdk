@@ -10,9 +10,6 @@ import com.volcengine.model.tls.pb.PutLogRequest;
 import com.volcengine.model.tls.request.*;
 import com.volcengine.model.tls.response.PutLogsResponse;
 import com.volcengine.util.Const;
-import com.volcengine.model.response.RawResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,7 +19,6 @@ import java.util.Map;
 import static com.volcengine.model.tls.Const.*;
 
 public class MinimalTLSLogClientImpl implements TLSLogClient {
-    private static final Logger LOG = LoggerFactory.getLogger(MinimalTLSLogClientImpl.class);
     private ClientConfig config;
     private final TLSHttpUtilLite httpRequest;
 

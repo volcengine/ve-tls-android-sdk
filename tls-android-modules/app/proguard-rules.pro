@@ -32,9 +32,6 @@
 -dontwarn org.joda.time.**
 -dontwarn org.joda.time.format.**
 
-# Suppress missing SLF4J binder when using slf4j-api only
--dontwarn org.slf4j.impl.StaticLoggerBinder
- -keep class org.slf4j.impl.** { *; }
 
 # LZ4
 -keep class net.jpountz.** { *; }

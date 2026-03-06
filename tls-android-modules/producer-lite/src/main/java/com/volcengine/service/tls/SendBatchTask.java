@@ -7,15 +7,15 @@ import com.volcengine.model.tls.producer.ProducerConfig;
 import com.volcengine.model.tls.request.PutLogsRequest;
 import com.volcengine.model.tls.request.RequestBuilder;
 import com.volcengine.model.tls.response.PutLogsResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.volcengine.util.TlsLogger;
+import com.volcengine.util.TlsLoggerFactory;
 
 import java.util.concurrent.BlockingQueue;
 
 import static com.volcengine.model.tls.Const.HTTP_STATUS_OK;
 
 public class SendBatchTask implements Runnable {
-    private static final Logger LOG = LoggerFactory.getLogger(SendBatchTask.class);
+    private static final TlsLogger LOG = TlsLoggerFactory.getLogger(SendBatchTask.class);
     private final ProducerConfig producerConfig;
     private final BlockingQueue<BatchLog> successQueue;
     private final BlockingQueue<BatchLog> failureQueue;

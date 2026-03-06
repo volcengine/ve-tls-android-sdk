@@ -8,8 +8,8 @@ import com.volcengine.model.tls.pb.PutLogRequest;
 import com.volcengine.model.tls.producer.BatchLog;
 import com.volcengine.model.tls.producer.CallBack;
 import com.volcengine.model.tls.producer.ProducerConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.volcengine.util.TlsLogger;
+import com.volcengine.util.TlsLoggerFactory;
 
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,7 +24,7 @@ public class LogDispatcher {
     private final String producerName;
     private final BlockingQueue<BatchLog> successQueue;
     private final BlockingQueue<BatchLog> failureQueue;
-    private static final Logger LOG = LoggerFactory.getLogger(LogDispatcher.class);
+    private static final TlsLogger LOG = TlsLoggerFactory.getLogger(LogDispatcher.class);
     private volatile boolean closed;
     private final Semaphore memoryLock;
     private final AtomicInteger batchCount;
@@ -61,7 +61,7 @@ public class LogDispatcher {
 
     public void start() {
         this.closed = false;
-        LOG.info(String.format("log dispatcher %s started and client init success", producerName));
+        LOG.debug(String.format("log dispatcher %s started and client init success", producerName));
     }
 
     public ExecutorService getExecutorService() {
@@ -91,7 +91,7 @@ public class LogDispatcher {
         ClientConfig clientConfig = producerConfig.getClientConfig();
         clientConfig.resetAccessKeyToken(accessKey, secretKey, securityToken);
         client.resetAccessKeyToken(accessKey, secretKey, securityToken);
-        LOG.info(String.format("log dispatcher %s update client config %s success", producerName, clientConfig));
+        LOG.info(String.format("log dispatcher %s update credentials success", producerName));
     }
 
 
@@ -110,7 +110,6 @@ public class LogDispatcher {
         producerConfig.checkBatchSize(batchSize);
         // wait add lock
         long maxBlockMs = producerConfig.getMaxBlockMs();
-        LOG.debug(String.format("dispatcher %s try acquire memory lock ", producerName));
 
         if (maxBlockMs == 0) {
             memoryLock.acquire();
