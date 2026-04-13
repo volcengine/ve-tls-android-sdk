@@ -10,7 +10,6 @@ import lombok.Data;
 import com.volcengine.util.TlsLogger;
 import com.volcengine.util.TlsLoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -118,7 +117,7 @@ public class BatchLog implements Delayed {
     }
 
     @Override
-    public int compareTo(@Nonnull Delayed o) {
+    public int compareTo(Delayed o) {
         return (int) (nextRetryMs - ((BatchLog) o).getNextRetryMs());
     }
 

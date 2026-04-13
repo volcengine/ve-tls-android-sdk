@@ -36,14 +36,14 @@ android {
 dependencies {
   api project(':core')
   implementation 'com.alibaba:fastjson:1.2.83'
-  implementation 'com.google.guava:guava:31.1-android'
+  implementation 'com.google.guava:guava:33.5.0-jre'
   compileOnly 'org.projectlombok:lombok:1.18.20'
   annotationProcessor 'org.projectlombok:lombok:1.18.20'
   testImplementation 'junit:junit:4.13.2'
 }
 
 group = 'io.github.volcengine-tls'
-def baseVersion = (findProperty('POM_VERSION') ?: '2.0.3').toString()
+def baseVersion = (findProperty('POM_VERSION') ?: '2.0.4').toString()
 def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
 version = baseVersion + versionSuffix
 

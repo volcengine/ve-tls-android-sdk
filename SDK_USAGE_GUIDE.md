@@ -5,9 +5,9 @@
 ## 你需要先知道的两件事
 
 - SDK 依赖坐标（Maven Central）
-  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.3`
-  - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.3`
-  - 如果你的 App 必须支持 `minSdk=16`：使用 `2.0.3-api16`（仅提供兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）
+  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.4`
+  - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.4`
+  - 如果你的 App 必须支持 `minSdk=16`：使用 `2.0.4-api16`（仅提供兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）
 - 必要参数（后面会用到）
   - `endpoint`：TLS 接入域名，形如 `https://tls-cn-xxx.volces.com`
   - `region`：地域标识，例如 `cn-xxx`
@@ -133,7 +133,7 @@ dependencyResolutionManagement {
 ```groovy
 dependencies {
   // 轻量发送（推荐）
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.3'
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
   // 仅当使用 lz4 压缩时引入
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
@@ -295,7 +295,7 @@ Android 工程里常见的崩溃类型是“依赖版本不兼容”（`NoSuchMe
 - Okio：`com.squareup.okio:okio:1.17.5`
 - Protobuf（Lite）：`com.google.protobuf:protobuf-javalite:3.23.2`
 - LZ4（可选，仅当 compress=lz4 时需要）：`net.jpountz.lz4:lz4:1.3.0`
-- Guava（仅 Full 使用）：建议使用 `com.google.guava:guava:* -android` 变体（例如 `31.1-android`）
+- Guava（仅 Full 使用）：建议使用 `com.google.guava:guava:33.5.0-jre`（按你工程依赖策略统一版本，避免冲突）
 
 #### 兼容性约束与注意事项
 
@@ -329,7 +329,7 @@ dependencies {
     implementation("com.squareup.okio:okio:1.17.5")
     implementation("com.google.protobuf:protobuf-javalite:3.23.2")
     // Full 使用时可加：
-    // implementation("com.google.guava:guava:31.1-android")
+    // implementation("com.google.guava:guava:33.5.0-jre")
   }
 }
 ```
@@ -401,7 +401,7 @@ dependencies {
 
 ```groovy
 dependencies {
-  implementation 'io.github.volcengine-tls:tls-android-full:2.0.3'
+  implementation 'io.github.volcengine-tls:tls-android-full:2.0.4'
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
 ```

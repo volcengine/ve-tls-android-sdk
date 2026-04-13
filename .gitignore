@@ -14,6 +14,7 @@
 **/.externalNativeBuild/
 **/outputs/
 *.log
+**/build_*/
 
 # Artifacts
 **/*.apk
@@ -83,3 +84,7 @@ tls-android-modules/res/
 **/*.sha1
 **/*.sha256
 **/*.sha512
+**/cospec/
+**/docs/
+repos/
+ve-tls-c-sdk/

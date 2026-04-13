@@ -25,6 +25,7 @@ Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access 
 - `tls-android-modules/core`：公共模型、HTTP 与签名实现、protobuf（javalite）生成代码、统一日志映射工具
 - `tls-android-modules/full`：完整 Client API（创建/检索/删除等）与 Producer 发送实现
 - `tls-android-modules/producer`：轻量 Producer 封装（映射到 `producer-lite`），提供 Android 友好的 `LogProducerClient`
+- `tls-android-modules/producer-native`：基于 `ve-tls-c-sdk` 的 Native Producer 封装，支持 persistent、recover 和 per-log `hash_key`
 - `tls-android-modules/app`：演示 App（使用 `LogProducerClient`），含 BenchmarkActivity 压测页
 - `tls-android-modules/app-empty`：最简 UI，便于体积对比
 - `android-example`：Java 控制台示例（QuickStart、ProducerDemo 等）
@@ -33,6 +34,9 @@ Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access 
 - 只需要发送日志（建议）
   - 依赖 `io.github.volcengine-tls:tls-android-producer`（轻量封装，自动依赖 `tls-android-core`）
   - Android 应用或 SDK 集成优先选择该包以获得更小体积与更少依赖
+- 需要 native persistent / recover 能力
+  - 依赖 `io.github.volcengine-tls:tls-android-producer-native`
+  - 适合需要与 `ve-tls-c-sdk` persistent 语义对齐的 Android SDK、宿主 App 和嵌入式 Android 场景
 - 需要完整管理能力（创建 Project/Topic/Index、检索等）
   - 依赖 `io.github.volcengine-tls:tls-android-full`（携带完整 Client API），自动依赖 `tls-android-core`
   - 体积较大，适合工具类或后管应用
@@ -44,9 +48,11 @@ Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access 
 ```groovy
 dependencies {
   // 轻量发送（推荐）
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.3'
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
+  // native producer（需要 persistent/recover 时使用）
+  // implementation 'io.github.volcengine-tls:tls-android-producer-native:2.0.4'
   // 如需完整能力（管理+发送）
-  // implementation 'io.github.volcengine-tls:tls-android-full:2.0.3'
+  // implementation 'io.github.volcengine-tls:tls-android-full:2.0.4'
   // 仅当使用 lz4 压缩时引入
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
@@ -55,7 +61,7 @@ dependencies {
 说明：
 - `tls-android-producer` / `tls-android-full` 会自动拉取 `tls-android-core`，无需手动声明 core。
 - 从 2.0.1 起已发布 Gradle Module Metadata（`.module`），Gradle/AGP 可直接解析到 AAR 变体，无需 `@aar`。
-- 如果你的 App 必须支持 `minSdk=16`：请使用 `2.0.3-api16`（兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）。
+- 如果你的 App 必须支持 `minSdk=16`：请使用 `2.0.4-api16`（兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）。
 
 ### 方式 B：源码方式接入（仓库开发/二次开发）
 在工程的 `settings.gradle` 中包含需要的模块：
@@ -112,6 +118,38 @@ client.close();
 
 更多示例参见：[LogProducerClient.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-lite/src/main/java/com/volcengine/tls/android/producer/LogProducerClient.java)
 
+### 方式 A-2：Native Producer（persistent/recover）
+
+```java
+NativeLogProducerConfig cfg = new NativeLogProducerConfig()
+    .setEndpoint(BuildConfig.TLS_ENDPOINT)
+    .setRegion(BuildConfig.TLS_REGION)
+    .setAccessKeyId(BuildConfig.TLS_AK)
+    .setAccessKeySecret(BuildConfig.TLS_SK)
+    .setTopicId(BuildConfig.TLS_TOPIC_ID)
+    .setUsePersistent(true)
+    .setPersistentFilePath(getFilesDir() + "/tls-native-persistent")
+    .setPersistentOpenMode(1)
+    .setPersistentOverflowPolicy(0);
+
+NativeLogProducerClient client = new NativeLogProducerClient(cfg);
+client.start();
+
+Map<String, String> kv = new HashMap<>();
+kv.put("level", "info");
+kv.put("message", "native producer");
+client.addLog("route-a", kv, result -> {
+  if (result.isSuccess()) {
+    // ok
+  }
+});
+
+client.close();
+```
+
+更详细的 native 接入说明见：
+- [producer-native/README.md](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-native/README.md)
+
 ### 方式 B：同步 Client API（完整能力）
 
 ```java
@@ -136,9 +174,9 @@ client.destroy();
   ```groovy
   dependencies {
     // 轻量发送（推荐）
-    implementation 'io.github.volcengine-tls:tls-android-producer:2.0.3'
+    implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
     // 如需完整能力（管理+发送）
-    // implementation 'io.github.volcengine-tls:tls-android-full:2.0.3'
+    // implementation 'io.github.volcengine-tls:tls-android-full:2.0.4'
     // 使用 lz4 压缩时引入，否则可省略
     implementation 'net.jpountz.lz4:lz4:1.3.0'
   }
@@ -297,7 +335,7 @@ client.destroy();
 - 在服务端查询对应 `topicId` 的最新日志，确认字段（time/timeNs/contents/group tags）与期望一致
 
 ## 本次更新与迁移指南（1.1.5 → 2.0.x）
-- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer:2.0.3`（轻量发送）或 `io.github.volcengine-tls:tls-android-full:2.0.3`（完整能力）。
+- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer:2.0.4`（轻量发送）或 `io.github.volcengine-tls:tls-android-full:2.0.4`（完整能力）。
 - 写日志统一路径：高频接口统一走 Map→LogItem→AdaptorUtil→PutLogRequest.LogGroup，避免分叉路径。
   - 入口：LogProducerClient 的 `sendLog(Map)` 与带 `time/timeNs` 的重载
   - 转换：统一在 AdaptorUtil 中完成时间归一、内容填充与 group tags 拼接
