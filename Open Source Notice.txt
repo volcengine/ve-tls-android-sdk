@@ -6,7 +6,7 @@ fastjson-alibaba : Apache License 2.0
 google-gson : Apache License 2.0
 Guava InternalFutureFailureAccess and InternalFutures : Apache License 2.0
 Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava : Apache License 2.0
-Guava: Google Core Libraries for Java v29.0 : Apache License 2.0
+Guava: Google Core Libraries for Java v33.5.0 : Apache License 2.0
 org.slf4j: MIT License
 JUnit : Eclipse Public License 1.0
 Project Lombok : MIT License
@@ -16,7 +16,7 @@ Protocol Buffer Java Util Package : BSD 3-clause "New" or "Revised" License
 Licenses: 
 
 Apache License 2.0
-(Apache Commons Lang, Apache Commons Logging, Apache HttpClient, Apache HttpComponents Core, Apache HttpMime, commons-codec, error-prone annotations, fastjson-alibaba, FindBugs jsr305, google-gson, Guava InternalFutureFailureAccess and InternalFutures, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, guava-retrying, Guava: Google Core Libraries for Java v29.0, J2ObjC Annotations, volc-sdk-java, volc-sdk-java)
+(Apache Commons Lang, Apache Commons Logging, Apache HttpClient, Apache HttpComponents Core, Apache HttpMime, commons-codec, error-prone annotations, fastjson-alibaba, FindBugs jsr305, google-gson, Guava InternalFutureFailureAccess and InternalFutures, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, guava-retrying, Guava: Google Core Libraries for Java v33.5.0, J2ObjC Annotations, volc-sdk-java, volc-sdk-java)
 
 Apache License
 Version 2.0, January 2004
@@ -536,4 +536,3 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
 AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
