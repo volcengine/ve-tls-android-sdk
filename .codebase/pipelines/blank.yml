@@ -68,7 +68,7 @@ jobs:
             # 根据实际开源仓库配置替换github.com/nmy22/testpush
             # ======================================
 
-            git clone https://x-access-token:$TOKEN@/github.com/volcengine/ve-tls-android-sdk /tmp/external-repo
+            git clone https://x-access-token:$TOKEN@github.com/volcengine/ve-tls-android-sdk /tmp/external-repo
             cd /tmp/external-repo
             git config user.name "Org Sync Bot" #根据业务场景填写, 不影响
             git config user.email "bot@bytedance.com" #根据业务场景填写, 不影响
