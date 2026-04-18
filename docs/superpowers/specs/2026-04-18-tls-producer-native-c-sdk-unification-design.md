@@ -230,6 +230,13 @@ Core setters for phase 1:
 - `isValid`
 - `isEnabled`
 
+Phase-1 `CompressType` formal values:
+
+- `NONE`
+- `LZ4`
+
+`ZLIB` is not part of the default phase-1 public enum because the default Android build keeps `VE_TLS_ENABLE_ZLIB=OFF` for package-size reasons.
+
 Not part of the phase-1 public config API:
 
 - SLS-style `setNtpTimeOffset`
@@ -259,6 +266,8 @@ Not part of the new formal API:
 - public `addLogRaw(...)` in phase 1
 
 Raw-buffer ingestion remains an internal/future capability because the current C SDK raw API is buffer-oriented rather than SLS-style key/value-array oriented.
+
+Per-log `hashKey` override is also not part of the phase-1 public API. `hashKey` is config-level only in phase 1 even though the native core supports per-record hash keys internally.
 
 ### 7.5 `Log`
 
@@ -303,7 +312,7 @@ This avoids the incorrect setter-style assumption and matches the actual `ve-tls
 | `topicId` | string | `topic_id` | `LogProducerClient.updateEndpoint()` -> `ve_tls_producer_update_endpoint()` | same as above |
 | `projectId` | string | `project_id` | recreate only | C SDK has no runtime update API for this field |
 | `accessKeyId/accessKeySecret/securityToken` | string | `access_key_id/access_key_secret/security_token` | `LogProducerClient.resetSecurityToken()` -> `ve_tls_producer_update_static_credentials()` | callback/provider mode is reserved for a later phase |
-| `compressType` | enum | `compress_type` | recreate only | `NONE/LZ4/ZLIB` map to `"none" / "lz4" / "zlib"` |
+| `compressType` | enum | `compress_type` | recreate only | phase-1 public enum is `NONE/LZ4`, mapping to `"none" / "lz4"` |
 | `packetLogBytes` | bytes/int | `log_bytes_per_package` | recreate only | no unit conversion |
 | `packetLogCount` | count/int | `log_count_per_package` | recreate only | no unit conversion |
 | `packetTimeoutMs` | ms/int | `flush_interval_ms` | recreate only | no unit conversion |
@@ -320,7 +329,7 @@ This avoids the incorrect setter-style assumption and matches the actual `ve-tls
 | `requestTimeoutMs` | ms/int | `request_timeout_ms` | recreate only | no unit conversion |
 | `destroyWaitMs` | ms/int | Android binding destroy timeout | n/a | not a `ve_tls_config` field; used for `ve_tls_producer_close(timeout_ms)` |
 | `source` | string | `source` | recreate only | no unit conversion |
-| `hashKey` | string | `hash_key` | per log override or recreate only | per-log override remains supported in native add-log path |
+| `hashKey` | string | `hash_key` | recreate only | phase-1 public API treats `hashKey` as config-level only |
 | `addTag` | string pairs | `log_tags` + `log_tag_count` | recreate only | JNI duplicates tag arrays into native-owned memory for create |
 | `enableTimeNs` | bool/int | `enable_time_ns` | recreate only | no unit conversion |
 | `callbackFromSenderThread` | bool | Android facade callback mode | n/a | not a C config field |
@@ -362,6 +371,18 @@ C SDK determines final implementation.
 - destroy wait uses one TLS-style `destroyWaitMs`, not SLS-style separate flusher/sender wait knobs, because `ve-tls-c-sdk` exposes one `ve_tls_producer_close(timeout_ms)` boundary
 - public raw-buffer ingestion is deferred; the C SDK raw API is kept as an internal/future path
 - SLS-only NTP/delay-log/drop-unauthorized config knobs are not part of phase 1 until equivalent native semantics exist
+- per-log `hashKey` override is deferred; phase-1 public API only exposes config-level `hashKey`
+
+### 9.4 Persistent Target Consistency Rule
+
+Recovered records restore persisted payload and persisted per-record hash key, but they do not restore a historic target endpoint/topic identity snapshot for re-send.
+
+Formal rule:
+
+- auto-recover sends recovered records using the current producer config active at recovery time
+- if `endpoint`, `region`, `projectId`, or `topicId` has changed since those records were persisted, recovered data may be delivered to the new target
+- applications must keep target identity stable across process restarts for a reused persistent directory
+- if target identity must change, applications must use a new persistent directory or explicitly clear/retire the old persistent data before creating the new producer
 
 ## 10. JNI Boundary Design
 
@@ -551,14 +572,19 @@ Concrete integration shape:
 
 - `producer-native/src/main/cpp/CMakeLists.txt` is the Android module entry point
 - it adds `ve-tls-c-sdk` as a CMake subdirectory with Android-specific options:
-  - `VE_TLS_ENABLE_CURL=OFF`
-  - `VE_TLS_BUILD_TESTS=OFF`
-  - `VE_TLS_BUILD_TOOLS=OFF`
-  - `VE_TLS_ENABLE_LZ4=ON`
-  - `VE_TLS_ENABLE_ZLIB=OFF` by default
+- `VE_TLS_ENABLE_CURL=OFF`
+- `VE_TLS_BUILD_TESTS=OFF`
+- `VE_TLS_BUILD_TOOLS=OFF`
+- `VE_TLS_ENABLE_LZ4=ON`
+- `VE_TLS_ENABLE_ZLIB=OFF` by default
 - Android binding sources and JNI sources are compiled into one final shared library target, recommended name `tls_producer_jni`
 - the final shared library links `ve_tls_core`
 - LZ4 is consumed from `ve-tls-c-sdk`'s existing third-party source, not duplicated in the Android module
+
+Public API consequence:
+
+- the default published Android artifact formally supports `CompressType.NONE` and `CompressType.LZ4`
+- `ZLIB` is outside the phase-1 default public contract unless a later custom-build profile is defined and documented
 
 ### 12.3 ABI Strategy
 
@@ -642,11 +668,16 @@ Add internal Android binding helpers:
 
 Android public model stays stable and simple:
 
-- public result object through `LogProducerResult`
+- public immutable result object through `LogProducerResult`
 - JNI maps native result + native error details into stable TLS result codes and structured fields
 - private native error surface is not leaked directly
 
-`LogProducerResult` should at least carry:
+Type shape:
+
+- `LogProducerResult` is an immutable class
+- `LogProducerResult.Code` is a nested enum for stable result categories
+
+`LogProducerResult` carries at least:
 
 - `code`
 - `requestId`
@@ -658,7 +689,7 @@ Android public model stays stable and simple:
 - `logBytes`
 - `compressedBytes`
 
-Recommended stable TLS result codes:
+Recommended `LogProducerResult.Code` values:
 
 - `OK`
 - `INVALID`
