@@ -1,7 +1,7 @@
 # TLS Android Producer Native Re-architecture Design
 
 Date: 2026-04-18
-Status: Draft for user review
+Status: Revised after architecture review
 Scope: `ve-tls-android-sdk` + `ve-tls-c-sdk`
 
 ## 1. Summary
@@ -118,8 +118,10 @@ Planned structure:
 
 Responsibilities:
 
-- map platform-facing inputs to `ve_tls_config` and `ve_tls_producer`
-- perform platform-specific callback dispatch
+- map Java/ObjC config snapshots to `ve_tls_config`
+- own binding-stable create/update/destroy entry points
+- own platform-specific callback dispatch
+- own platform HTTP adapter glue
 - provide extension entry points such as future context encoding support
 
 #### Layer C: `ve-tls-android-sdk/tls-android-modules/producer-native`
@@ -173,7 +175,18 @@ Formal public classes:
 - `LogProducerCallback`
 - `LogProducerResult`
 
+Supporting value types may be nested under the main public classes, for example `LogProducerConfig.CompressType` and `LogProducerResult.Code`.
+
 ### 7.3 `LogProducerConfig`
+
+`LogProducerConfig` is a Java-side mirror object, not a native config handle.
+
+Design rules:
+
+- it is mutable before `LogProducerClient` creation
+- `LogProducerClient` clones and freezes a config snapshot at construction time
+- mutating `LogProducerConfig` after client creation does not affect an existing producer
+- runtime changes use explicit client methods, not implicit config mutation
 
 Required constructor coverage:
 
@@ -184,7 +197,7 @@ Required constructor coverage:
 - `endpoint, region, projectId, topicId, accessKeyId, accessKeySecret, securityToken`
 - `Context` variants of the above
 
-Main setters:
+Core setters for phase 1:
 
 - `setEndpoint`
 - `setRegion`
@@ -194,34 +207,37 @@ Main setters:
 - `setAccessKeySecret`
 - `setSecurityToken`
 - `setHashKey`
-- `setLogTopic`
-  Note: this is reserved for log metadata only if TLS still needs that concept; target resource identity always uses `topicId`
 - `addTag`
 - `setSource`
 - `setPacketLogBytes`
 - `setPacketLogCount`
-- `setPacketTimeout`
+- `setPacketTimeoutMs`
 - `setMaxBufferLimit`
 - `setSendThreadCount`
+- `setRetryCount`
 - `setPersistent`
 - `setPersistentFilePath`
 - `setPersistentForceFlush`
 - `setPersistentMaxFileCount`
 - `setPersistentMaxFileSize`
 - `setPersistentMaxLogCount`
-- `setConnectTimeoutSec`
-- `setSendTimeoutSec`
-- `setDestroyFlusherWaitSec`
-- `setDestroySenderWaitSec`
-- `setCompressType`
-- `setNtpTimeOffset`
+- `setConnectTimeoutMs`
+- `setRequestTimeoutMs`
+- `setDestroyWaitMs`
+- `setCompressType(CompressType)`
+- `setEnableTimeNs`
+- `setCallbackFromSenderThread`
+- `isValid`
+- `isEnabled`
+
+Not part of the phase-1 public config API:
+
+- SLS-style `setNtpTimeOffset`
 - `setMaxLogDelayTime`
 - `setDropDelayLog`
 - `setDropUnauthorizedLog`
-- `setCallbackFromSenderThread`
-- `resetSecurityToken`
-- `isValid`
-- `isEnabled`
+
+These knobs do not have a clean `ve-tls-c-sdk` equivalent yet. They stay outside the formal phase-1 contract until the native semantics are defined in C SDK.
 
 ### 7.4 `LogProducerClient`
 
@@ -231,7 +247,8 @@ Formal lifecycle:
 - `new LogProducerClient(config, callback)`
 - `addLog(Log)`
 - `addLog(Log, int flush)`
-- `addLogRaw(byte[][] keys, byte[][] values)`
+- `updateEndpoint(String endpoint, String region, String topicId)`
+- `resetSecurityToken(String accessKeyId, String accessKeySecret, String securityToken)`
 - `destroyLogProducer()`
 
 Not part of the new formal API:
@@ -239,6 +256,9 @@ Not part of the new formal API:
 - Java-engine style `start()`
 - `closeNow()`
 - `reconfig()`
+- public `addLogRaw(...)` in phase 1
+
+Raw-buffer ingestion remains an internal/future capability because the current C SDK raw API is buffer-oriented rather than SLS-style key/value-array oriented.
 
 ### 7.5 `Log`
 
@@ -261,33 +281,61 @@ Design rule:
 
 ## 8. Config Mapping Rules
 
-`LogProducerConfig` maps to `ve_tls_config`.
+### 8.1 Mirror-and-Freeze Model
 
-Core mapping:
+`LogProducerConfig` does not map to a long-lived native config object.
 
-- `endpoint -> endpoint`
-- `region -> region`
-- `projectId -> project_id`
-- `topicId -> topic_id`
-- `accessKeyId -> access_key_id`
-- `accessKeySecret -> access_key_secret`
-- `securityToken -> security_token`
-- `hashKey -> default hash_key or per-log hash key`
-- `packetLogBytes -> log_bytes_per_package`
-- `packetLogCount -> log_count_per_package`
-- `packetTimeout -> flush_interval_ms`
-- `maxBufferLimit -> max_buffer_bytes`
-- `sendThreadCount -> send_thread_count`
-- `persistent -> use_persistent`
-- `persistentFilePath -> persistent_file_path`
-- `persistentMaxLogCount -> max_persistent_log_count`
-- `persistentMaxFileSize -> max_persistent_file_size`
-- `persistentMaxFileCount -> max_persistent_file_count`
-- `persistentForceFlush -> force_flush_disk`
-- `connectTimeoutSec -> connect_timeout_ms`
-- `sendTimeoutSec -> request_timeout_ms`
+Creation flow:
 
-Android facade only validates inputs and performs type/name conversion. It must not duplicate native producer logic.
+1. Java builds a mutable `LogProducerConfig`
+2. `LogProducerClient` copies it into an immutable creation snapshot
+3. JNI materializes a stack/local `ve_tls_config`, calls `ve_tls_config_init()`, fills fields, and creates `ve_tls_producer`
+4. only explicitly supported runtime updates may change the live producer after creation
+
+This avoids the incorrect setter-style assumption and matches the actual `ve-tls-c-sdk` API shape.
+
+### 8.2 Mapping and Runtime Update Matrix
+
+| Public input | Java unit/type | Create-time mapping | Runtime path | Notes |
+| --- | --- | --- | --- | --- |
+| `endpoint` | string | `endpoint` | `LogProducerClient.updateEndpoint()` -> `ve_tls_producer_update_endpoint()` | update is explicit, not implied by config mutation |
+| `region` | string | `region` | `LogProducerClient.updateEndpoint()` -> `ve_tls_producer_update_endpoint()` | same as above |
+| `topicId` | string | `topic_id` | `LogProducerClient.updateEndpoint()` -> `ve_tls_producer_update_endpoint()` | same as above |
+| `projectId` | string | `project_id` | recreate only | C SDK has no runtime update API for this field |
+| `accessKeyId/accessKeySecret/securityToken` | string | `access_key_id/access_key_secret/security_token` | `LogProducerClient.resetSecurityToken()` -> `ve_tls_producer_update_static_credentials()` | callback/provider mode is reserved for a later phase |
+| `compressType` | enum | `compress_type` | recreate only | `NONE/LZ4/ZLIB` map to `"none" / "lz4" / "zlib"` |
+| `packetLogBytes` | bytes/int | `log_bytes_per_package` | recreate only | no unit conversion |
+| `packetLogCount` | count/int | `log_count_per_package` | recreate only | no unit conversion |
+| `packetTimeoutMs` | ms/int | `flush_interval_ms` | recreate only | no unit conversion |
+| `maxBufferLimit` | bytes/int | `max_buffer_bytes` | recreate only | no unit conversion |
+| `sendThreadCount` | count/int | `send_thread_count` | recreate only | if persistent is enabled, Android binding clamps this to `1` before create |
+| `retryCount` | count/int | `retry_max_attempts` | recreate only | fine-grained `retry_policy` stays internal in phase 1 |
+| `persistent` | bool/int | `use_persistent` | recreate only | binding calls `ve_tls_producer_recover()` immediately after create when enabled |
+| `persistentFilePath` | string | `persistent_file_path` | recreate only | may be rewritten by Android multi-process logic |
+| `persistentMaxLogCount` | count/int | `max_persistent_log_count` | recreate only | no unit conversion |
+| `persistentMaxFileSize` | bytes/int | `max_persistent_file_size` | recreate only | no unit conversion |
+| `persistentMaxFileCount` | count/int | `max_persistent_file_count` | recreate only | no unit conversion |
+| `persistentForceFlush` | bool/int | `force_flush_disk` | recreate only | no unit conversion |
+| `connectTimeoutMs` | ms/int | `connect_timeout_ms` | recreate only | no unit conversion |
+| `requestTimeoutMs` | ms/int | `request_timeout_ms` | recreate only | no unit conversion |
+| `destroyWaitMs` | ms/int | Android binding destroy timeout | n/a | not a `ve_tls_config` field; used for `ve_tls_producer_close(timeout_ms)` |
+| `source` | string | `source` | recreate only | no unit conversion |
+| `hashKey` | string | `hash_key` | per log override or recreate only | per-log override remains supported in native add-log path |
+| `addTag` | string pairs | `log_tags` + `log_tag_count` | recreate only | JNI duplicates tag arrays into native-owned memory for create |
+| `enableTimeNs` | bool/int | `enable_time_ns` | recreate only | no unit conversion |
+| `callbackFromSenderThread` | bool | Android facade callback mode | n/a | not a C config field |
+
+Android facade validates inputs and performs type/name conversion. It must not duplicate batching, retry, or persistent logic already present in the C SDK.
+
+### 8.3 Public Config Layering
+
+The native config is much richer than the Android phase-1 public surface. The public contract is split into three layers:
+
+- Core public: target identity, credentials, batching, compression, timeout, persistent, callback mode
+- TLS advanced public: optional future knobs such as buffer-full policy, rate limit, breaker, ordered-send, send-queue policy
+- Internal only: `platform`, `http_client`, `use_global_env`, `pack_thread_count`, `agg_strategy`, TLS verification internals, metrics sink, native credentials provider, raw-buffer import/export helpers
+
+This keeps the first public API focused while leaving room to expose more `ve-tls-c-sdk` capabilities later without redesigning the core boundary.
 
 ## 9. Behavior Baseline
 
@@ -303,11 +351,17 @@ C SDK determines final implementation.
 - aggregation and compression
 - default LZ4 behavior unless explicitly changed
 - persistent at-least-once semantics
-- recover support
+- automatic recover initiated by the binding immediately after producer creation when persistent is enabled
 - callback thread mode switching
-- persistent mode forcing single sender
+- persistent mode forcing single sender by Android binding normalization
 - multi-process persistent path isolation
 - bounded graceful destroy
+
+### 9.3 Explicit Phase-1 Divergences
+
+- destroy wait uses one TLS-style `destroyWaitMs`, not SLS-style separate flusher/sender wait knobs, because `ve-tls-c-sdk` exposes one `ve_tls_producer_close(timeout_ms)` boundary
+- public raw-buffer ingestion is deferred; the C SDK raw API is kept as an internal/future path
+- SLS-only NTP/delay-log/drop-unauthorized config knobs are not part of phase 1 until equivalent native semantics exist
 
 ## 10. JNI Boundary Design
 
@@ -315,22 +369,22 @@ JNI should stay small and stable.
 
 Three groups of native entry points:
 
-### 10.1 Config and Lifecycle
+### 10.1 Producer Creation and Runtime Update
 
-- create/destroy config
-- config setter bridge methods
-- create/destroy producer
+- create producer from one Java config snapshot
+- update endpoint/region/topicId explicitly
+- update static credentials explicitly
+- destroy producer
 
 ### 10.2 Log Ingestion
 
 - add structured log
-- add raw log
+- reserve raw-buffer import/export path for future/internal use
 - reserved extended add-log path for future context encoding
 
 ### 10.3 Runtime Controls
 
-- reset security token
-- validity/enabled checks
+- destroy/close coordination
 - optional future flush/recover/metrics bridge if promoted to public API
 
 Design rule:
@@ -357,21 +411,47 @@ If current process is not main process, persistent path is rewritten to a proces
 - sender-thread callback when enabled
 - main-thread callback through Android looper/handler when disabled
 
-### 11.4 Library Loading
+### 11.4 HTTP Adapter
+
+`ve_tls_http_client` is implemented by the Android binding, not by linking `libcurl` or bringing back OkHttp.
+
+Binding design:
+
+- C side provides a `ve_tls_http_client` whose `do_request` forwards through JNI
+- Java side provides an internal `NativeHttpBridge` implemented with `HttpURLConnection/HttpsURLConnection`
+- request fields forwarded include URL, headers, body, timeout, proxy, TLS verification flags, and user-agent
+- response fields copied back include HTTP code, response body, request ID, error code, and error message
+- `free_response` only releases native-owned copies created by the JNI bridge
+
+This preserves the "no extra third-party network stack" goal while satisfying the C SDK's HTTP abstraction contract.
+
+### 11.5 Library Loading
 
 Android users load one formal producer shared library only.
 
-### 11.5 Destroy Behavior
+### 11.6 Behavior Ownership Matrix
+
+| Behavior | Owner | Rule |
+| --- | --- | --- |
+| callback thread switching | Android facade | implemented with Android looper/handler dispatch |
+| multi-process persistent path rewrite | Android facade | process-specific subdirectory rewrite before create |
+| persistent single-sender rule | Android facade | clamp `sendThreadCount` to `1` when persistent is enabled |
+| auto-recover | Android binding + C SDK | binding explicitly calls `ve_tls_producer_recover()` after create when persistent is enabled |
+| HTTP transport | Android binding + internal Java HTTP bridge | `HttpURLConnection/HttpsURLConnection`, no third-party transport |
+| raw-buffer callback details (`raw_buffer`, `start_id`, `end_id`) | binding internal path | retained internally, not in phase-1 public callback |
+| NTP offset / delay-log / drop-unauthorized policies | not public in phase 1 | re-evaluate only after native semantics are added |
+
+### 11.7 Destroy Behavior
 
 `destroyLogProducer()`:
 
 - immediately stops accepting new logs
 - returns asynchronously from Java to avoid ANR
-- triggers native bounded graceful shutdown in background
-- native shutdown waits for flusher/sender within configured bounds
+- triggers background `ve_tls_producer_close(destroyWaitMs)` first
+- always follows with `ve_tls_producer_destroy()`
 - native shutdown then finishes even if timeout is hit
 
-This explicitly follows the practical SLS destroy model rather than a weakened fire-and-forget model.
+This explicitly follows the practical SLS destroy model rather than a weakened fire-and-forget model, while mapping onto the actual two-stage C SDK API.
 
 ## 12. Build, ABI, and Packaging
 
@@ -395,6 +475,19 @@ Reasons:
 - current C SDK is already CMake-based
 - easier source reuse across Android and iOS
 - better fit than introducing new long-term ndk-build dependence
+
+Concrete integration shape:
+
+- `producer-native/src/main/cpp/CMakeLists.txt` is the Android module entry point
+- it adds `ve-tls-c-sdk` as a CMake subdirectory with Android-specific options:
+  - `VE_TLS_ENABLE_CURL=OFF`
+  - `VE_TLS_BUILD_TESTS=OFF`
+  - `VE_TLS_BUILD_TOOLS=OFF`
+  - `VE_TLS_ENABLE_LZ4=ON`
+  - `VE_TLS_ENABLE_ZLIB=OFF` by default
+- Android binding sources and JNI sources are compiled into one final shared library target, recommended name `tls_producer_jni`
+- the final shared library links `ve_tls_core`
+- LZ4 is consumed from `ve-tls-c-sdk`'s existing third-party source, not duplicated in the Android module
 
 ### 12.3 ABI Strategy
 
@@ -467,26 +560,71 @@ Repair:
 - publish scripts
 - samples
 
+Add internal Android binding helpers:
+
+- internal Java HTTP bridge classes under `producer-native`
+- JNI HTTP adapter sources under `producer-native/src/main/cpp`
+
 ## 15. Error Model and Callback Model
 
 ### 15.1 Error Model
 
 Android public model stays stable and simple:
 
-- public result enum/class through `LogProducerResult`
-- JNI maps native result + native error details into stable Android result codes and messages
+- public result object through `LogProducerResult`
+- JNI maps native result + native error details into stable TLS result codes and structured fields
 - private native error surface is not leaked directly
+
+`LogProducerResult` should at least carry:
+
+- `code`
+- `requestId`
+- `errorCode`
+- `errorMessage`
+- `httpCode`
+- `transportKind`
+- `transportCode`
+- `logBytes`
+- `compressedBytes`
+
+Recommended stable TLS result codes:
+
+- `OK`
+- `INVALID`
+- `DROP_ERROR`
+- `PERSISTENT_ERROR`
+- `CLOSED`
+- `TIMEOUT`
+- `AUTH_ERROR`
+- `NETWORK_ERROR`
+- `SERVER_ERROR`
+- `UNKNOWN_ERROR`
+
+Mapping rule:
+
+- `VE_TLS_OK -> OK`
+- `VE_TLS_INVALID -> INVALID`
+- `VE_TLS_PERSISTENT_ERROR -> PERSISTENT_ERROR`
+- `VE_TLS_CLOSED -> CLOSED`
+- `VE_TLS_TIMEOUT -> TIMEOUT`
+- `VE_TLS_DROP_ERROR` first checks detailed native error:
+  - HTTP `401/403 -> AUTH_ERROR`
+  - transport-level failure or no HTTP status -> `NETWORK_ERROR`
+  - other HTTP failure -> `SERVER_ERROR`
+  - otherwise -> `DROP_ERROR`
 
 ### 15.2 Callback Contract
 
 Stable callback shape:
 
-- `onCall(resultCode, reqId, errorMessage, logBytes, compressedBytes)`
+- `onCompletion(LogProducerResult result)`
 
 Thread mode:
 
 - sender thread direct callback when enabled
 - main thread callback when disabled
+
+Internal native callback data such as `raw_buffer`, `start_id`, and `end_id` remains available inside the binding layer for future advanced APIs, but is not part of the phase-1 public callback contract.
 
 ### 15.3 Lifecycle Contract
 
@@ -518,8 +656,11 @@ This follows the user’s explicit preference: adapt to the new path or keep the
 ### 17.2 Android JNI Validation
 
 - config mapping tests
+- runtime update matrix tests
+- result-code mapping tests
 - callback thread mode tests
 - multi-process path tests
+- HTTP bridge tests
 - bounded destroy tests
 - ABI smoke tests
 
@@ -538,19 +679,21 @@ This follows the user’s explicit preference: adapt to the new path or keep the
 ## 18. Implementation Sequence
 
 1. Define mobile binding API in `ve-tls-c-sdk`
-2. Reserve context-encoding extension path
-3. Implement Android `producer-native` main flow
-4. Align key runtime behaviors with SLS baseline
-5. Remove Java producer implementations
-6. Repair docs/tests/publish wiring
-7. Publish new AAR and migration guide
-8. Reuse the same binding boundary for iOS
+2. Implement Android HTTP adapter and JNI transport glue
+3. Reserve context-encoding extension path
+4. Implement Android `producer-native` main flow
+5. Align key runtime behaviors with SLS baseline
+6. Remove Java producer implementations
+7. Repair docs/tests/publish wiring
+8. Publish new AAR and migration guide
+9. Reuse the same binding boundary for iOS
 
 ## 19. Key Risks and Mitigations
 
 ### 19.1 Highest Risks
 
 - incorrect JNI-to-C config mapping
+- HTTP bridge correctness and performance
 - destroy/persistent behavior drift from SLS baseline
 - ABI packaging or library loading issues
 
@@ -578,3 +721,26 @@ Mitigation:
 - internal static integration, external single final shared library in one AAR
 - `producer-native` becomes the formal producer module
 - context encoding stays reserved for forward-compatible future support
+
+## 21. Review Resolution Matrix
+
+The following architecture review items were resolved into this spec revision.
+
+| Review item | Resolution |
+| --- | --- |
+| `R-01` config model mismatch | adopted: Java mirror + freeze-at-create + runtime update matrix |
+| `R-02` `compressType` string mismatch | adopted: Java enum maps to native strings |
+| `R-03` destroy lifecycle mismatch | adopted: background `close(timeout)` then `destroy()` |
+| `R-04` missing HTTP plan | adopted: JNI + internal Java `HttpURLConnection` bridge |
+| `R-05` `addLogRaw` mismatch | adopted: not public in phase 1 |
+| `I-01` TLS result model undefined | adopted: `LogProducerResult` becomes TLS-owned structured result |
+| `I-02` callback payload mismatch | partially adopted: internal path retained, public callback stays simple |
+| `I-03` Android-specific SLS behaviors unassigned | adopted: ownership matrix added |
+| `I-04` config layering missing | adopted: core/advanced/internal layering added |
+| `I-05` `setLogTopic` mismatch | adopted: removed from formal API |
+| `G-02` credentials provider | partially adopted: phase 1 uses `update_static_credentials`, provider reserved |
+| `G-03` log template optimization | deferred: not blocking phase-1 architecture |
+| `G-04` public flush/recover | partially adopted: binding auto-recover after create, flush/recover not public in phase 1 |
+| `G-05` build integration gap | adopted: CMake and final shared-library shape added |
+| `G-06` endpoint update mapping | adopted: explicit client API + runtime matrix |
+| `G-07` unit conversion risk | adopted: mapping matrix uses explicit units |
