@@ -1,6 +1,7 @@
 # TLS Producer Native C SDK Unification Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Default mode for this plan:** Use superpowers:subagent-driven-development when continuing in the same session. Use superpowers:executing-plans only for a separate parallel execution session.
 
 **Goal:** Replace the current Java producer implementation with a TLS-style Android `producer-native` module backed by `ve-tls-c-sdk`, including persistent/recover, JNI transport, and legacy producer retirement.
 
@@ -18,6 +19,172 @@
 - Keep TDD scope small: one failing test, one minimal implementation, one passing run, one commit
 - Prefer deleting legacy producer code only after `producer-native` contract, build, and smoke tests are green
 
+## Subagent-Driven Execution Mode
+
+This plan is intended to be executed in **Subagent-Driven** mode first, not as an undifferentiated serial coding session.
+
+### Controller Role
+
+- Main orchestration stays with the primary session and is tracked continuously with `gpt-5.4` at `xhigh`
+- The controller owns:
+  - task selection and dependency control
+  - deciding which tasks may run in parallel
+  - integrating outputs from multiple subagents
+  - updating the execution tracker after every meaningful step
+  - stopping parallelism when write sets begin to overlap
+
+### Standard Subagent Roles and Model Policy
+
+| Role | Native agent type | Model | Reason |
+| --- | --- | --- | --- |
+| Main controller / architecture owner | local main rollout | `gpt-5.4` `xhigh` | full-context tracking, dependency control, risk decisions |
+| Implementer for bounded code tasks | `worker` | `gpt-5.3-codex-spark` `high` | fastest default coding worker |
+| Implementer fallback | `worker` | `gpt-5.3-codex` `high` | use immediately if Spark is unavailable or quota-limited |
+| Spec compliance reviewer | `default` | `gpt-5.4` `high` | verify output still matches approved spec |
+| Code quality reviewer | `default` | `gpt-5.4` `high` | catch regressions, maintainability issues, unsafe shortcuts |
+| Test / smoke / build verifier | `default` or `explorer` | `gpt-5.4-mini` `high` | lower-cost validation and targeted build/test checking |
+| Edge cleanup / simple docs / publish wiring | `worker` or `explorer` | `gpt-5.4-mini` `medium` | low-complexity cleanup work |
+
+### Per-Task Quality Gates
+
+Every task follows the same gate sequence:
+
+1. Implementer subagent executes the task and self-checks it
+2. Spec reviewer checks compliance against the approved spec
+3. Code quality reviewer checks bug risk, regressions, and test adequacy
+4. Controller updates the execution tracker with status, commits, and remaining blockers
+
+No task is marked complete until both reviews are green.
+
+### Parallel Execution Waves
+
+Only run tasks in parallel when their write sets are disjoint.
+
+Wave 0, controller only:
+
+- read spec, this plan, and the live tracker
+- inspect git status in both repos
+- mark the next runnable tasks in the tracker
+
+Wave 1, run in parallel:
+
+- Task 1 in `ve-tls-c-sdk`
+- Task 3 in `ve-tls-android-sdk`
+
+Reason:
+
+- different repos
+- no overlapping files
+- both are prerequisites for downstream integration work
+
+Wave 2, run in parallel after Wave 1 is green:
+
+- Task 2 in `ve-tls-c-sdk`
+- Task 4 in `ve-tls-android-sdk`
+
+Reason:
+
+- still disjoint repos
+- both deepen the boundaries defined in Wave 1
+
+Wave 3, serial:
+
+- Task 5
+
+Reason:
+
+- depends on Task 4 public API shape and config snapshot boundary
+
+Wave 4, serial:
+
+- Task 6
+
+Reason:
+
+- integrates C SDK binding and Android Java lifecycle into JNI
+
+Wave 5, serial:
+
+- Task 7
+
+Reason:
+
+- overlaps the JNI/native transport path used by Task 6 and must settle HTTP/TLS mapping before add-log integration
+
+Wave 6, serial:
+
+- Task 8
+
+Reason:
+
+- overlaps `tls_producer_jni.cpp`, callback mapping, and demo/test wiring
+
+Wave 7, serial:
+
+- Task 9
+
+Reason:
+
+- destructive cleanup must wait for all functional verification to be green
+
+### Explicit Non-Parallel Constraints
+
+Do **not** run these task pairs in parallel:
+
+- Task 5 with Task 6
+- Task 6 with Task 7
+- Task 7 with Task 8
+- Task 8 with Task 9
+
+They overlap on one or more of:
+
+- `tls-android-modules/producer-native/src/main/cpp/tls_producer_jni.cpp`
+- `tls-android-modules/producer-native/src/main/java/com/volcengine/tls/android/producer/LogProducerClient.java`
+- `tls-android-modules/producer-native/src/main/cpp/CMakeLists.txt`
+- `tls-android-modules/integration-tests/build.gradle`
+- legacy producer cleanup files
+
+## Execution Record Protocol
+
+Live execution state must be maintained in:
+
+- `docs/plans/2026-04-18-tls-producer-native-c-sdk-unification-progress.md`
+
+The tracker is the source of truth for:
+
+- current wave
+- current task owner
+- current task status
+- latest commit per repo
+- tests already run
+- open blockers
+- next safe task to start
+
+Update the tracker:
+
+- when a task starts
+- when an implementer returns `DONE`, `DONE_WITH_CONCERNS`, `BLOCKED`, or `NEEDS_CONTEXT`
+- after each review gate
+- after each commit
+- before ending the session
+
+## New-Session Handoff Protocol
+
+Any new session continuing this work should do these steps before coding:
+
+1. Read the approved spec:
+   - `docs/superpowers/specs/2026-04-18-tls-producer-native-c-sdk-unification-design.md`
+2. Read this implementation plan
+3. Read the live execution tracker:
+   - `docs/plans/2026-04-18-tls-producer-native-c-sdk-unification-progress.md`
+4. Check git status in both repos:
+   - `git -C ve-tls-c-sdk status --short`
+   - `git -C ve-tls-android-sdk status --short`
+5. Read the latest commits in both repos:
+   - `git -C ve-tls-c-sdk log --oneline -5`
+   - `git -C ve-tls-android-sdk log --oneline -5`
+6. Resume from the first tracker item that is `In Progress`, otherwise from the first task marked `Ready`
+
 ### Task 1: Add C SDK Android Binding Skeleton
 
 **Files:**
@@ -26,6 +193,14 @@
 - Create: `ve-tls-c-sdk/tests/test_android_binding.c`
 - Modify: `ve-tls-c-sdk/CMakeLists.txt`
 - Test: `ve-tls-c-sdk/tests/test_android_binding.c`
+
+**Subagent assignment:**
+- Wave: 1, parallel with Task 3
+- Implementer: `worker`, `gpt-5.3-codex-spark` `high`
+- Implementer fallback: `worker`, `gpt-5.3-codex` `high`
+- Spec review: `default`, `gpt-5.4` `high`
+- Code review: `default`, `gpt-5.4` `high`
+- Verification: `default`, `gpt-5.4-mini` `high`
 
 **Step 1: Write the failing test**
 
@@ -128,6 +303,14 @@ git -C ve-tls-c-sdk commit -m "feat: add android binding skeleton"
 - Modify: `ve-tls-c-sdk/tests/test_android_binding.c`
 - Test: `ve-tls-c-sdk/tests/test_android_binding.c`
 
+**Subagent assignment:**
+- Wave: 2, parallel with Task 4
+- Implementer: `worker`, `gpt-5.3-codex-spark` `high`
+- Implementer fallback: `worker`, `gpt-5.3-codex` `high`
+- Spec review: `default`, `gpt-5.4` `high`
+- Code review: `default`, `gpt-5.4` `high`
+- Verification: `default`, `gpt-5.4-mini` `high`
+
 **Step 1: Write the failing test**
 
 ```c
@@ -216,6 +399,14 @@ git -C ve-tls-c-sdk commit -m "feat: add android binding lifecycle helpers"
 - Create: `ve-tls-android-sdk/tls-android-modules/maven-publish/pom-producer-native.xml`
 - Test: `ve-tls-android-sdk/tls-android-modules/producer-native/build.gradle`
 
+**Subagent assignment:**
+- Wave: 1, parallel with Task 1
+- Implementer: `worker`, `gpt-5.3-codex-spark` `high`
+- Implementer fallback: `worker`, `gpt-5.3-codex` `high`
+- Spec review: `default`, `gpt-5.4` `high`
+- Code review: `default`, `gpt-5.4` `high`
+- Verification: `default`, `gpt-5.4-mini` `high`
+
 **Step 1: Write the failing build check**
 
 Run:
@@ -297,6 +488,14 @@ git -C ve-tls-android-sdk commit -m "feat: scaffold producer-native android modu
 - Create: `ve-tls-android-sdk/tls-android-modules/producer-native/src/test/java/com/volcengine/tls/android/producer/LogProducerResultTest.java`
 - Test: `ve-tls-android-sdk/tls-android-modules/producer-native/src/test/java/com/volcengine/tls/android/producer/LogProducerConfigTest.java`
 
+**Subagent assignment:**
+- Wave: 2, parallel with Task 2
+- Implementer: `worker`, `gpt-5.3-codex-spark` `high`
+- Implementer fallback: `worker`, `gpt-5.3-codex` `high`
+- Spec review: `default`, `gpt-5.4` `high`
+- Code review: `default`, `gpt-5.4` `high`
+- Verification: `default`, `gpt-5.4-mini` `high`
+
 **Step 1: Write the failing tests**
 
 ```java
@@ -370,6 +569,14 @@ git -C ve-tls-android-sdk commit -m "feat: add producer-native public java api"
 - Create: `ve-tls-android-sdk/tls-android-modules/producer-native/src/main/java/com/volcengine/tls/android/producer/internal/ProcessUtil.java`
 - Create: `ve-tls-android-sdk/tls-android-modules/producer-native/src/test/java/com/volcengine/tls/android/producer/LogProducerClientBridgeTest.java`
 - Test: `ve-tls-android-sdk/tls-android-modules/producer-native/src/test/java/com/volcengine/tls/android/producer/LogProducerClientBridgeTest.java`
+
+**Subagent assignment:**
+- Wave: 3, serial
+- Implementer: `worker`, `gpt-5.3-codex-spark` `high`
+- Implementer fallback: `worker`, `gpt-5.3-codex` `high`
+- Spec review: `default`, `gpt-5.4` `high`
+- Code review: `default`, `gpt-5.4` `high`
+- Verification: `default`, `gpt-5.4-mini` `high`
 
 **Step 1: Write the failing test**
 
@@ -448,6 +655,14 @@ git -C ve-tls-android-sdk commit -m "feat: add producer-native lifecycle logic"
 - Modify: `ve-tls-android-sdk/tls-android-modules/producer-native/src/main/cpp/CMakeLists.txt`
 - Modify: `ve-tls-android-sdk/tls-android-modules/producer-native/src/main/java/com/volcengine/tls/android/producer/LogProducerClient.java`
 - Test: `ve-tls-android-sdk/tls-android-modules/producer-native/src/test/java/com/volcengine/tls/android/producer/NativeApiContractTest.java`
+
+**Subagent assignment:**
+- Wave: 4, serial
+- Implementer: `worker`, `gpt-5.4` `high`
+- Implementer fallback: `worker`, `gpt-5.3-codex` `high`
+- Spec review: `default`, `gpt-5.4` `high`
+- Code review: `default`, `gpt-5.4` `high`
+- Verification: `default`, `gpt-5.4-mini` `high`
 
 **Step 1: Write the failing contract test**
 
@@ -530,6 +745,14 @@ git -C ve-tls-android-sdk commit -m "feat: add producer-native jni lifecycle bri
 - Modify: `ve-tls-c-sdk/bindings/android/src/ve_tls_android_binding.c`
 - Create: `ve-tls-android-sdk/tls-android-modules/producer-native/src/test/java/com/volcengine/tls/android/producer/NativeHttpBridgeTest.java`
 - Test: `ve-tls-android-sdk/tls-android-modules/producer-native/src/test/java/com/volcengine/tls/android/producer/NativeHttpBridgeTest.java`
+
+**Subagent assignment:**
+- Wave: 5, serial
+- Implementer: `worker`, `gpt-5.4` `high`
+- Implementer fallback: `worker`, `gpt-5.3-codex` `high`
+- Spec review: `default`, `gpt-5.4` `high`
+- Code review: `default`, `gpt-5.4` `high`
+- Verification: `default`, `gpt-5.4-mini` `high`
 
 **Step 1: Write the failing test**
 
@@ -625,6 +848,14 @@ git -C ve-tls-android-sdk commit -m "feat: add native http bridge"
 - Modify: `ve-tls-android-sdk/tls-android-modules/app/src/main/java/com/volcengine/tls/android/demo/MainActivity.java`
 - Modify: `ve-tls-android-sdk/tls-android-modules/app/src/main/java/com/volcengine/tls/android/demo/BenchmarkActivity.java`
 - Test: `ve-tls-android-sdk/tls-android-modules/integration-tests/src/test/java/com/volcengine/integration/ProducerNativeApiContractTest.java`
+
+**Subagent assignment:**
+- Wave: 6, serial
+- Implementer: `worker`, `gpt-5.4` `high`
+- Implementer fallback: `worker`, `gpt-5.3-codex` `high`
+- Spec review: `default`, `gpt-5.4` `high`
+- Code review: `default`, `gpt-5.4` `high`
+- Verification: `default`, `gpt-5.4-mini` `high`
 
 **Step 1: Write the failing tests**
 
@@ -732,6 +963,14 @@ git -C ve-tls-android-sdk commit -m "feat: add producer-native add-log path"
 - Modify: `ve-tls-android-sdk/RELEASE.md`
 - Modify: `ve-tls-android-sdk/CHANGELOG.md`
 - Test: `ve-tls-android-sdk/tls-android-modules/integration-tests/src/test/java/com/volcengine/integration/ClasspathDiagnosticsTest.java`
+
+**Subagent assignment:**
+- Wave: 7, serial
+- Implementer: `worker`, `gpt-5.4-mini` `medium`
+- Implementer fallback: `worker`, `gpt-5.3-codex` `medium`
+- Spec review: `default`, `gpt-5.4` `high`
+- Code review: `default`, `gpt-5.4` `high`
+- Verification: `default`, `gpt-5.4-mini` `high`
 
 **Step 1: Write the failing regression check**
 
