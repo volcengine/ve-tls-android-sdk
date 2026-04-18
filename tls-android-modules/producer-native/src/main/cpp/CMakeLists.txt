@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(tls_producer_native C)
+project(tls_producer_native C CXX)
 
 set(VE_TLS_C_SDK_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../../../../ve-tls-c-sdk")
 
@@ -17,7 +17,10 @@ add_subdirectory(${VE_TLS_C_SDK_DIR} ${CMAKE_CURRENT_BINARY_DIR}/ve_tls_c_sdk)
 
 add_library(tls_producer_jni SHARED
   ${VE_TLS_C_SDK_DIR}/bindings/android/src/ve_tls_android_binding.c
+  tls_producer_jni.cpp
 )
+
+target_compile_features(tls_producer_jni PRIVATE cxx_std_11)
 
 target_include_directories(tls_producer_jni PRIVATE
   ${VE_TLS_C_SDK_DIR}/bindings/android/include

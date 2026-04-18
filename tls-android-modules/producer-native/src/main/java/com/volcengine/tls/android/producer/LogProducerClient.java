@@ -2,6 +2,7 @@ package com.volcengine.tls.android.producer;
 
 import com.volcengine.tls.android.producer.internal.NativeProducerBridge;
 import com.volcengine.tls.android.producer.internal.ConfigSnapshot;
+import com.volcengine.tls.android.producer.internal.JniNativeProducerBridge;
 import com.volcengine.tls.android.producer.internal.ProcessUtil;
 
 public final class LogProducerClient {
@@ -26,7 +27,7 @@ public final class LogProducerClient {
     LogProducerClient(LogProducerConfig config, LogProducerCallback callback, String processName, NativeProducerBridge bridge) {
         this.config = config == null ? null : new ConfigSnapshot(config, processName);
         this.callback = callback;
-        this.bridge = bridge;
+        this.bridge = bridge == null ? new JniNativeProducerBridge() : bridge;
     }
 
     static LogProducerClient forTest(LogProducerConfig config, NativeProducerBridge bridge) {
@@ -86,6 +87,10 @@ public final class LogProducerClient {
         }
         if (bridge == null) {
             return 0;
+        }
+        if (bridge instanceof JniNativeProducerBridge) {
+            producerHandle = ((JniNativeProducerBridge) bridge).create(config, callback);
+            return producerHandle;
         }
         producerHandle = bridge.create(config == null ? null : config.toConfig(), callback);
         return producerHandle;
