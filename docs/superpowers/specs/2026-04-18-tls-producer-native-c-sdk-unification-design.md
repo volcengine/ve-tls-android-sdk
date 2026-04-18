@@ -402,6 +402,26 @@ Responsibilities kept in Android facade/binding only:
 - obtain app-private storage path from Android `Context`
 - generate persistent base directory under app-private files
 
+### 11.1.1 Android Platform Override Reservation
+
+The Android binding must be allowed to override selected `ve_tls_platform` callbacks instead of assuming the default POSIX adapter is always sufficient.
+
+Phase-1 reservation points:
+
+- `file_fsync`
+- `path_mkdirs`
+- `path_stat`
+- `path_remove`
+- `path_rename`
+
+Why this reservation is explicit in the spec:
+
+- low-end Android devices can show very high `fsync` latency, which directly affects persistent mode when `force_flush_disk=1`
+- Android storage behavior can differ across API levels and scoped-storage environments, even when app-private directories remain the primary target
+- future Android-specific throttling, batching, or fsync mitigation may need to live in the platform adapter rather than in the generic producer core
+
+This does not force a phase-1 custom platform implementation, but it makes Android platform adaptation an explicit part of the architecture boundary rather than an afterthought.
+
 ### 11.2 Multi-process Persistent Path Rewrite
 
 If current process is not main process, persistent path is rewritten to a process-specific subdirectory, matching the SLS practical behavior.
@@ -425,6 +445,56 @@ Binding design:
 
 This preserves the "no extra third-party network stack" goal while satisfying the C SDK's HTTP abstraction contract.
 
+#### 11.4.1 JNI Thread Attachment Model
+
+The HTTP bridge must treat native sender threads as long-lived JNI callers.
+
+Required design rules:
+
+- keep one global `JavaVM *` from `JNI_OnLoad`
+- cache attached `JNIEnv *` per native thread through thread-local storage
+- attach a sender thread on first JNI use, not on every request
+- detach automatically when that native thread exits
+- cache `jclass`/`jmethodID` lookups as global references instead of resolving them on every HTTP call
+
+This follows the same practical direction as the SLS Android producer and avoids repeated attach/detach overhead on the hot send path.
+
+#### 11.4.2 Connection Isolation and Concurrency Rules
+
+`HttpURLConnection` instances are never shared across requests or sender threads.
+
+Rules:
+
+- each HTTP request creates and owns one fresh `HttpURLConnection` or `HttpsURLConnection`
+- no connection object is reused across concurrent native sender threads
+- persistent mode still clamps sender count to `1`, but non-persistent mode must remain correct when multiple sender threads are enabled
+- request body write, response read, and connection teardown all happen within that one request scope
+
+This avoids relying on thread-safety properties that `HttpURLConnection` does not provide at the object level.
+
+#### 11.4.3 TLS, Certificate, and Timeout Mapping
+
+Android HTTP binding must explicitly map the C SDK transport fields rather than treating them as advisory only.
+
+Required mappings:
+
+- `connect_timeout_ms -> HttpURLConnection.setConnectTimeout()`
+- `request_timeout_ms -> HttpURLConnection.setReadTimeout()`
+- `user_agent -> User-Agent` request header
+- `proxy -> java.net.Proxy` when configured
+
+HTTPS handling rules:
+
+- when `tls_verify_peer=1` and `ca_cert_path` is empty, use the platform default trust manager
+- when `ca_cert_path` is provided, build a request-scoped `SSLSocketFactory` from that CA material and apply it to `HttpsURLConnection`
+- when `tls_verify_host=0`, install a request-scoped permissive `HostnameVerifier`
+- when `tls_verify_peer=0`, install a request-scoped permissive trust manager
+
+Security note:
+
+- disabling peer or host verification is a compatibility/debug path only and must be documented as unsafe for normal production use
+- permissive TLS behavior must never become the default path just because Android custom CA loading is harder to implement
+
 ### 11.5 Library Loading
 
 Android users load one formal producer shared library only.
@@ -434,6 +504,7 @@ Android users load one formal producer shared library only.
 | Behavior | Owner | Rule |
 | --- | --- | --- |
 | callback thread switching | Android facade | implemented with Android looper/handler dispatch |
+| selected file/path callbacks | Android platform binding | may override `ve_tls_platform` callbacks where Android storage behavior requires it |
 | multi-process persistent path rewrite | Android facade | process-specific subdirectory rewrite before create |
 | persistent single-sender rule | Android facade | clamp `sendThreadCount` to `1` when persistent is enabled |
 | auto-recover | Android binding + C SDK | binding explicitly calls `ve_tls_producer_recover()` after create when persistent is enabled |
@@ -738,6 +809,7 @@ The following architecture review items were resolved into this spec revision.
 | `I-03` Android-specific SLS behaviors unassigned | adopted: ownership matrix added |
 | `I-04` config layering missing | adopted: core/advanced/internal layering added |
 | `I-05` `setLogTopic` mismatch | adopted: removed from formal API |
+| `G-01` Android platform adaptation | adopted: platform override reservation and ownership added |
 | `G-02` credentials provider | partially adopted: phase 1 uses `update_static_credentials`, provider reserved |
 | `G-03` log template optimization | deferred: not blocking phase-1 architecture |
 | `G-04` public flush/recover | partially adopted: binding auto-recover after create, flush/recover not public in phase 1 |
