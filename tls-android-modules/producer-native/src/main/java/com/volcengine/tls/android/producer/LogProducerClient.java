@@ -32,9 +32,6 @@ public final class LogProducerClient {
     }
 
     public void addLog(Log log, int flush) {
-        if (destroyed) {
-            throw new IllegalStateException("producer destroyed");
-        }
         long handle = ensureProducer();
         if (bridge == null) {
             throw new UnsupportedOperationException("native bridge is not configured");
@@ -71,6 +68,9 @@ public final class LogProducerClient {
     }
 
     private long ensureProducer() {
+        if (destroyed) {
+            throw new IllegalStateException("producer destroyed");
+        }
         if (producerHandle != 0) {
             return producerHandle;
         }
