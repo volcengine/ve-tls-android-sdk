@@ -56,6 +56,25 @@ Every task follows the same gate sequence:
 
 No task is marked complete until both reviews are green.
 
+### Subagent Timeout and Retry Policy
+
+Subagent timeout does **not** mean task failure.
+
+Rules:
+
+- give implementer subagents enough time by default for real coding work; do not use short waits as the normal policy
+- for implementation tasks, prefer long waits before assuming timeout, typically 20-30 minutes when the task is non-trivial
+- for review and validation tasks, prefer long-enough waits as well, typically 10-15 minutes unless the task is obviously tiny
+- if a wait call times out without a final status, do not mark the task `Blocked` only because of the timeout
+- first retry by waiting again or polling the same subagent with a longer timeout
+- if the subagent is clearly stalled or no longer progressing, re-dispatch the same task to a fresh subagent with the current tracker state and latest commits
+- record every timeout and retry in the execution tracker so the next session can distinguish "needs retry" from "real blocker"
+
+Controller rule:
+
+- keep the task active until there is explicit evidence of failure, contradiction, or a real blocker
+- "subagent timed out" alone is never a sufficient reason to stop the overall execution flow
+
 ### Parallel Execution Waves
 
 Only run tasks in parallel when their write sets are disjoint.

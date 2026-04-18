@@ -51,6 +51,7 @@ Before starting or resuming work:
 - `In Review`: spec review or code review in progress
 - `Blocked`: waiting for context, fix, or dependency
 - `Done`: merged into current working tree and tracker updated
+- `Timed Out / Retry`: subagent wait expired but task is still considered active and should be retried, not abandoned
 
 ## Wave Status
 
@@ -82,17 +83,17 @@ Required lookup file:
 
 ## Task Board
 
-| Task | Title | Repo | Wave | Owner role/model | Status | Latest commit | Verification | Blockers | Stop reason |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Add C SDK Android Binding Skeleton | `ve-tls-c-sdk` | 1 | `worker` / `gpt-5.3-codex-spark high` | `Todo` |  |  |  |  |
-| 2 | Add Binding Helpers for Path Rewrite, Recover, and Destroy Ordering | `ve-tls-c-sdk` | 2 | `worker` / `gpt-5.3-codex-spark high` | `Todo` |  |  |  |  |
-| 3 | Scaffold the Android `producer-native` Module | `ve-tls-android-sdk` | 1 | `worker` / `gpt-5.3-codex-spark high` | `Todo` |  |  |  |  |
-| 4 | Add the Public Java API and a Testable Bridge Seam | `ve-tls-android-sdk` | 2 | `worker` / `gpt-5.3-codex-spark high` | `Todo` |  |  |  |  |
-| 5 | Implement Java Lifecycle Logic Against the Bridge Interface | `ve-tls-android-sdk` | 3 | `worker` / `gpt-5.3-codex-spark high` | `Todo` |  |  |  |  |
-| 6 | Implement JNI Lifecycle Bridge and Native Config Mapping | `ve-tls-android-sdk` | 4 | `worker` / `gpt-5.4 high` | `Todo` |  |  |  |  |
-| 7 | Implement the Internal Java HTTP Bridge and TLS Mapping | `ve-tls-android-sdk` + `ve-tls-c-sdk` | 5 | `worker` / `gpt-5.4 high` | `Todo` |  |  |  |  |
-| 8 | Implement `addLog`, Callback Mapping, and Producer Smoke Tests | `ve-tls-android-sdk` | 6 | `worker` / `gpt-5.4 high` | `Todo` |  |  |  |  |
-| 9 | Retire Legacy Producer Code and Finish Documentation/Publishing | `ve-tls-android-sdk` | 7 | `worker` / `gpt-5.4-mini medium` | `Todo` |  |  |  |  |
+| Task | Title | Repo | Wave | Owner role/model | Status | Latest commit | Verification | Blockers | Stop reason | Retry notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Add C SDK Android Binding Skeleton | `ve-tls-c-sdk` | 1 | `worker` / `gpt-5.3-codex-spark high` | `Todo` |  |  |  |  |  |
+| 2 | Add Binding Helpers for Path Rewrite, Recover, and Destroy Ordering | `ve-tls-c-sdk` | 2 | `worker` / `gpt-5.3-codex-spark high` | `Todo` |  |  |  |  |  |
+| 3 | Scaffold the Android `producer-native` Module | `ve-tls-android-sdk` | 1 | `worker` / `gpt-5.3-codex-spark high` | `Todo` |  |  |  |  |  |
+| 4 | Add the Public Java API and a Testable Bridge Seam | `ve-tls-android-sdk` | 2 | `worker` / `gpt-5.3-codex-spark high` | `Todo` |  |  |  |  |  |
+| 5 | Implement Java Lifecycle Logic Against the Bridge Interface | `ve-tls-android-sdk` | 3 | `worker` / `gpt-5.3-codex-spark high` | `Todo` |  |  |  |  |  |
+| 6 | Implement JNI Lifecycle Bridge and Native Config Mapping | `ve-tls-android-sdk` | 4 | `worker` / `gpt-5.4 high` | `Todo` |  |  |  |  |  |
+| 7 | Implement the Internal Java HTTP Bridge and TLS Mapping | `ve-tls-android-sdk` + `ve-tls-c-sdk` | 5 | `worker` / `gpt-5.4 high` | `Todo` |  |  |  |  |  |
+| 8 | Implement `addLog`, Callback Mapping, and Producer Smoke Tests | `ve-tls-android-sdk` | 6 | `worker` / `gpt-5.4 high` | `Todo` |  |  |  |  |  |
+| 9 | Retire Legacy Producer Code and Finish Documentation/Publishing | `ve-tls-android-sdk` | 7 | `worker` / `gpt-5.4-mini medium` | `Todo` |  |  |  |  |  |
 
 ## Review Gates
 
@@ -132,6 +133,7 @@ Append newest entries at the top.
 - Verification run:
 - Open blockers:
 - Next recommended task:
+- Timeout / retry actions:
 
 ## Pause / Resume Example
 
@@ -148,3 +150,4 @@ Use this template when pausing in the middle of a phase:
 - Why execution stopped:
 - What must be verified first on resume:
 - Next safe command:
+- Any subagent that timed out and should be retried:
