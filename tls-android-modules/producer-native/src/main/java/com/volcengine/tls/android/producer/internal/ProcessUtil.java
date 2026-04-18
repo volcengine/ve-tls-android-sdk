@@ -1,6 +1,7 @@
 package com.volcengine.tls.android.producer.internal;
 
 import android.app.Application;
+import android.os.Build;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -11,10 +12,15 @@ public final class ProcessUtil {
 
     public static String getCurrentProcessName() {
         String processName = null;
-        try {
-            processName = Application.getProcessName();
-        } catch (RuntimeException ignored) {
-            // in local JVM tests, Android runtime methods may not be mocked
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            try {
+                processName = Application.getProcessName();
+            } catch (RuntimeException | NoSuchMethodError ignored) {
+                // in local JVM tests, Android runtime methods may not be available
+            } catch (LinkageError ignored) {
+                // in some runtime environments, API compatibility linkage can fail
+            }
         }
 
         if (processName != null && !processName.isEmpty()) {
@@ -51,7 +57,15 @@ public final class ProcessUtil {
         if (read <= 0) {
             return null;
         }
-        return new String(buffer, 0, read).trim();
+
+        int length = read;
+        for (int i = 0; i < read; i++) {
+            if (buffer[i] == 0) {
+                length = i;
+                break;
+            }
+        }
+        return new String(buffer, 0, length).trim();
     }
 
     private static final class FilePath {
