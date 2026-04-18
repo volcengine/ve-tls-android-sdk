@@ -35,7 +35,6 @@
 
   <modules>
     <module>core</module>
-    <module>producer</module>
     <module>producer-native</module>
     <module>full</module>
   </modules>

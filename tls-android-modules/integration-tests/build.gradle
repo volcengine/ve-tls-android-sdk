@@ -7,7 +7,6 @@ dependencies {
     // Use AGP 8.x 'aar_main_jar' classes.jar as a stable artifact
     "$rootDir/core/build/intermediates/aar_main_jar/release/syncReleaseLibJars/classes.jar",
     "$rootDir/full/build/intermediates/aar_main_jar/release/syncReleaseLibJars/classes.jar",
-    "$rootDir/producer-lite/build/intermediates/aar_main_jar/release/syncReleaseLibJars/classes.jar",
     "$rootDir/producer-native/build/intermediates/aar_main_jar/release/syncReleaseLibJars/classes.jar"
   )
   // Runtime deps used by core/full
@@ -20,11 +19,11 @@ dependencies {
 }
 
 tasks.named('compileTestJava') {
-  dependsOn ':core:syncReleaseLibJars', ':full:syncReleaseLibJars', ':producer:syncReleaseLibJars', ':producer-native:syncReleaseLibJars'
+  dependsOn ':core:syncReleaseLibJars', ':full:syncReleaseLibJars', ':producer-native:syncReleaseLibJars'
 }
 
 tasks.named('test') {
-  dependsOn ':core:assembleRelease', ':full:assembleRelease', ':producer:assembleRelease', ':producer-native:assembleRelease'
+  dependsOn ':core:assembleRelease', ':full:assembleRelease', ':producer-native:assembleRelease'
 }
 
 test {

@@ -24,7 +24,6 @@ dependencyResolutionManagement {
   }
 }
 
-include ':core', ':full', ':app', ':app-empty', ':producer', ':producer-native', ':integration-tests'
-project(':producer').projectDir = new File('producer-lite')
+include ':core', ':full', ':app', ':app-empty', ':producer-native', ':integration-tests'
 project(':producer-native').projectDir = new File('producer-native')
 project(':integration-tests').projectDir = new File('integration-tests')

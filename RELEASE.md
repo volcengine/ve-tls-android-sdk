@@ -1,7 +1,7 @@
 ## 发布说明
 - 版本策略：SemVer（主.次.修订），当前主版本为 2.0.4（相较 1.1.5 为重大变更）
 - 最低支持：Android 4.4（API 19）
-- 构建产物：core/full/producer-lite AAR
+- 构建产物：core/full/producer-native AAR
 - Maven 坐标：推荐使用 `io.github.volcengine-tls`（GitHub 命名空间验证更直接）
 - 工作流：GitHub Actions 自动构建与测试（.github/workflows/android-ci.yml）
 - 发布步骤：
@@ -17,7 +17,7 @@
   ```
 - 校验工件：
 -  - ~/.m2/repository/io/github/volcengine-tls/tls-android-core/2.0.4/
--  - ~/.m2/repository/io/github/volcengine-tls/tls-android-producer/2.0.4/
+-  - ~/.m2/repository/io/github/volcengine-tls/tls-android-producer-native/2.0.4/
 -  - ~/.m2/repository/io/github/volcengine-tls/tls-android-full/2.0.4/
 - 在消费工程临时启用 mavenLocal() 验证依赖解析与使用
 
@@ -55,7 +55,7 @@ cd tls-android-modules
 ## 使用 Maven CLI 发布（不改代码）
 - 生成 AAR：
   ```bash
-  tls-android-modules/gradlew -p tls-android-modules :core:assembleRelease :producer:assembleRelease :full:assembleRelease
+  tls-android-modules/gradlew -p tls-android-modules :core:assembleRelease :producer-native:assembleRelease :full:assembleRelease
   ```
 - 准备 POM 与 sources.jar：已提供模板于 tls-android-modules/maven-publish/
 - 一键发布脚本：
@@ -67,7 +67,7 @@ cd tls-android-modules
   # 正式发布到 Sonatype（需 ~/.m2/settings.xml 配置 serverId/用户名/密码，且本机 GPG 可用）
   bash scripts/publish-mvn.sh
   ```
-- 说明：脚本使用 gpg:sign-and-deploy-file 逐个上传 core/producer/full，并调用 nexus-staging:release 自动 Close/Release。
+- 说明：脚本使用 gpg:sign-and-deploy-file 逐个上传 core/producer-native/full，并调用 nexus-staging:release 自动 Close/Release。
 
 ## 使用 Maven Central Publishing 插件发布（推荐新流程）
 - 适用场景：参考 Java SDK 的 Central Publishing 插件流程，通过 Central 的 staging API 发布并自动发布到 Maven Central。
@@ -89,5 +89,5 @@ cd tls-android-modules
   - 聚合 POM：tls-android-modules/maven-central-publish/pom.xml（不发布到中央仓库）
   - 发布坐标：
     - io.github.volcengine-tls:tls-android-core:2.0.4
-    - io.github.volcengine-tls:tls-android-producer:2.0.4
+    - io.github.volcengine-tls:tls-android-producer-native:2.0.4
     - io.github.volcengine-tls:tls-android-full:2.0.4

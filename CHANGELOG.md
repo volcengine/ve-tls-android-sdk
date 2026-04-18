@@ -1,7 +1,9 @@
 ## 2.0.0
-- 统一日志映射到 core.AdaptorUtil，producer-lite 与 full 保持一致
+- 统一日志映射到 core.AdaptorUtil，producer-native 与 full 保持一致
+- Producer 迁移到 `producer-native`：依赖坐标改为 `io.github.volcengine-tls:tls-android-producer-native`，公开发送 API 改为 `LogProducerClient.addLog(Log)` / `destroyLogProducer()`
+- `CompressType` 公共枚举仅保留 `NONE/LZ4`，默认 `LZ4`
 - 新增 TimeNs 支持与开关；支持用户自填时间与纳秒，归一化至毫秒
-- 修复 demo 与脚本，提供 lite/full 运行与集成测试模块
+- 修复 demo 与脚本，提供 native/full 运行与集成测试模块
 - 新增真实环境用例：资源 CRUD、搜索/直方图/分片、Kafka、下载任务、规则与机器组、分页筛选
 - 统一 Android namespace；加入 Lombok 全局配置，收敛构建警告
 - 最低版本提升至 Android 4.4（API 19）

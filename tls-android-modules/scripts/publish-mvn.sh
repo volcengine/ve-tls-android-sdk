@@ -12,14 +12,14 @@ GPG_PASSPHRASE=${PGP_PASSPHRASE:-}
 TARGET_DIR="$DIR/maven-publish/target"
 mkdir -p "$TARGET_DIR"
 
-./gradlew :core:assembleRelease :producer:assembleRelease :full:assembleRelease >/dev/null
+./gradlew :core:assembleRelease :producer-native:assembleRelease :full:assembleRelease >/dev/null
 
 jar cf "$TARGET_DIR/tls-android-core-$VERSION-sources.jar" -C core/src/main/java .
-jar cf "$TARGET_DIR/tls-android-producer-$VERSION-sources.jar" -C producer-lite/src/main/java .
+jar cf "$TARGET_DIR/tls-android-producer-native-$VERSION-sources.jar" -C producer-native/src/main/java .
 jar cf "$TARGET_DIR/tls-android-full-$VERSION-sources.jar" -C full/src/main/java .
 
 CORE_AAR="core/build/outputs/aar/core-release.aar"
-PRODUCER_AAR="producer-lite/build/outputs/aar/producer-lite-release.aar"
+PRODUCER_AAR="producer-native/build/outputs/aar/producer-native-release.aar"
 FULL_AAR="full/build/outputs/aar/full-release.aar"
 
 if [ "${DRY_RUN:-0}" = "1" ]; then
@@ -46,9 +46,9 @@ mvn -s ~/.m2/settings.xml -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg gpg:sig
 
 mvn -s ~/.m2/settings.xml -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg gpg:sign-and-deploy-file \
   -Durl="$DEPLOY_URL" -DrepositoryId="$SERVER_ID" \
-  -DpomFile="maven-publish/pom-producer.xml" \
+  -DpomFile="maven-publish/pom-producer-native.xml" \
   -Dfile="$PRODUCER_AAR" \
-  -Dfiles="$TARGET_DIR/tls-android-producer-$VERSION-sources.jar" \
+  -Dfiles="$TARGET_DIR/tls-android-producer-native-$VERSION-sources.jar" \
   -Dclassifiers=sources -Dtypes=jar
 
 mvn -s ~/.m2/settings.xml -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg gpg:sign-and-deploy-file \

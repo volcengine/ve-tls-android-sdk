@@ -69,8 +69,8 @@ android {
 }
 
 dependencies {
-  noProviderImplementation project(':producer')
-  slf4jProviderImplementation project(':producer')
+  noProviderImplementation project(':producer-native')
+  slf4jProviderImplementation project(':producer-native')
   slf4jProviderImplementation 'org.slf4j:slf4j-api:1.7.36'
   slf4jProviderImplementation 'org.slf4j:slf4j-simple:1.7.36'
   // omit lz4 in zlib build to reduce size

@@ -5,7 +5,7 @@
 ## 你需要先知道的两件事
 
 - SDK 依赖坐标（Maven Central）
-  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.4`
+  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer-native:2.0.4`
   - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.4`
   - 如果你的 App 必须支持 `minSdk=16`：使用 `2.0.4-api16`（仅提供兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）
 - 必要参数（后面会用到）
@@ -58,7 +58,7 @@
    - `ak/sk`：访问密钥
    - `topicId`：日志主题 ID
    - `token`：STS token（可空）
-   - `compress`：`lz4` 或 `zlib`
+   - `compress`：`NONE` 或 `LZ4`，默认 `LZ4`
 
 ### 3A. 在真机上安装并运行
 
@@ -132,10 +132,8 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-  // 轻量发送（推荐）
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
-  // 仅当使用 lz4 压缩时引入
-  implementation 'net.jpountz.lz4:lz4:1.3.0'
+  // native producer（推荐，正式 Producer 模块）
+  implementation 'io.github.volcengine-tls:tls-android-producer-native:2.0.4'
 }
 ```
 
@@ -192,11 +190,12 @@ adb devices
 
 如果你在 Android Studio 的 Device Manager 里启动了模拟器，这里通常会看到类似 `emulator-5554 device` 的条目；后续 `adb push/adb shell` 会默认对它生效。
 
-### 5. 初始化并启动 Producer
+### 5. 初始化并创建 Producer
 
-在 `Application` 或首个页面创建并启动（建议全局单例）：
+在 `Application` 或首个页面创建（建议全局单例）：
 
 ```java
+import com.volcengine.tls.android.producer.Log;
 import com.volcengine.tls.android.producer.LogProducerClient;
 import com.volcengine.tls.android.producer.LogProducerConfig;
 
@@ -207,15 +206,14 @@ LogProducerConfig cfg = new LogProducerConfig()
     .setAccessKeySecret(BuildConfig.TLS_SK)
     .setSecurityToken(BuildConfig.TLS_TOKEN) // 可为空
     .setTopicId(BuildConfig.TLS_TOPIC_ID)
-    .setCompressType("lz4") // 或 "zlib"
+    .setCompressType(LogProducerConfig.CompressType.LZ4) // 或 NONE
     .setSendThreadCount(2)
     .setRetryCount(3)
     .setPacketLogBytes(256 * 1024)
     .setPacketLogCount(512)
-    .setPacketTimeout(1000);
+    .setPacketTimeoutMs(1000);
 
 LogProducerClient client = new LogProducerClient(cfg);
-client.start();
 ```
 
 ### 6. 发送一条日志（验证链路）
@@ -229,20 +227,15 @@ kv.put("key", "value");
 kv.put("app", "demo");
 kv.put("ts", String.valueOf(System.currentTimeMillis()));
 
-client.sendLog(kv, result -> {
-  if (result.isSuccess()) {
-    // 发送成功
-  } else {
-    // 发送失败：可从 result.getAttempts() 里拿到 httpCode / errorCode / errorMessage
-  }
-});
+Log log = new Log().putContents(kv).setLogTime(System.currentTimeMillis());
+client.addLog(log);
 ```
 
 如果你希望自定义日志时间：
 
 ```java
-client.sendLog(kv, System.currentTimeMillis(), r -> {});
-client.sendLog(kv, System.currentTimeMillis(), 123456789, r -> {});
+Log log = new Log().putContents(kv).setLogTime(System.currentTimeMillis());
+client.addLog(log, 1);
 ```
 
 ### 7. 关闭与资源释放
@@ -250,7 +243,7 @@ client.sendLog(kv, System.currentTimeMillis(), 123456789, r -> {});
 在 `onDestroy` 或应用退出时关闭：
 
 ```java
-client.close();
+client.destroyLogProducer();
 ```
 
 ### 8. 控制台验证
@@ -258,7 +251,7 @@ client.close();
 在 TLS 控制台按 `topicId` 查询最新日志，检查：
 - 是否能看到你写入的 key/value
 - 时间字段是否正确
-- 压缩类型是否与配置一致（lz4/zlib）
+- 压缩类型是否与配置一致（NONE/LZ4）
 
 建议你按下面“截图式步骤”逐步核对（不同控制台 UI 可能略有差异，但路径一致）：
 
@@ -294,7 +287,7 @@ Android 工程里常见的崩溃类型是“依赖版本不兼容”（`NoSuchMe
 - OkHttp：`com.squareup.okhttp3:okhttp:3.12.13`
 - Okio：`com.squareup.okio:okio:1.17.5`
 - Protobuf（Lite）：`com.google.protobuf:protobuf-javalite:3.23.2`
-- LZ4（可选，仅当 compress=lz4 时需要）：`net.jpountz.lz4:lz4:1.3.0`
+- Producer-native 不需要额外 LZ4 依赖；如果还在使用 full 或旧 lite 路径，再按对应模块说明引入
 - Guava（仅 Full 使用）：建议使用 `com.google.guava:guava:33.5.0-jre`（按你工程依赖策略统一版本，避免冲突）
 
 #### 兼容性约束与注意事项
@@ -357,7 +350,7 @@ dependencies {
 -dontwarn org.openjsse.**
 -dontwarn org.bouncycastle.**
 
- # 如果使用 lz4 压缩，保留下面两行；只用 zlib 可删除
+ # 仅当你还在使用旧 lite/full 的 LZ4 路径时保留下面两行；Producer-native 可删除
  -keep class net.jpountz.** { *; }
  -dontwarn net.jpountz.**
 ```

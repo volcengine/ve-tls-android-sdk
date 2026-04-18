@@ -9,7 +9,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
- 
+
 import com.volcengine.tls.android.producer.LogProducerClient;
 import com.volcengine.tls.android.producer.LogProducerConfig;
 import java.util.HashMap;
@@ -18,13 +18,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import com.volcengine.model.tls.producer.CallBack;
-import com.volcengine.model.tls.producer.Result;
-
- 
-
- 
 
 import android.text.method.ScrollingMovementMethod;
 
@@ -36,6 +29,7 @@ public class MainActivity extends Activity {
     private LogProducerClient producerClient;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final AtomicLong counter = new AtomicLong(0);
+    private final AtomicLong pendingIndex = new AtomicLong(0);
     private static final String TAG = "TLS-Demo";
     private TextView logView; // Changed from statusText to logView
     private boolean isRunning = false;
@@ -59,37 +53,12 @@ public class MainActivity extends Activity {
                             kv.put("index", String.valueOf(index));
                             kv.put("data", "producer client test content " + index);
                             kv.put("time", String.valueOf(System.currentTimeMillis()));
+                            com.volcengine.tls.android.producer.Log log = new com.volcengine.tls.android.producer.Log()
+                                    .putContents(kv)
+                                    .setLogTime(System.currentTimeMillis());
+                            pendingIndex.set(index);
                             appendLog("Sending Producer Log: " + index);
-                            producerClient.sendLog(kv, new CallBack() {
-                                @Override
-                                public void onComplete(Result result) {
-                                    if (result.isSuccess()) {
-                                        String detail = "attempts=" + result.getAttemptCount();
-                                        java.util.List<com.volcengine.model.tls.producer.Attempt> ats = result.getAttempts();
-                                        if (ats != null && !ats.isEmpty()) {
-                                            com.volcengine.model.tls.producer.Attempt a = ats.get(ats.size() - 1);
-                                            detail += " http=" + a.getHttpCode();
-                                            if (a.getRequestId() != null && !a.getRequestId().isEmpty()) {
-                                                detail += " reqId=" + a.getRequestId();
-                                            }
-                                        }
-                                        appendLog("Producer Success: " + index + " " + detail);
-                                        handler.postDelayed(sendTask, 2000);
-                                    } else {
-                                        com.volcengine.model.tls.producer.Attempt a = null;
-                                        java.util.List<com.volcengine.model.tls.producer.Attempt> ats = result.getAttempts();
-                                        if (ats != null && ats.size() > 0) { a = ats.get(ats.size()-1); }
-                                        if (a != null) {
-                                            String detail = "attempts=" + result.getAttemptCount() + " http=" + a.getHttpCode() + " code=" + String.valueOf(a.getErrorCode()) + " msg=" + String.valueOf(a.getErrorMessage());
-                                            if (a.getRequestId() != null && !a.getRequestId().isEmpty()) { detail += " reqId=" + a.getRequestId(); }
-                                            appendLog("Producer Failed: " + detail);
-                                        } else {
-                                            appendLog("Producer Failed: attempts=" + result.getAttemptCount());
-                                        }
-                                        isRunning = false;
-                                    }
-                                }
-                            });
+                            producerClient.addLog(log);
                         } catch (Exception e) {
                             appendLog("Failed: " + String.valueOf(e));
                             isRunning = false;
@@ -169,6 +138,7 @@ public class MainActivity extends Activity {
 
         try {
             if (producerClient == null) {
+                final LogProducerConfig.CompressType compressType = parseCompressType(compress);
                 LogProducerConfig config = new LogProducerConfig()
                         .setEndpoint(endPoint)
                         .setRegion(region)
@@ -176,18 +146,37 @@ public class MainActivity extends Activity {
                         .setAccessKeySecret(sk)
                         .setSecurityToken(token)
                         .setTopicId(ConfigLoader.get(props, "topicId"))
-                        .setCompressType(compress)
+                        .setCompressType(compressType)
                         .setSendThreadCount(1)
                         .setRetryCount(3);
-                producerClient = new LogProducerClient(config);
-                producerClient.start();
+                producerClient = new LogProducerClient(config, result -> {
+                    long index = pendingIndex.get();
+                    if (result.isSuccess()) {
+                        String detail = "http=" + result.getHttpCode();
+                        if (result.getRequestId() != null && !result.getRequestId().isEmpty()) {
+                            detail += " reqId=" + result.getRequestId();
+                        }
+                        appendLog("Producer Success: " + index + " " + detail);
+                        handler.postDelayed(sendTask, 2000);
+                    } else {
+                        String detail = "code=" + result.getCode()
+                                + " http=" + result.getHttpCode()
+                                + " errorCode=" + String.valueOf(result.getErrorCode())
+                                + " errorMessage=" + String.valueOf(result.getErrorMessage());
+                        if (result.getRequestId() != null && !result.getRequestId().isEmpty()) {
+                            detail += " reqId=" + result.getRequestId();
+                        }
+                        appendLog("Producer Failed: " + detail);
+                        isRunning = false;
+                    }
+                });
             }
             
             isRunning = true;
             handler.post(sendTask);
             appendLog("Started Sync Client...");
         } catch (Throwable e) {
-            Log.e(TAG, "Failed to start client", e);
+            android.util.Log.e(TAG, "Failed to start client", e);
             appendLog("Start Failed: " + String.valueOf(e));
             isRunning = false;
         }
@@ -197,7 +186,7 @@ public class MainActivity extends Activity {
         isRunning = false;
         handler.removeCallbacks(sendTask);
         if (producerClient != null) {
-            try { producerClient.close(); } catch (Exception ignored) {}
+            try { producerClient.destroyLogProducer(); } catch (Exception ignored) {}
         }
         producerClient = null;
         appendLog("Stopped");
@@ -226,5 +215,11 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         stopLogging();
+    }
+
+    private static LogProducerConfig.CompressType parseCompressType(String compress) {
+        return "none".equalsIgnoreCase(compress)
+                ? LogProducerConfig.CompressType.NONE
+                : LogProducerConfig.CompressType.LZ4;
     }
 }
