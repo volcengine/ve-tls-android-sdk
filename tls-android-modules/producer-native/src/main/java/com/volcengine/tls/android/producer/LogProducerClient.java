@@ -6,6 +6,7 @@ import com.volcengine.tls.android.producer.internal.JniNativeProducerBridge;
 import com.volcengine.tls.android.producer.internal.ProcessUtil;
 
 public final class LogProducerClient {
+    private final Object lifecycleLock = new Object();
     private final ConfigSnapshot config;
     private final LogProducerCallback callback;
     private final NativeProducerBridge bridge;
@@ -43,42 +44,51 @@ public final class LogProducerClient {
     }
 
     public void addLog(Log log, int flush) {
-        long handle = ensureProducer();
-        if (bridge == null) {
-            throw new UnsupportedOperationException("native bridge is not configured");
+        synchronized (lifecycleLock) {
+            long handle = ensureProducerLocked();
+            if (bridge == null) {
+                throw new UnsupportedOperationException("native bridge is not configured");
+            }
+            bridge.addLog(handle, log, flush);
         }
-        bridge.addLog(handle, log, flush);
     }
 
     public void updateEndpoint(String endpoint, String region, String topicId) {
-        long handle = ensureProducer();
-        if (bridge == null) {
-            throw new UnsupportedOperationException("native bridge is not configured");
+        synchronized (lifecycleLock) {
+            long handle = ensureProducerLocked();
+            if (bridge == null) {
+                throw new UnsupportedOperationException("native bridge is not configured");
+            }
+            bridge.updateEndpoint(handle, endpoint, region, topicId);
         }
-        bridge.updateEndpoint(handle, endpoint, region, topicId);
     }
 
     public void resetSecurityToken(String accessKeyId, String accessKeySecret, String securityToken) {
-        long handle = ensureProducer();
-        if (bridge == null) {
-            throw new UnsupportedOperationException("native bridge is not configured");
+        synchronized (lifecycleLock) {
+            long handle = ensureProducerLocked();
+            if (bridge == null) {
+                throw new UnsupportedOperationException("native bridge is not configured");
+            }
+            bridge.resetSecurityToken(handle, accessKeyId, accessKeySecret, securityToken);
         }
-        bridge.resetSecurityToken(handle, accessKeyId, accessKeySecret, securityToken);
     }
 
     public void destroyLogProducer() {
-        if (destroyed) {
-            return;
+        synchronized (lifecycleLock) {
+            if (destroyed) {
+                return;
+            }
+            destroyed = true;
+            if (bridge == null) {
+                return;
+            }
+            long handle = producerHandle;
+            producerHandle = 0;
+            bridge.destroyAsync(handle, config == null ? 0 : config.getDestroyWaitMs());
         }
-        destroyed = true;
-        if (bridge == null) {
-            return;
-        }
-        bridge.destroyAsync(producerHandle, config == null ? 0 : config.getDestroyWaitMs());
-        producerHandle = 0;
     }
 
-    private long ensureProducer() {
+    private long ensureProducerLocked() {
         if (destroyed) {
             throw new IllegalStateException("producer destroyed");
         }
