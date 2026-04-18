@@ -1,9 +1,11 @@
 package com.volcengine.tls.android.producer;
 
 import com.volcengine.tls.android.producer.internal.NativeProducerBridge;
+import com.volcengine.tls.android.producer.internal.ConfigSnapshot;
+import com.volcengine.tls.android.producer.internal.ProcessUtil;
 
 public final class LogProducerClient {
-    private final LogProducerConfig config;
+    private final ConfigSnapshot config;
     private final LogProducerCallback callback;
     private final NativeProducerBridge bridge;
     private volatile long producerHandle = 0;
@@ -14,17 +16,25 @@ public final class LogProducerClient {
     }
 
     public LogProducerClient(LogProducerConfig config, LogProducerCallback callback) {
-        this(config, callback, null);
+        this(config, callback, ProcessUtil.getCurrentProcessName(), null);
     }
 
     LogProducerClient(LogProducerConfig config, LogProducerCallback callback, NativeProducerBridge bridge) {
-        this.config = config;
+        this(config, callback, ProcessUtil.getCurrentProcessName(), bridge);
+    }
+
+    LogProducerClient(LogProducerConfig config, LogProducerCallback callback, String processName, NativeProducerBridge bridge) {
+        this.config = config == null ? null : new ConfigSnapshot(config, processName);
         this.callback = callback;
         this.bridge = bridge;
     }
 
     static LogProducerClient forTest(LogProducerConfig config, NativeProducerBridge bridge) {
-        return new LogProducerClient(config, null, bridge);
+        return forTest(config, bridge, ProcessUtil.getCurrentProcessName());
+    }
+
+    static LogProducerClient forTest(LogProducerConfig config, NativeProducerBridge bridge, String processName) {
+        return new LogProducerClient(config, null, processName, bridge);
     }
 
     public void addLog(Log log) {
@@ -77,7 +87,7 @@ public final class LogProducerClient {
         if (bridge == null) {
             return 0;
         }
-        producerHandle = bridge.create(config, callback);
+        producerHandle = bridge.create(config == null ? null : config.toConfig(), callback);
         return producerHandle;
     }
 }
