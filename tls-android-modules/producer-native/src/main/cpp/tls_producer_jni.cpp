@@ -5,6 +5,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 extern "C" {
 #include "ve_tls_android_binding.h"
@@ -13,10 +14,13 @@ extern "C" {
 namespace {
 
 struct JniHttpBridgeState;
+struct CallbackState;
 
 JavaVM * g_jvm = nullptr;
 std::mutex g_http_bridge_mutex;
 std::unordered_map<ve_tls_producer *, JniHttpBridgeState *> g_http_bridges;
+std::mutex g_callback_mutex;
+std::unordered_map<ve_tls_producer *, CallbackState *> g_callback_states;
 
 class ScopedUtfChars {
 public:
@@ -86,6 +90,12 @@ struct JniHttpBridgeState {
     jmethodID response_get_request_id = nullptr;
     jmethodID response_get_error_code = nullptr;
     jmethodID response_get_error_message = nullptr;
+};
+
+struct CallbackState {
+    jobject dispatcher = nullptr;
+    jclass dispatcher_class = nullptr;
+    jmethodID dispatch = nullptr;
 };
 
 ve_tls_producer * producer_from_handle(jlong producer_handle) {
@@ -334,6 +344,145 @@ JniHttpBridgeState * create_http_bridge_state(JNIEnv * env) {
     return state;
 }
 
+void destroy_callback_state(CallbackState * state) {
+    if (state == nullptr) {
+        return;
+    }
+    JNIEnv * env = current_thread_env();
+    if (env != nullptr) {
+        if (state->dispatcher != nullptr) {
+            env->DeleteGlobalRef(state->dispatcher);
+        }
+        if (state->dispatcher_class != nullptr) {
+            env->DeleteGlobalRef(state->dispatcher_class);
+        }
+    }
+    delete state;
+}
+
+void remember_callback_state(ve_tls_producer * producer, CallbackState * state) {
+    if (producer == nullptr || state == nullptr) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(g_callback_mutex);
+    g_callback_states[producer] = state;
+}
+
+CallbackState * forget_callback_state(ve_tls_producer * producer) {
+    if (producer == nullptr) {
+        return nullptr;
+    }
+    std::lock_guard<std::mutex> lock(g_callback_mutex);
+    auto it = g_callback_states.find(producer);
+    if (it == g_callback_states.end()) {
+        return nullptr;
+    }
+    CallbackState * state = it->second;
+    g_callback_states.erase(it);
+    return state;
+}
+
+CallbackState * create_callback_state(JNIEnv * env, jobject dispatcher) {
+    if (env == nullptr || dispatcher == nullptr) {
+        return nullptr;
+    }
+
+    ScopedLocalFrame frame(env, 8);
+    if (!frame.active()) {
+        return nullptr;
+    }
+
+    auto * state = new CallbackState();
+    state->dispatcher = env->NewGlobalRef(dispatcher);
+    if (state->dispatcher == nullptr) {
+        destroy_callback_state(state);
+        return nullptr;
+    }
+
+    jclass local_dispatcher_class = env->GetObjectClass(dispatcher);
+    if (local_dispatcher_class == nullptr) {
+        destroy_callback_state(state);
+        return nullptr;
+    }
+    state->dispatcher_class = static_cast<jclass>(env->NewGlobalRef(local_dispatcher_class));
+    if (state->dispatcher_class == nullptr) {
+        destroy_callback_state(state);
+        return nullptr;
+    }
+
+    state->dispatch = env->GetMethodID(
+        state->dispatcher_class,
+        "dispatch",
+        "(IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IIJJ)V");
+    if (state->dispatch == nullptr) {
+        destroy_callback_state(state);
+        return nullptr;
+    }
+
+    return state;
+}
+
+void bridge_on_send_done_v2(
+    ve_tls_result result,
+    size_t log_bytes,
+    size_t compressed_bytes,
+    const ve_tls_error * error,
+    const unsigned char * raw_buffer,
+    void * user_param,
+    int64_t start_id,
+    int64_t end_id
+) {
+    (void)raw_buffer;
+    (void)start_id;
+    (void)end_id;
+
+    auto * state = static_cast<CallbackState *>(user_param);
+    if (state == nullptr) {
+        return;
+    }
+
+    JNIEnv * env = current_thread_env();
+    if (env == nullptr) {
+        return;
+    }
+
+    ScopedLocalFrame frame(env, 16);
+    if (!frame.active()) {
+        return;
+    }
+
+    jstring request_id = error != nullptr && error->request_id != nullptr
+        ? env->NewStringUTF(error->request_id)
+        : nullptr;
+    jstring error_code = error != nullptr && error->error_code != nullptr
+        ? env->NewStringUTF(error->error_code)
+        : nullptr;
+    jstring error_message = error != nullptr && error->error_message != nullptr
+        ? env->NewStringUTF(error->error_message)
+        : nullptr;
+
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return;
+    }
+
+    env->CallVoidMethod(
+        state->dispatcher,
+        state->dispatch,
+        static_cast<jint>(result),
+        static_cast<jint>(error == nullptr ? 0 : error->http_code),
+        request_id,
+        error_code,
+        error_message,
+        static_cast<jint>(error == nullptr ? 0 : error->transport_kind),
+        static_cast<jint>(error == nullptr ? 0 : error->transport_code),
+        static_cast<jlong>(log_bytes),
+        static_cast<jlong>(compressed_bytes));
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+    }
+}
+
 int bridge_do_request(
     ve_tls_http_client * client,
     const ve_tls_http_request * req,
@@ -513,7 +662,8 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     jint connect_timeout_ms,
     jint request_timeout_ms,
     jboolean enable_time_ns,
-    jint destroy_wait_ms
+    jint destroy_wait_ms,
+    jobject callback_dispatcher
 ) {
     ScopedUtfChars endpoint_chars(env, endpoint);
     ScopedUtfChars region_chars(env, region);
@@ -575,16 +725,98 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
         destroy_http_bridge_state(http_bridge_state);
         return 0;
     }
+    CallbackState * callback_state = create_callback_state(env, callback_dispatcher);
+    if (callback_dispatcher != nullptr && callback_state == nullptr) {
+        ve_tls_android_runtime_options cleanup_runtime = runtime;
+        ve_tls_android_binding_before_destroy(producer, &cleanup_runtime);
+        destroy_http_bridge_state(http_bridge_state);
+        return 0;
+    }
     remember_http_bridge_state(producer, http_bridge_state);
+    if (callback_state != nullptr) {
+        ve_tls_producer_set_send_done_v2(producer, bridge_on_send_done_v2, callback_state);
+        remember_callback_state(producer, callback_state);
+    }
 
     if (ve_tls_android_binding_after_create(producer, &runtime) != VE_TLS_OK) {
         JniHttpBridgeState * state = forget_http_bridge_state(producer);
+        CallbackState * callback = forget_callback_state(producer);
         ve_tls_android_binding_before_destroy(producer, &runtime);
+        destroy_callback_state(callback);
         destroy_http_bridge_state(state);
         return 0;
     }
 
     return reinterpret_cast<jlong>(producer);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_nativeAddLog(
+    JNIEnv * env,
+    jclass,
+    jlong producer_handle,
+    jlong log_time_ms,
+    jstring hash_key,
+    jobjectArray keys,
+    jobjectArray values,
+    jint flush
+) {
+    ve_tls_producer * producer = producer_from_handle(producer_handle);
+    if (producer == nullptr) {
+        return VE_TLS_INVALID;
+    }
+
+    jsize key_count = keys == nullptr ? 0 : env->GetArrayLength(keys);
+    jsize value_count = values == nullptr ? 0 : env->GetArrayLength(values);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return VE_TLS_INVALID;
+    }
+    if (key_count != value_count) {
+        return VE_TLS_INVALID;
+    }
+
+    std::vector<std::string> key_storage(static_cast<size_t>(key_count));
+    std::vector<std::string> value_storage(static_cast<size_t>(key_count));
+    std::vector<ve_tls_kv> kvs(static_cast<size_t>(key_count));
+    for (jsize i = 0; i < key_count; ++i) {
+        jstring key = static_cast<jstring>(env->GetObjectArrayElement(keys, i));
+        jstring value = static_cast<jstring>(env->GetObjectArrayElement(values, i));
+        ScopedUtfChars key_chars(env, key);
+        ScopedUtfChars value_chars(env, value);
+        key_storage[static_cast<size_t>(i)] = key_chars.c_str() == nullptr ? "" : key_chars.c_str();
+        value_storage[static_cast<size_t>(i)] = value_chars.c_str() == nullptr ? "" : value_chars.c_str();
+        kvs[static_cast<size_t>(i)].key = key_storage[static_cast<size_t>(i)].c_str();
+        kvs[static_cast<size_t>(i)].value = value_storage[static_cast<size_t>(i)].c_str();
+        if (key != nullptr) {
+            env->DeleteLocalRef(key);
+        }
+        if (value != nullptr) {
+            env->DeleteLocalRef(value);
+        }
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+            return VE_TLS_INVALID;
+        }
+    }
+
+    ScopedUtfChars hash_key_chars(env, hash_key);
+    const ve_tls_kv * kv_ptr = kvs.empty() ? nullptr : kvs.data();
+    if (hash_key_chars.c_str() != nullptr && hash_key_chars.c_str()[0] != '\0') {
+        return ve_tls_producer_add_log_kv_hashkey(
+            producer,
+            static_cast<int64_t>(log_time_ms),
+            hash_key_chars.c_str(),
+            kv_ptr,
+            static_cast<size_t>(key_count),
+            flush);
+    }
+    return ve_tls_producer_add_log_kv(
+        producer,
+        static_cast<int64_t>(log_time_ms),
+        kv_ptr,
+        static_cast<size_t>(key_count),
+        flush);
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -647,9 +879,11 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
         return;
     }
     JniHttpBridgeState * state = forget_http_bridge_state(producer);
+    CallbackState * callback_state = forget_callback_state(producer);
 
     ve_tls_android_runtime_options runtime = {};
     runtime.destroy_wait_ms = destroy_wait_ms;
     ve_tls_android_binding_before_destroy(producer, &runtime);
+    destroy_callback_state(callback_state);
     destroy_http_bridge_state(state);
 }

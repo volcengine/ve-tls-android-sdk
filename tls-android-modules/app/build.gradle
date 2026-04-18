@@ -60,6 +60,7 @@ android {
     exclude 'linux/**'
     exclude 'win/**'
     exclude 'google/protobuf/**'
+    pickFirst 'com/volcengine/version'
   }
   compileOptions {
     sourceCompatibility JavaVersion.VERSION_1_8

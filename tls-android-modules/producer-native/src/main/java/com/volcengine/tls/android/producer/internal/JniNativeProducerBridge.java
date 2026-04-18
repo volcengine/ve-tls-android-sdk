@@ -7,6 +7,7 @@ import com.volcengine.tls.android.producer.LogProducerConfig;
 public final class JniNativeProducerBridge implements NativeProducerBridge {
     private static final boolean NATIVE_LIBRARY_LOADED;
     private static final Throwable NATIVE_LIBRARY_ERROR;
+    private volatile String defaultHashKey;
 
     static {
         boolean loaded = false;
@@ -56,11 +57,6 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
     }
 
     @Override
-    public void addLog(long producerHandle, Log log, int flush) {
-        throw new UnsupportedOperationException("addLog JNI bridge is not implemented yet");
-    }
-
-    @Override
     public void destroy(long producerHandle, int destroyWaitMs) {
         if (producerHandle == 0) {
             return;
@@ -86,6 +82,9 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
         if (config == null) {
             throw new IllegalArgumentException("config == null");
         }
+        CallbackDispatcher callbackDispatcher = callback == null
+                ? null
+                : new CallbackDispatcher(callback, config.isCallbackFromSenderThread());
         long handle = nativeCreate(
                 config.getEndpoint(),
                 config.getRegion(),
@@ -112,11 +111,40 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
                 config.getConnectTimeoutMs(),
                 config.getRequestTimeoutMs(),
                 config.isEnableTimeNs(),
-                destroyWaitMs);
+                destroyWaitMs,
+                callbackDispatcher);
         if (handle == 0) {
             throw new IllegalStateException("native producer create failed");
         }
+        defaultHashKey = config.getHashKey();
         return handle;
+    }
+
+    @Override
+    public void addLog(long producerHandle, Log log, int flush) {
+        requireNativeLibrary();
+        if (log == null) {
+            throw new IllegalArgumentException("log == null");
+        }
+        String[] keys;
+        String[] values;
+        if (log.getContent().isEmpty()) {
+            keys = new String[0];
+            values = new String[0];
+        } else {
+            keys = new String[log.getContent().size()];
+            values = new String[log.getContent().size()];
+            int index = 0;
+            for (java.util.Map.Entry<String, String> entry : log.getContent().entrySet()) {
+                keys[index] = entry.getKey() == null ? "" : entry.getKey();
+                values[index] = entry.getValue() == null ? "" : entry.getValue();
+                index++;
+            }
+        }
+        int result = nativeAddLog(producerHandle, log.getLogTime(), defaultHashKey, keys, values, flush);
+        if (result != 0) {
+            throw new IllegalStateException("native addLog failed: " + result);
+        }
     }
 
     private static void requireNativeLibrary() {
@@ -151,7 +179,16 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
             int connectTimeoutMs,
             int requestTimeoutMs,
             boolean enableTimeNs,
-            int destroyWaitMs);
+            int destroyWaitMs,
+            Object callbackDispatcher);
+
+    private static native int nativeAddLog(
+            long producerHandle,
+            long logTimeMs,
+            String hashKey,
+            String[] keys,
+            String[] values,
+            int flush);
 
     private static native int nativeUpdateEndpoint(long producerHandle, String endpoint, String region, String topicId);
 
