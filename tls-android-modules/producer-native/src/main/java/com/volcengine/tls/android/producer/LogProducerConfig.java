@@ -166,7 +166,7 @@ public final class LogProducerConfig {
         return this;
     }
 
-    public LogProducerConfig setCompressType(String compressType) {
+    LogProducerConfig setCompressType(String compressType) {
         if (compressType == null) {
             return this;
         }
@@ -205,7 +205,7 @@ public final class LogProducerConfig {
         return this;
     }
 
-    public LogProducerConfig setPacketTimeout(int packetTimeoutMs) {
+    LogProducerConfig setPacketTimeout(int packetTimeoutMs) {
         this.packetTimeoutMs = packetTimeoutMs;
         return this;
     }

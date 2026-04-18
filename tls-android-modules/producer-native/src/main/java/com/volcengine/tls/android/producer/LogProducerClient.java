@@ -23,7 +23,7 @@ public final class LogProducerClient {
         this.bridge = bridge;
     }
 
-    public static LogProducerClient forTest(LogProducerConfig config, NativeProducerBridge bridge) {
+    static LogProducerClient forTest(LogProducerConfig config, NativeProducerBridge bridge) {
         return new LogProducerClient(config, null, bridge);
     }
 
