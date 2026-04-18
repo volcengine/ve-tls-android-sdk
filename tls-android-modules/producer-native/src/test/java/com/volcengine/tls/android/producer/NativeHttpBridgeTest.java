@@ -67,6 +67,7 @@ public class NativeHttpBridgeTest {
         assertEquals(204, response.getStatusCode());
         assertArrayEquals(new byte[] {9, 8, 7}, response.getBody());
         assertEquals("rid-1", response.getHeaders().get("x-request-id").get(0));
+        assertEquals("rid-1", response.getRequestId());
     }
 
     private static final class CapturingHttpsURLConnection extends HttpsURLConnection {

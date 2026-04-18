@@ -83,6 +83,7 @@ struct JniHttpBridgeState {
     jmethodID execute = nullptr;
     jmethodID response_get_status_code = nullptr;
     jmethodID response_get_body = nullptr;
+    jmethodID response_get_request_id = nullptr;
     jmethodID response_get_error_code = nullptr;
     jmethodID response_get_error_message = nullptr;
 };
@@ -318,10 +319,12 @@ JniHttpBridgeState * create_http_bridge_state(JNIEnv * env) {
     }
     state->response_get_status_code = env->GetMethodID(state->response_class, "getStatusCode", "()I");
     state->response_get_body = env->GetMethodID(state->response_class, "getBody", "()[B");
+    state->response_get_request_id = env->GetMethodID(state->response_class, "getRequestId", "()Ljava/lang/String;");
     state->response_get_error_code = env->GetMethodID(state->response_class, "getErrorCode", "()I");
     state->response_get_error_message = env->GetMethodID(state->response_class, "getErrorMessage", "()Ljava/lang/String;");
     if (state->response_get_status_code == nullptr
         || state->response_get_body == nullptr
+        || state->response_get_request_id == nullptr
         || state->response_get_error_code == nullptr
         || state->response_get_error_message == nullptr) {
         destroy_http_bridge_state(state);
@@ -428,6 +431,7 @@ int bridge_do_request(
 
     resp->status_code = env->CallIntMethod(response, state->response_get_status_code);
     jbyteArray response_body = static_cast<jbyteArray>(env->CallObjectMethod(response, state->response_get_body));
+    jstring request_id = static_cast<jstring>(env->CallObjectMethod(response, state->response_get_request_id));
     jint error_code = env->CallIntMethod(response, state->response_get_error_code);
     jstring error_message = static_cast<jstring>(env->CallObjectMethod(response, state->response_get_error_message));
     if (env->ExceptionCheck()) {
@@ -454,6 +458,7 @@ int bridge_do_request(
         }
     }
 
+    resp->request_id = duplicate_utf_string(env, request_id);
     if (error_code != 0) {
         std::string code_text = std::to_string(error_code);
         resp->error_code = static_cast<char *>(std::malloc(code_text.size() + 1));

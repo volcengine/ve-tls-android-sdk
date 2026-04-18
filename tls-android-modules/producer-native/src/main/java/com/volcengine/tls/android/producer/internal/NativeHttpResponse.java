@@ -42,6 +42,10 @@ public final class NativeHttpResponse {
         return body.clone();
     }
 
+    public String getRequestId() {
+        return getHeaderFirstIgnoreCase("x-tls-requestid", "x-request-id");
+    }
+
     public int getErrorCode() {
         return errorCode;
     }
@@ -65,5 +69,30 @@ public final class NativeHttpResponse {
             result.put(key, values == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(values)));
         }
         return Collections.unmodifiableMap(result);
+    }
+
+    private String getHeaderFirstIgnoreCase(String... candidates) {
+        if (headers.isEmpty() || candidates == null) {
+            return null;
+        }
+
+        for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+            String key = entry.getKey();
+            if (key == null) {
+                continue;
+            }
+            for (String candidate : candidates) {
+                if (candidate != null && candidate.equalsIgnoreCase(key)) {
+                    List<String> values = entry.getValue();
+                    if (values != null && !values.isEmpty()) {
+                        String value = values.get(0);
+                        if (value != null && !value.isEmpty()) {
+                            return value;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
     }
 }
