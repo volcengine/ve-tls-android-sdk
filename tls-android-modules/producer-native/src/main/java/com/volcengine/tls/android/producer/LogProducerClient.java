@@ -70,22 +70,6 @@ public final class LogProducerClient {
         producerHandle = 0;
     }
 
-    public void closeNow() {
-        destroyNow();
-    }
-
-    public void destroyNow() {
-        if (destroyed) {
-            return;
-        }
-        destroyed = true;
-        if (bridge == null) {
-            return;
-        }
-        bridge.destroy(producerHandle, config == null ? 0 : config.getDestroyWaitMs());
-        producerHandle = 0;
-    }
-
     private long ensureProducer() {
         if (producerHandle != 0) {
             return producerHandle;
