@@ -9,7 +9,7 @@
   <version>2.0.4</version>
   <packaging>pom</packaging>
   <name>tls-android-sdk-central-publish</name>
-  <description>Publish helper project for Volcengine TLS Android SDK</description>
+  <description>Publish helper project for Volcengine TLS Android producer SDK</description>
   <url>https://github.com/volcengine/ve-tls-android-sdk</url>
 
   <licenses>
@@ -34,9 +34,7 @@
   </developers>
 
   <modules>
-    <module>core</module>
-    <module>producer-native</module>
-    <module>full</module>
+    <module>producer</module>
   </modules>
 
   <properties>

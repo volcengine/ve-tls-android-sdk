@@ -59,11 +59,11 @@ afterEvaluate {
       release(MavenPublication) {
         from components.release
         groupId = project.group
-        artifactId = 'tls-android-producer-native'
+        artifactId = 'tls-android-producer'
         version = project.version
         pom {
-          name = 'tls-android-producer-native'
-          description = 'VOLC Engine TLS Producer Native SDK for Android'
+          name = 'tls-android-producer'
+          description = 'VOLC Engine TLS Producer SDK for Android'
           url = 'https://github.com/volcengine/ve-tls-android-sdk'
           licenses {
             license {

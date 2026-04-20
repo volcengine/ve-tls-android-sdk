@@ -104,22 +104,29 @@ Keep `:core` heavy for now. Do not split it further until logger SPI extraction 
 
 ### Deferred package evolution direction
 
-After the three priority tracks above, reevaluate package evolution with this working hypothesis:
+Package evolution is now constrained by the artifact convergence decision in:
 
-- Do **not** make `full` depend directly on `producer-native`; that would re-couple Java-only users to JNI/native delivery and undo the current producer minimization.
-- If the current `core` and `full` remain semantically inseparable after the semantic cleanup work, consider collapsing them into one Java SDK module with a clearer name.
-- If a one-stop artifact is still needed for external users, add a new SLS-like aggregator package later that depends on the Java SDK module plus `producer-native`, instead of renaming the current heavy `:core` and pretending it matches SLS `core`.
+- `docs/plans/2026-04-20-android-artifact-convergence-decision.md`
 
-In other words, the likely end state is closer to:
+That decision changes the target state:
+
+- Android external publication should converge to **one** formal artifact: `producer-native`
+- `core`, `full`, `logger-spi`, and any aggregator package should not continue as external Android product artifacts
+- `full` must not depend directly on `producer-native`
+
+Therefore the remaining package evolution work is now an **internal topology** question, not an external product-shape question.
+
+The remaining decision to evaluate later is only:
 
 ```text
-producer-native   -> standalone minimal producer
-java-sdk          -> current heavy core/full Java API runtime
-logger-spi        -> tiny shared contracts
-aggregator-core   -> optional convenience artifact depending on java-sdk + producer-native
+producer-native   -> formal external Android SDK
+logger-spi        -> internal-only boundary module for now
+core              -> internal / legacy
+full              -> internal / legacy
 ```
 
-This should only proceed after the current semantic/API cleanup wave, because otherwise the package reshuffle will hide unresolved contract problems instead of simplifying them.
+If `core/full` still have meaningful internal value later, they may be merged internally.
+If not, they should move toward archive or deletion instead of being repackaged as new Android artifacts.
 
 ---
 
@@ -170,6 +177,7 @@ Resolution artifacts from this wave:
 
 - `docs/plans/2026-04-20-producer-httpurlconnection-vs-okhttp-cost-inventory.md`
 - `docs/plans/2026-04-20-producer-semantic-gap-ledger.md`
+- `docs/plans/2026-04-20-android-artifact-convergence-decision.md`
 
 ### Task 1: Lock the current dependency direction
 

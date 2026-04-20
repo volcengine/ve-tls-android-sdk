@@ -3,7 +3,7 @@ set -euo pipefail
 DIR=$(cd "$(dirname "$0")"/.. && pwd)
 cd "$DIR"
 if [ -x "./gradlew" ]; then
-  ./gradlew :core:publishToMavenLocal :producer-native:publishToMavenLocal :full:publishToMavenLocal
+  ./gradlew :producer-native:publishToMavenLocal
 else
-  gradle :core:publishToMavenLocal :producer-native:publishToMavenLocal :full:publishToMavenLocal
+  gradle :producer-native:publishToMavenLocal
 fi

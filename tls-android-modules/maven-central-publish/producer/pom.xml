@@ -42,14 +42,6 @@
     </developer>
   </developers>
 
-  <dependencies>
-    <dependency>
-      <groupId>io.github.volcengine-tls</groupId>
-      <artifactId>tls-android-core</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-  </dependencies>
-
   <build>
     <plugins>
       <plugin>
