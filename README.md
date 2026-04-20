@@ -27,7 +27,7 @@ Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access 
 - `tls-android-modules/producer-native`：正式 Producer 模块，基于 `ve-tls-c-sdk`，提供 TLS-style `LogProducerClient` / `LogProducerConfig`
 - `tls-android-modules/app`：演示 App（使用 `LogProducerClient`），含 BenchmarkActivity 压测页
 - `tls-android-modules/app-empty`：最简 UI，便于体积对比
-- `android-example`：Java 控制台示例（QuickStart、ProducerDemo 等）
+- `android-example`：Java 控制台示例（QuickStart、ConsumerDemo、full producer 示例等）
 
 ## 选择指南（不同场景用哪个包）
 - 只需要发送日志（建议）
@@ -369,11 +369,7 @@ client.destroy();
 - 报告导出路径：`/sdcard/Android/data/<app>/files/benchmark/`
 
 ## 运行示例（控制台）
-- 运行 Producer（native）：
-  ```bash
-  endPoint="https://tls-cn-xxx.volces.com" region="cn-xxx" ak="..." sk="..." token="" topicId="..." \
-  bash android-example/run-producer-demo.sh
-  ```
+- Producer-native 当前不提供独立 JVM 控制台脚本；请使用 Android 演示 App，或仓库内的 producer-native Gradle / 单元测试流程。
 - 运行 Producer（full）：
   ```bash
   endPoint="https://tls-cn-xxx.volces.com" region="cn-xxx" ak="..." sk="..." token="" topicId="..." \

@@ -19,15 +19,7 @@
 ### 运行脚本
 - 运行 QuickStart（创建资源、写入、检索、清理）：
   - `endPoint=... region=... ak=... sk=... token=... bash android-example/run-quickstart.sh`
-- 运行 ProducerDemo（发送日志到指定 Topic）：
-  - `endPoint=... region=... ak=... sk=... token=... bash android-example/run-producer-demo.sh`
 - 运行 ConsumerDemo（消费指定 Project/Topic 的日志）：
   - `endPoint=... region=... ak=... sk=... projectId=... topicId=... token=... bash android-example/run-consumer-demo.sh`
 
-### 可配置项（通过环境变量）
-- ProducerDemo：
-  - `TOPIC_TTL`：Topic 生存时间，默认 `7`
-  - `INDEX_WAIT_SECONDS`：创建索引后的等待秒数，默认 `60`
-  - `PRODUCE_COUNT`：发送日志条数，默认 `20`
-  - `DO_SEARCH`：是否在写入后执行检索验证，默认 `true`
-  - `SEARCH_WINDOW_SECONDS`：检索时间窗口（秒），默认 `60`
+producer-native 当前不提供独立 JVM 控制台脚本；如需验证发送链路，请使用 Android 演示 App，或仓库内的 producer-native Gradle / 单元测试流程。

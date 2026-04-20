@@ -277,7 +277,7 @@ Spec 中逐项标注归属。其中 callback 线程模式切换和多进程路�
 - **持久化高级配置**：`persistent_max_bytes`, `persistent_max_records`, `persistent_max_segments`, `persistent_high_watermark_pct`, `persistent_low_watermark_pct`, `persistent_overflow_policy`, `persistent_lease_timeout_ms`, `persistent_heartbeat_interval_ms`, `persistent_open_mode`
 - **重试策略**：`retry_max_attempts`, `retry_policy`（含指数退避参数）
 - **凭证提供者**：`credentials_provider`, `credentials_expire_advance_ms`, `credentials_refresh_min_interval_ms`
-- **TLS 验证**：`tls_verify_peer`, `tls_verify_host`, `ca_cert_path`
+- **TLS 验证（后续阶段，不纳入 phase-1 公共 API）**：`tls_verify_peer`, `tls_verify_host`, `ca_cert_path`
 - **代理**：`proxy`
 
 **处置：✅ 采纳**

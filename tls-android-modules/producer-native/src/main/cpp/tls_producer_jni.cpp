@@ -1,11 +1,9 @@
 #include <jni.h>
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <mutex>
-#include <string>
-#include <unordered_map>
-#include <vector>
+#include <pthread.h>
 
 extern "C" {
 #include "ve_tls_android_binding.h"
@@ -15,12 +13,14 @@ namespace {
 
 struct JniHttpBridgeState;
 struct CallbackState;
+struct HttpBridgeStateNode;
+struct CallbackStateNode;
 
 JavaVM * g_jvm = nullptr;
-std::mutex g_http_bridge_mutex;
-std::unordered_map<ve_tls_producer *, JniHttpBridgeState *> g_http_bridges;
-std::mutex g_callback_mutex;
-std::unordered_map<ve_tls_producer *, CallbackState *> g_callback_states;
+pthread_mutex_t g_http_bridge_mutex = PTHREAD_MUTEX_INITIALIZER;
+HttpBridgeStateNode * g_http_bridges = nullptr;
+pthread_mutex_t g_callback_mutex = PTHREAD_MUTEX_INITIALIZER;
+CallbackStateNode * g_callback_states = nullptr;
 
 class ScopedUtfChars {
 public:
@@ -65,18 +65,10 @@ private:
     bool active_;
 };
 
-struct ThreadEnvCache {
+struct ThreadEnvAttachment {
     JNIEnv * env = nullptr;
-    bool attached = false;
-
-    ~ThreadEnvCache() {
-        if (attached && g_jvm != nullptr) {
-            g_jvm->DetachCurrentThread();
-        }
-    }
+    int attached = 0;
 };
-
-thread_local ThreadEnvCache g_thread_env;
 
 struct JniHttpBridgeState {
     jobject bridge = nullptr;
@@ -98,6 +90,18 @@ struct CallbackState {
     jmethodID dispatch = nullptr;
 };
 
+struct HttpBridgeStateNode {
+    ve_tls_producer * producer = nullptr;
+    JniHttpBridgeState * state = nullptr;
+    HttpBridgeStateNode * next = nullptr;
+};
+
+struct CallbackStateNode {
+    ve_tls_producer * producer = nullptr;
+    CallbackState * state = nullptr;
+    CallbackStateNode * next = nullptr;
+};
+
 ve_tls_producer * producer_from_handle(jlong producer_handle) {
     return reinterpret_cast<ve_tls_producer *>(producer_handle);
 }
@@ -106,30 +110,38 @@ ve_tls_android_compress_type compress_type_from_java(jint compress_type) {
     return compress_type == 0 ? VE_TLS_ANDROID_COMPRESS_NONE : VE_TLS_ANDROID_COMPRESS_LZ4;
 }
 
-JNIEnv * current_thread_env() {
+ThreadEnvAttachment current_thread_env() {
+    ThreadEnvAttachment attachment = {};
     if (g_jvm == nullptr) {
-        return nullptr;
-    }
-    if (g_thread_env.env != nullptr) {
-        return g_thread_env.env;
+        return attachment;
     }
 
     JNIEnv * env = nullptr;
     jint rc = g_jvm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
     if (rc == JNI_OK) {
-        g_thread_env.env = env;
-        g_thread_env.attached = false;
-        return env;
+        attachment.env = env;
+        return attachment;
     }
     if (rc != JNI_EDETACHED) {
-        return nullptr;
+        return attachment;
     }
     if (g_jvm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
-        return nullptr;
+        return attachment;
     }
-    g_thread_env.env = env;
-    g_thread_env.attached = true;
-    return env;
+    attachment.env = env;
+    attachment.attached = 1;
+    return attachment;
+}
+
+void release_thread_env(ThreadEnvAttachment * attachment) {
+    if (attachment == nullptr) {
+        return;
+    }
+    if (attachment->attached && g_jvm != nullptr) {
+        g_jvm->DetachCurrentThread();
+    }
+    attachment->env = nullptr;
+    attachment->attached = 0;
 }
 
 void free_response_fields(ve_tls_http_response * resp) {
@@ -166,6 +178,35 @@ char * duplicate_utf_string(JNIEnv * env, jstring value) {
     }
     std::memcpy(copy, chars.c_str(), length + 1);
     return copy;
+}
+
+char * duplicate_c_string(const char * value) {
+    const char * source = value == nullptr ? "" : value;
+    size_t length = std::strlen(source);
+    char * copy = static_cast<char *>(std::malloc(length + 1));
+    if (copy == nullptr) {
+        return nullptr;
+    }
+    std::memcpy(copy, source, length + 1);
+    return copy;
+}
+
+char * duplicate_utf_string_or_empty(JNIEnv * env, jstring value) {
+    if (value == nullptr) {
+        return duplicate_c_string("");
+    }
+    return duplicate_utf_string(env, value);
+}
+
+void free_kv_storage(ve_tls_kv * kvs, size_t kv_count) {
+    if (kvs == nullptr) {
+        return;
+    }
+    for (size_t i = 0; i < kv_count; ++i) {
+        std::free(const_cast<char *>(kvs[i].key));
+        std::free(const_cast<char *>(kvs[i].value));
+    }
+    std::free(kvs);
 }
 
 void set_bridge_error(JNIEnv * env, ve_tls_http_response * resp, jthrowable throwable) {
@@ -211,7 +252,8 @@ void destroy_http_bridge_state(JniHttpBridgeState * state) {
     if (state == nullptr) {
         return;
     }
-    JNIEnv * env = current_thread_env();
+    ThreadEnvAttachment thread_env = current_thread_env();
+    JNIEnv * env = thread_env.env;
     if (env != nullptr) {
         if (state->bridge != nullptr) {
             env->DeleteGlobalRef(state->bridge);
@@ -226,29 +268,58 @@ void destroy_http_bridge_state(JniHttpBridgeState * state) {
             env->DeleteGlobalRef(state->response_class);
         }
     }
+    release_thread_env(&thread_env);
     delete state;
 }
 
-void remember_http_bridge_state(ve_tls_producer * producer, JniHttpBridgeState * state) {
+int remember_http_bridge_state(ve_tls_producer * producer, JniHttpBridgeState * state) {
     if (producer == nullptr || state == nullptr) {
-        return;
+        return 0;
     }
-    std::lock_guard<std::mutex> lock(g_http_bridge_mutex);
-    g_http_bridges[producer] = state;
+    if (pthread_mutex_lock(&g_http_bridge_mutex) != 0) {
+        return 0;
+    }
+    for (HttpBridgeStateNode * node = g_http_bridges; node != nullptr; node = node->next) {
+        if (node->producer == producer) {
+            node->state = state;
+            pthread_mutex_unlock(&g_http_bridge_mutex);
+            return 1;
+        }
+    }
+    auto * node = static_cast<HttpBridgeStateNode *>(std::malloc(sizeof(HttpBridgeStateNode)));
+    if (node == nullptr) {
+        pthread_mutex_unlock(&g_http_bridge_mutex);
+        return 0;
+    }
+    node->producer = producer;
+    node->state = state;
+    node->next = g_http_bridges;
+    g_http_bridges = node;
+    pthread_mutex_unlock(&g_http_bridge_mutex);
+    return 1;
 }
 
 JniHttpBridgeState * forget_http_bridge_state(ve_tls_producer * producer) {
     if (producer == nullptr) {
         return nullptr;
     }
-    std::lock_guard<std::mutex> lock(g_http_bridge_mutex);
-    auto it = g_http_bridges.find(producer);
-    if (it == g_http_bridges.end()) {
+    if (pthread_mutex_lock(&g_http_bridge_mutex) != 0) {
         return nullptr;
     }
-    JniHttpBridgeState * state = it->second;
-    g_http_bridges.erase(it);
-    return state;
+    HttpBridgeStateNode ** cursor = &g_http_bridges;
+    while (*cursor != nullptr) {
+        if ((*cursor)->producer == producer) {
+            HttpBridgeStateNode * node = *cursor;
+            JniHttpBridgeState * state = node->state;
+            *cursor = node->next;
+            std::free(node);
+            pthread_mutex_unlock(&g_http_bridge_mutex);
+            return state;
+        }
+        cursor = &(*cursor)->next;
+    }
+    pthread_mutex_unlock(&g_http_bridge_mutex);
+    return nullptr;
 }
 
 JniHttpBridgeState * create_http_bridge_state(JNIEnv * env) {
@@ -348,7 +419,8 @@ void destroy_callback_state(CallbackState * state) {
     if (state == nullptr) {
         return;
     }
-    JNIEnv * env = current_thread_env();
+    ThreadEnvAttachment thread_env = current_thread_env();
+    JNIEnv * env = thread_env.env;
     if (env != nullptr) {
         if (state->dispatcher != nullptr) {
             env->DeleteGlobalRef(state->dispatcher);
@@ -357,29 +429,58 @@ void destroy_callback_state(CallbackState * state) {
             env->DeleteGlobalRef(state->dispatcher_class);
         }
     }
+    release_thread_env(&thread_env);
     delete state;
 }
 
-void remember_callback_state(ve_tls_producer * producer, CallbackState * state) {
+int remember_callback_state(ve_tls_producer * producer, CallbackState * state) {
     if (producer == nullptr || state == nullptr) {
-        return;
+        return 0;
     }
-    std::lock_guard<std::mutex> lock(g_callback_mutex);
-    g_callback_states[producer] = state;
+    if (pthread_mutex_lock(&g_callback_mutex) != 0) {
+        return 0;
+    }
+    for (CallbackStateNode * node = g_callback_states; node != nullptr; node = node->next) {
+        if (node->producer == producer) {
+            node->state = state;
+            pthread_mutex_unlock(&g_callback_mutex);
+            return 1;
+        }
+    }
+    auto * node = static_cast<CallbackStateNode *>(std::malloc(sizeof(CallbackStateNode)));
+    if (node == nullptr) {
+        pthread_mutex_unlock(&g_callback_mutex);
+        return 0;
+    }
+    node->producer = producer;
+    node->state = state;
+    node->next = g_callback_states;
+    g_callback_states = node;
+    pthread_mutex_unlock(&g_callback_mutex);
+    return 1;
 }
 
 CallbackState * forget_callback_state(ve_tls_producer * producer) {
     if (producer == nullptr) {
         return nullptr;
     }
-    std::lock_guard<std::mutex> lock(g_callback_mutex);
-    auto it = g_callback_states.find(producer);
-    if (it == g_callback_states.end()) {
+    if (pthread_mutex_lock(&g_callback_mutex) != 0) {
         return nullptr;
     }
-    CallbackState * state = it->second;
-    g_callback_states.erase(it);
-    return state;
+    CallbackStateNode ** cursor = &g_callback_states;
+    while (*cursor != nullptr) {
+        if ((*cursor)->producer == producer) {
+            CallbackStateNode * node = *cursor;
+            CallbackState * state = node->state;
+            *cursor = node->next;
+            std::free(node);
+            pthread_mutex_unlock(&g_callback_mutex);
+            return state;
+        }
+        cursor = &(*cursor)->next;
+    }
+    pthread_mutex_unlock(&g_callback_mutex);
+    return nullptr;
 }
 
 CallbackState * create_callback_state(JNIEnv * env, jobject dispatcher) {
@@ -441,13 +542,16 @@ void bridge_on_send_done_v2(
         return;
     }
 
-    JNIEnv * env = current_thread_env();
+    ThreadEnvAttachment thread_env = current_thread_env();
+    JNIEnv * env = thread_env.env;
     if (env == nullptr) {
+        release_thread_env(&thread_env);
         return;
     }
 
     ScopedLocalFrame frame(env, 16);
     if (!frame.active()) {
+        release_thread_env(&thread_env);
         return;
     }
 
@@ -463,6 +567,7 @@ void bridge_on_send_done_v2(
 
     if (env->ExceptionCheck()) {
         env->ExceptionClear();
+        release_thread_env(&thread_env);
         return;
     }
 
@@ -481,6 +586,7 @@ void bridge_on_send_done_v2(
     if (env->ExceptionCheck()) {
         env->ExceptionClear();
     }
+    release_thread_env(&thread_env);
 }
 
 int bridge_do_request(
@@ -502,13 +608,15 @@ int bridge_do_request(
         return -1;
     }
 
-    JNIEnv * env = current_thread_env();
+    ThreadEnvAttachment thread_env = current_thread_env();
+    JNIEnv * env = thread_env.env;
     if (env == nullptr) {
         resp->transport_kind = VE_TLS_TRANSPORT_GENERIC;
         resp->transport_code = -1;
         resp->transport_retryable = 1;
         resp->error_code = ::strdup("JavaVmUnavailable");
         resp->error_message = ::strdup("failed to attach native sender thread to JVM");
+        release_thread_env(&thread_env);
         return -1;
     }
 
@@ -519,6 +627,7 @@ int bridge_do_request(
         resp->transport_retryable = 1;
         resp->error_code = ::strdup("JavaLocalFrameError");
         resp->error_message = ::strdup("failed to allocate JNI local frame");
+        release_thread_env(&thread_env);
         return -1;
     }
 
@@ -538,6 +647,7 @@ int bridge_do_request(
         jthrowable throwable = env->ExceptionOccurred();
         env->ExceptionClear();
         set_bridge_error(env, resp, throwable);
+        release_thread_env(&thread_env);
         return -1;
     }
 
@@ -559,6 +669,7 @@ int bridge_do_request(
         jthrowable throwable = env->ExceptionOccurred();
         env->ExceptionClear();
         set_bridge_error(env, resp, throwable);
+        release_thread_env(&thread_env);
         return -1;
     }
 
@@ -567,6 +678,7 @@ int bridge_do_request(
         jthrowable throwable = env->ExceptionOccurred();
         env->ExceptionClear();
         set_bridge_error(env, resp, throwable);
+        release_thread_env(&thread_env);
         return -1;
     }
     if (response == nullptr) {
@@ -575,6 +687,7 @@ int bridge_do_request(
         resp->transport_retryable = 1;
         resp->error_code = ::strdup("JavaHttpBridgeEmptyResponse");
         resp->error_message = ::strdup("java http bridge returned null response");
+        release_thread_env(&thread_env);
         return -1;
     }
 
@@ -587,6 +700,7 @@ int bridge_do_request(
         jthrowable throwable = env->ExceptionOccurred();
         env->ExceptionClear();
         set_bridge_error(env, resp, throwable);
+        release_thread_env(&thread_env);
         return -1;
     }
 
@@ -600,6 +714,7 @@ int bridge_do_request(
                 resp->transport_retryable = 1;
                 resp->error_code = ::strdup("JavaHttpBridgeOom");
                 resp->error_message = ::strdup("failed to allocate native response body");
+                release_thread_env(&thread_env);
                 return -1;
             }
             env->GetByteArrayRegion(response_body, 0, body_size, reinterpret_cast<jbyte *>(resp->body));
@@ -609,16 +724,20 @@ int bridge_do_request(
 
     resp->request_id = duplicate_utf_string(env, request_id);
     if (error_code != 0) {
-        std::string code_text = std::to_string(error_code);
-        resp->error_code = static_cast<char *>(std::malloc(code_text.size() + 1));
-        if (resp->error_code != nullptr) {
-            std::memcpy(resp->error_code, code_text.c_str(), code_text.size() + 1);
+        char code_text[32];
+        int code_text_length = std::snprintf(code_text, sizeof(code_text), "%d", static_cast<int>(error_code));
+        if (code_text_length > 0) {
+            resp->error_code = static_cast<char *>(std::malloc(static_cast<size_t>(code_text_length) + 1));
+            if (resp->error_code != nullptr) {
+                std::memcpy(resp->error_code, code_text, static_cast<size_t>(code_text_length) + 1);
+            }
         }
     }
     resp->error_message = duplicate_utf_string(env, error_message);
     resp->transport_kind = VE_TLS_TRANSPORT_NONE;
     resp->transport_code = 0;
     resp->transport_retryable = 0;
+    release_thread_env(&thread_env);
     return 0;
 }
 
@@ -732,10 +851,23 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
         destroy_http_bridge_state(http_bridge_state);
         return 0;
     }
-    remember_http_bridge_state(producer, http_bridge_state);
+    if (!remember_http_bridge_state(producer, http_bridge_state)) {
+        ve_tls_android_runtime_options cleanup_runtime = runtime;
+        ve_tls_android_binding_before_destroy(producer, &cleanup_runtime);
+        destroy_callback_state(callback_state);
+        destroy_http_bridge_state(http_bridge_state);
+        return 0;
+    }
     if (callback_state != nullptr) {
         ve_tls_producer_set_send_done_v2(producer, bridge_on_send_done_v2, callback_state);
-        remember_callback_state(producer, callback_state);
+        if (!remember_callback_state(producer, callback_state)) {
+            JniHttpBridgeState * state = forget_http_bridge_state(producer);
+            ve_tls_android_runtime_options cleanup_runtime = runtime;
+            ve_tls_android_binding_before_destroy(producer, &cleanup_runtime);
+            destroy_callback_state(callback_state);
+            destroy_http_bridge_state(state);
+            return 0;
+        }
     }
 
     if (ve_tls_android_binding_after_create(producer, &runtime) != VE_TLS_OK) {
@@ -776,47 +908,66 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
         return VE_TLS_INVALID;
     }
 
-    std::vector<std::string> key_storage(static_cast<size_t>(key_count));
-    std::vector<std::string> value_storage(static_cast<size_t>(key_count));
-    std::vector<ve_tls_kv> kvs(static_cast<size_t>(key_count));
+    ve_tls_kv * kvs = key_count == 0
+        ? nullptr
+        : static_cast<ve_tls_kv *>(std::calloc(static_cast<size_t>(key_count), sizeof(ve_tls_kv)));
+    if (key_count > 0 && kvs == nullptr) {
+        return VE_TLS_DROP_ERROR;
+    }
     for (jsize i = 0; i < key_count; ++i) {
         jstring key = static_cast<jstring>(env->GetObjectArrayElement(keys, i));
         jstring value = static_cast<jstring>(env->GetObjectArrayElement(values, i));
-        ScopedUtfChars key_chars(env, key);
-        ScopedUtfChars value_chars(env, value);
-        key_storage[static_cast<size_t>(i)] = key_chars.c_str() == nullptr ? "" : key_chars.c_str();
-        value_storage[static_cast<size_t>(i)] = value_chars.c_str() == nullptr ? "" : value_chars.c_str();
-        kvs[static_cast<size_t>(i)].key = key_storage[static_cast<size_t>(i)].c_str();
-        kvs[static_cast<size_t>(i)].value = value_storage[static_cast<size_t>(i)].c_str();
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+            if (key != nullptr) {
+                env->DeleteLocalRef(key);
+            }
+            if (value != nullptr) {
+                env->DeleteLocalRef(value);
+            }
+            free_kv_storage(kvs, static_cast<size_t>(key_count));
+            return VE_TLS_INVALID;
+        }
+        kvs[static_cast<size_t>(i)].key = duplicate_utf_string_or_empty(env, key);
+        kvs[static_cast<size_t>(i)].value = duplicate_utf_string_or_empty(env, value);
         if (key != nullptr) {
             env->DeleteLocalRef(key);
         }
         if (value != nullptr) {
             env->DeleteLocalRef(value);
         }
+        if (kvs[static_cast<size_t>(i)].key == nullptr || kvs[static_cast<size_t>(i)].value == nullptr) {
+            free_kv_storage(kvs, static_cast<size_t>(key_count));
+            return VE_TLS_DROP_ERROR;
+        }
         if (env->ExceptionCheck()) {
             env->ExceptionClear();
+            free_kv_storage(kvs, static_cast<size_t>(key_count));
             return VE_TLS_INVALID;
         }
     }
 
     ScopedUtfChars hash_key_chars(env, hash_key);
-    const ve_tls_kv * kv_ptr = kvs.empty() ? nullptr : kvs.data();
+    const ve_tls_kv * kv_ptr = key_count == 0 ? nullptr : kvs;
     if (hash_key_chars.c_str() != nullptr && hash_key_chars.c_str()[0] != '\0') {
-        return ve_tls_producer_add_log_kv_hashkey(
+        ve_tls_result result = ve_tls_producer_add_log_kv_hashkey(
             producer,
             static_cast<int64_t>(log_time_ms),
             hash_key_chars.c_str(),
             kv_ptr,
             static_cast<size_t>(key_count),
             flush);
+        free_kv_storage(kvs, static_cast<size_t>(key_count));
+        return result;
     }
-    return ve_tls_producer_add_log_kv(
+    ve_tls_result result = ve_tls_producer_add_log_kv(
         producer,
         static_cast<int64_t>(log_time_ms),
         kv_ptr,
         static_cast<size_t>(key_count),
         flush);
+    free_kv_storage(kvs, static_cast<size_t>(key_count));
+    return result;
 }
 
 extern "C" JNIEXPORT jint JNICALL

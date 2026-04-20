@@ -1,5 +1,7 @@
 # LOG Java Producer
 
+> 说明：本文件描述的是 `full` 模块中的 legacy Producer API。仓库内旧的 `ProducerDemo` console example 已移除；当前受支持的 Android Producer 使用方式以 `producer-native` 和现有 Android sample / 集成测试为准。
+
 Producer 专用的异步发送log的类库，具有异步发送、高性能、失败重试、优雅关闭等特性
 
 ## 使用步骤
@@ -21,7 +23,7 @@ producer.closeNow()
 
 ### 发送日志
 
-参考example/tls/demo/ProducerDemo
+仓库内已不再提供 `ProducerDemo` 示例，请以当前 `producer-native` 的 Android sample / 集成测试代码为实际参考。
 
 ## producer配置
 
@@ -37,4 +39,3 @@ producer.closeNow()
 | lingerMs            | int | 2*1000单位为毫秒       | 一个 BatchLog 从创建到可发送的逗留时间，默认为 2 秒，最小可设置成 100 毫秒。                                                                                                                                                                     |
 | retryCount               | int           | 2                 | 如果某个 BatchLog 首次发送失败，能够对其重试的次数，默认为 2 次。                                                                                                                                                                             |
 | maxReservedAttempts   | int           | 3                 | 每个 BatchLog 每次被尝试发送都对应着一个 Attempt，此参数用来控制返回给用户的 attempt 个数，默认只保留最近的 3 次 attempt 信息。 该参数越大能让您追溯更多的信息，但同时也会消耗更多的内存。                                                                                                   |
-

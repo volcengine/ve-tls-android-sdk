@@ -235,7 +235,7 @@ Phase-1 `CompressType` formal values:
 - `NONE`
 - `LZ4`
 
-`ZLIB` is not part of the default phase-1 public enum because the default Android build keeps `VE_TLS_ENABLE_ZLIB=OFF` for package-size reasons.
+Phase-1 public `CompressType` only exposes `NONE` and `LZ4`; optional non-default compression remains disabled in the default Android build for package-size reasons.
 
 Not part of the phase-1 public config API:
 
@@ -495,7 +495,7 @@ This avoids relying on thread-safety properties that `HttpURLConnection` does no
 
 #### 11.4.3 TLS, Certificate, and Timeout Mapping
 
-Android HTTP binding must explicitly map the C SDK transport fields rather than treating them as advisory only.
+Android HTTP binding must explicitly map the C SDK transport fields that phase-1 exposes, rather than treating them as advisory only.
 
 Required mappings:
 
@@ -504,16 +504,15 @@ Required mappings:
 - `user_agent -> User-Agent` request header
 - `proxy -> java.net.Proxy` when configured
 
-HTTPS handling rules:
+HTTPS handling rules for phase-1:
 
-- when `tls_verify_peer=1` and `ca_cert_path` is empty, use the platform default trust manager
-- when `ca_cert_path` is provided, build a request-scoped `SSLSocketFactory` from that CA material and apply it to `HttpsURLConnection`
-- when `tls_verify_host=0`, install a request-scoped permissive `HostnameVerifier`
-- when `tls_verify_peer=0`, install a request-scoped permissive trust manager
+- use the platform default trust manager and hostname verifier
+- do not expose `tls_verify_peer`, `tls_verify_host`, or `ca_cert_path` in the Android public API for phase-1
+- if a later phase exposes custom CA or permissive verification overrides, keep them request-scoped and explicit rather than making them default transport behavior
 
 Security note:
 
-- disabling peer or host verification is a compatibility/debug path only and must be documented as unsafe for normal production use
+- if peer or host verification overrides are exposed in a later phase, document them as unsafe compatibility/debug paths rather than default production settings
 - permissive TLS behavior must never become the default path just because Android custom CA loading is harder to implement
 
 ### 11.5 Library Loading
@@ -576,7 +575,7 @@ Concrete integration shape:
 - `VE_TLS_BUILD_TESTS=OFF`
 - `VE_TLS_BUILD_TOOLS=OFF`
 - `VE_TLS_ENABLE_LZ4=ON`
-- `VE_TLS_ENABLE_ZLIB=OFF` by default
+- optional non-default compression remains disabled in the default Android build
 - Android binding sources and JNI sources are compiled into one final shared library target, recommended name `tls_producer_jni`
 - the final shared library links `ve_tls_core`
 - LZ4 is consumed from `ve-tls-c-sdk`'s existing third-party source, not duplicated in the Android module
@@ -584,7 +583,7 @@ Concrete integration shape:
 Public API consequence:
 
 - the default published Android artifact formally supports `CompressType.NONE` and `CompressType.LZ4`
-- `ZLIB` is outside the phase-1 default public contract unless a later custom-build profile is defined and documented
+- the phase-1 default public contract only exposes `CompressType.NONE` and `CompressType.LZ4`; any later expansion must be defined and documented separately
 
 ### 12.3 ABI Strategy
 
