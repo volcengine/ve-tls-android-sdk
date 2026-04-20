@@ -15,7 +15,7 @@ public interface NativeProducerBridge {
 
     void addLog(long producerHandle, Log log, int flush);
 
-    void destroy(long producerHandle, int destroyWaitMs);
+    void destroy(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled);
 
-    void destroyAsync(long producerHandle, int destroyWaitMs);
+    void destroyAsync(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled);
 }

@@ -788,6 +788,9 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     jint request_timeout_ms,
     jboolean enable_time_ns,
     jint destroy_wait_ms,
+    jint destroy_flusher_wait_ms,
+    jint destroy_sender_wait_ms,
+    jboolean destroy_wait_split_enabled,
     jobject callback_dispatcher
 ) {
     ScopedUtfChars endpoint_chars(env, endpoint);
@@ -820,6 +823,9 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     config_view.send_thread_count = send_thread_count;
     config_view.use_persistent = persistent ? 1 : 0;
     config_view.destroy_wait_ms = destroy_wait_ms;
+    config_view.destroy_flusher_wait_ms = destroy_flusher_wait_ms;
+    config_view.destroy_sender_wait_ms = destroy_sender_wait_ms;
+    config_view.destroy_wait_split_enabled = destroy_wait_split_enabled ? 1 : 0;
     http_client_bridge.do_request = bridge_do_request;
     http_client_bridge.free_response = bridge_free_response;
     http_client_bridge.user_data = http_bridge_state;
@@ -1029,7 +1035,10 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     JNIEnv *,
     jclass,
     jlong producer_handle,
-    jint destroy_wait_ms
+    jint destroy_wait_ms,
+    jint destroy_flusher_wait_ms,
+    jint destroy_sender_wait_ms,
+    jboolean destroy_wait_split_enabled
 ) {
     ve_tls_producer * producer = producer_from_handle(producer_handle);
     if (producer == nullptr) {
@@ -1040,6 +1049,9 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
 
     ve_tls_android_runtime_options runtime = {};
     runtime.destroy_wait_ms = destroy_wait_ms;
+    runtime.destroy_flusher_wait_ms = destroy_flusher_wait_ms;
+    runtime.destroy_sender_wait_ms = destroy_sender_wait_ms;
+    runtime.destroy_wait_split_enabled = destroy_wait_split_enabled ? 1 : 0;
     ve_tls_android_binding_before_destroy(producer, &runtime);
     destroy_callback_state(callback_state);
     destroy_http_bridge_state(state);

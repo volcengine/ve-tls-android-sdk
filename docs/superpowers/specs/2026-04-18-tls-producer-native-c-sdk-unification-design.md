@@ -175,7 +175,7 @@ Formal public classes:
 - `LogProducerCallback`
 - `LogProducerResult`
 
-Supporting value types may be nested under the main public classes, for example `LogProducerConfig.CompressType` and `LogProducerResult.Code`.
+Supporting value types may be nested under the main public classes, for example `LogProducerConfig.CompressType`, `LogProducerResult.Code`, and `LogProducerResult.FailureKind`.
 
 ### 7.3 `LogProducerConfig`
 
@@ -327,7 +327,9 @@ This avoids the incorrect setter-style assumption and matches the actual `ve-tls
 | `persistentForceFlush` | bool/int | `force_flush_disk` | recreate only | no unit conversion |
 | `connectTimeoutMs` | ms/int | `connect_timeout_ms` | recreate only | no unit conversion |
 | `requestTimeoutMs` | ms/int | `request_timeout_ms` | recreate only | no unit conversion |
-| `destroyWaitMs` | ms/int | Android binding destroy timeout | n/a | not a `ve_tls_config` field; used for `ve_tls_producer_close(timeout_ms)` |
+| `destroyWaitMs` | ms/int | Android binding legacy destroy timeout | n/a | legacy compatibility path; used only when split destroy wait is not configured |
+| `destroyFlusherWaitMs` | ms/int | Android staged destroy flusher timeout | n/a | phase-1 public API may route this to `ve_tls_producer_close_split()` |
+| `destroySenderWaitMs` | ms/int | Android staged destroy sender timeout | n/a | phase-1 public API may route this to `ve_tls_producer_close_split()` |
 | `source` | string | `source` | recreate only | no unit conversion |
 | `hashKey` | string | `hash_key` | recreate only | phase-1 public API treats `hashKey` as config-level only |
 | `addTag` | string pairs | `log_tags` + `log_tag_count` | recreate only | JNI duplicates tag arrays into native-owned memory for create |
@@ -368,7 +370,7 @@ C SDK determines final implementation.
 
 ### 9.3 Explicit Phase-1 Divergences
 
-- destroy wait uses one TLS-style `destroyWaitMs`, not SLS-style separate flusher/sender wait knobs, because `ve-tls-c-sdk` exposes one `ve_tls_producer_close(timeout_ms)` boundary
+- legacy `destroyWaitMs` remains supported, but the public Android producer API may also use split `destroyFlusherWaitMs` / `destroySenderWaitMs` and route them to native staged close
 - public raw-buffer ingestion is deferred; the C SDK raw API is kept as an internal/future path
 - SLS-only NTP/delay-log/drop-unauthorized config knobs are not part of phase 1 until equivalent native semantics exist
 - per-log `hashKey` override is deferred; phase-1 public API only exposes config-level `hashKey`
@@ -473,12 +475,12 @@ The HTTP bridge must treat native sender threads as long-lived JNI callers.
 Required design rules:
 
 - keep one global `JavaVM *` from `JNI_OnLoad`
-- cache attached `JNIEnv *` per native thread through thread-local storage
-- attach a sender thread on first JNI use, not on every request
-- detach automatically when that native thread exits
+- keep one global `JavaVM *` from `JNI_OnLoad`
 - cache `jclass`/`jmethodID` lookups as global references instead of resolving them on every HTTP call
+- attach to JNI on demand for each native caller thread that reaches the bridge
+- detach after the bridge call when that thread was attached by the bridge itself
 
-This follows the same practical direction as the SLS Android producer and avoids repeated attach/detach overhead on the hot send path.
+This intentionally favors lifecycle safety over speculative thread-local `JNIEnv *` caching. The design must not assume sender threads are eternal or never recreated.
 
 #### 11.4.2 Connection Isolation and Concurrency Rules
 
@@ -538,11 +540,13 @@ Android users load one formal producer shared library only.
 
 - immediately stops accepting new logs
 - returns asynchronously from Java to avoid ANR
-- triggers background `ve_tls_producer_close(destroyWaitMs)` first
+- triggers background native close first
+- uses legacy `ve_tls_producer_close(timeout_ms)` when only `destroyWaitMs` is configured
+- uses `ve_tls_producer_close_split(flusher_timeout_ms, sender_timeout_ms)` when staged destroy waits are configured
 - always follows with `ve_tls_producer_destroy()`
 - native shutdown then finishes even if timeout is hit
 
-This explicitly follows the practical SLS destroy model rather than a weakened fire-and-forget model, while mapping onto the actual two-stage C SDK API.
+This follows the practical SLS destroy intent while matching the current two-path close model in the TLS Android binding.
 
 ## 12. Build, ABI, and Packaging
 
@@ -719,6 +723,7 @@ Mapping rule:
 Stable callback shape:
 
 - `onCompletion(LogProducerResult result)`
+- `LogProducerResult` keeps the single-argument callback shape, but exposes TLS-owned helpers such as `FailureKind`, `getFailureKind()`, and `getFailureSummary()` so callers do not have to reverse-engineer raw transport fields themselves
 
 Thread mode:
 
@@ -831,7 +836,7 @@ The following architecture review items were resolved into this spec revision.
 | --- | --- |
 | `R-01` config model mismatch | adopted: Java mirror + freeze-at-create + runtime update matrix |
 | `R-02` `compressType` string mismatch | adopted: Java enum maps to native strings |
-| `R-03` destroy lifecycle mismatch | adopted: background `close(timeout)` then `destroy()` |
+| `R-03` destroy lifecycle mismatch | adopted: background native close then `destroy()`, with legacy single-timeout and staged split-timeout paths |
 | `R-04` missing HTTP plan | adopted: JNI + internal Java `HttpURLConnection` bridge |
 | `R-05` `addLogRaw` mismatch | adopted: not public in phase 1 |
 | `I-01` TLS result model undefined | adopted: `LogProducerResult` becomes TLS-owned structured result |

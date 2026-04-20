@@ -38,7 +38,7 @@ public class NativeApiContractTest {
                 String.class);
         assertEquals(void.class, resetSecurityToken.getReturnType());
 
-        Method destroyAsync = bridgeClass.getDeclaredMethod("destroyAsync", long.class, int.class);
+        Method destroyAsync = bridgeClass.getDeclaredMethod("destroyAsync", long.class, int.class, int.class, int.class, boolean.class);
         assertEquals(void.class, destroyAsync.getReturnType());
     }
 }

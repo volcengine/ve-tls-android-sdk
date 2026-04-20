@@ -27,6 +27,9 @@ public final class LogProducerClient {
 
     LogProducerClient(LogProducerConfig config, LogProducerCallback callback, String processName, NativeProducerBridge bridge) {
         this.config = config == null ? null : new ConfigSnapshot(config, processName);
+        if (config != null) {
+            config.freeze();
+        }
         this.callback = callback;
         this.bridge = bridge == null ? new JniNativeProducerBridge() : bridge;
     }
@@ -53,6 +56,11 @@ public final class LogProducerClient {
         }
     }
 
+    /**
+     * Updates the send target for new requests. Any request that has already entered the
+     * native send path may still use the previously captured endpoint, but subsequent
+     * requests should converge quickly to the refreshed endpoint/region/topic.
+     */
     public void updateEndpoint(String endpoint, String region, String topicId) {
         synchronized (lifecycleLock) {
             long handle = ensureProducerLocked();
@@ -84,7 +92,12 @@ public final class LogProducerClient {
             }
             long handle = producerHandle;
             producerHandle = 0;
-            bridge.destroyAsync(handle, config == null ? 0 : config.getDestroyWaitMs());
+            bridge.destroyAsync(
+                    handle,
+                    config == null || config.isDestroyWaitSplitConfigured() ? 0 : config.getDestroyWaitMs(),
+                    config == null ? 0 : config.getDestroyFlusherWaitMs(),
+                    config == null ? 0 : config.getDestroySenderWaitMs(),
+                    config != null && config.isDestroyWaitSplitConfigured());
         }
     }
 

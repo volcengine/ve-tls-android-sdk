@@ -35,8 +35,12 @@ public final class LogProducerConfig {
     private int connectTimeoutMs;
     private int requestTimeoutMs;
     private int destroyWaitMs;
+    private int destroyFlusherWaitMs;
+    private int destroySenderWaitMs;
+    private boolean destroyWaitSplitConfigured;
     private boolean callbackFromSenderThread;
     private boolean enableTimeNs;
+    private boolean frozen;
 
     public LogProducerConfig() {
     }
@@ -81,6 +85,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setEndpoint(String endpoint) {
+        ensureMutable();
         this.endpoint = endpoint;
         return this;
     }
@@ -90,6 +95,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setRegion(String region) {
+        ensureMutable();
         this.region = region;
         return this;
     }
@@ -99,6 +105,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setProjectId(String projectId) {
+        ensureMutable();
         this.projectId = projectId;
         return this;
     }
@@ -108,6 +115,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setTopicId(String topicId) {
+        ensureMutable();
         this.topicId = topicId;
         return this;
     }
@@ -117,6 +125,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setAccessKeyId(String accessKeyId) {
+        ensureMutable();
         this.accessKeyId = accessKeyId;
         return this;
     }
@@ -126,6 +135,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setAccessKeySecret(String accessKeySecret) {
+        ensureMutable();
         this.accessKeySecret = accessKeySecret;
         return this;
     }
@@ -135,6 +145,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setSecurityToken(String securityToken) {
+        ensureMutable();
         this.securityToken = securityToken;
         return this;
     }
@@ -143,7 +154,12 @@ public final class LogProducerConfig {
         return hashKey;
     }
 
+    /**
+     * Sets the default shard key used for producer requests. The value is passed through to
+     * the native producer directly; there is no separate mode flag that must be enabled first.
+     */
     public LogProducerConfig setHashKey(String hashKey) {
+        ensureMutable();
         this.hashKey = hashKey;
         return this;
     }
@@ -153,6 +169,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setSource(String source) {
+        ensureMutable();
         this.source = source;
         return this;
     }
@@ -162,20 +179,25 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setCompressType(CompressType compressType) {
+        ensureMutable();
         this.compressType = Objects.requireNonNull(compressType);
         return this;
     }
 
     LogProducerConfig setCompressType(String compressType) {
+        ensureMutable();
         if (compressType == null) {
             return this;
         }
         if ("none".equalsIgnoreCase(compressType)) {
             this.compressType = CompressType.NONE;
-        } else {
-            this.compressType = CompressType.LZ4;
+            return this;
         }
-        return this;
+        if ("lz4".equalsIgnoreCase(compressType)) {
+            this.compressType = CompressType.LZ4;
+            return this;
+        }
+        throw new IllegalArgumentException("unsupported compress type: " + compressType);
     }
 
     public int getPacketLogBytes() {
@@ -183,6 +205,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setPacketLogBytes(int packetLogBytes) {
+        ensureMutable();
         this.packetLogBytes = packetLogBytes;
         return this;
     }
@@ -192,6 +215,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setPacketLogCount(int packetLogCount) {
+        ensureMutable();
         this.packetLogCount = packetLogCount;
         return this;
     }
@@ -201,11 +225,13 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setPacketTimeoutMs(int packetTimeoutMs) {
+        ensureMutable();
         this.packetTimeoutMs = packetTimeoutMs;
         return this;
     }
 
     LogProducerConfig setPacketTimeout(int packetTimeoutMs) {
+        ensureMutable();
         this.packetTimeoutMs = packetTimeoutMs;
         return this;
     }
@@ -215,6 +241,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setMaxBufferLimit(int maxBufferLimit) {
+        ensureMutable();
         this.maxBufferLimit = maxBufferLimit;
         return this;
     }
@@ -224,6 +251,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setSendThreadCount(int sendThreadCount) {
+        ensureMutable();
         this.sendThreadCount = sendThreadCount;
         return this;
     }
@@ -233,6 +261,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setRetryCount(int retryCount) {
+        ensureMutable();
         this.retryCount = retryCount;
         return this;
     }
@@ -242,6 +271,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setPersistent(boolean persistent) {
+        ensureMutable();
         this.persistent = persistent;
         return this;
     }
@@ -251,6 +281,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setPersistentFilePath(String persistentFilePath) {
+        ensureMutable();
         this.persistentFilePath = persistentFilePath;
         return this;
     }
@@ -260,6 +291,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setPersistentForceFlush(boolean persistentForceFlush) {
+        ensureMutable();
         this.persistentForceFlush = persistentForceFlush;
         return this;
     }
@@ -269,6 +301,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setPersistentMaxFileCount(int persistentMaxFileCount) {
+        ensureMutable();
         this.persistentMaxFileCount = persistentMaxFileCount;
         return this;
     }
@@ -278,6 +311,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setPersistentMaxFileSize(int persistentMaxFileSize) {
+        ensureMutable();
         this.persistentMaxFileSize = persistentMaxFileSize;
         return this;
     }
@@ -287,6 +321,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setPersistentMaxLogCount(int persistentMaxLogCount) {
+        ensureMutable();
         this.persistentMaxLogCount = persistentMaxLogCount;
         return this;
     }
@@ -296,6 +331,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setConnectTimeoutMs(int connectTimeoutMs) {
+        ensureMutable();
         this.connectTimeoutMs = connectTimeoutMs;
         return this;
     }
@@ -305,17 +341,51 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setRequestTimeoutMs(int requestTimeoutMs) {
+        ensureMutable();
         this.requestTimeoutMs = requestTimeoutMs;
         return this;
     }
 
     public int getDestroyWaitMs() {
+        if (destroyWaitSplitConfigured) {
+            return destroyFlusherWaitMs + destroySenderWaitMs;
+        }
         return destroyWaitMs;
     }
 
     public LogProducerConfig setDestroyWaitMs(int destroyWaitMs) {
+        ensureMutable();
         this.destroyWaitMs = destroyWaitMs;
+        this.destroyFlusherWaitMs = 0;
+        this.destroySenderWaitMs = 0;
+        this.destroyWaitSplitConfigured = false;
         return this;
+    }
+
+    public int getDestroyFlusherWaitMs() {
+        return destroyFlusherWaitMs;
+    }
+
+    public LogProducerConfig setDestroyFlusherWaitMs(int destroyFlusherWaitMs) {
+        ensureMutable();
+        this.destroyFlusherWaitMs = destroyFlusherWaitMs;
+        this.destroyWaitSplitConfigured = true;
+        return this;
+    }
+
+    public int getDestroySenderWaitMs() {
+        return destroySenderWaitMs;
+    }
+
+    public LogProducerConfig setDestroySenderWaitMs(int destroySenderWaitMs) {
+        ensureMutable();
+        this.destroySenderWaitMs = destroySenderWaitMs;
+        this.destroyWaitSplitConfigured = true;
+        return this;
+    }
+
+    public boolean isDestroyWaitSplitConfigured() {
+        return destroyWaitSplitConfigured;
     }
 
     public boolean isCallbackFromSenderThread() {
@@ -323,6 +393,7 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setCallbackFromSenderThread(boolean callbackFromSenderThread) {
+        ensureMutable();
         this.callbackFromSenderThread = callbackFromSenderThread;
         return this;
     }
@@ -332,12 +403,29 @@ public final class LogProducerConfig {
     }
 
     public LogProducerConfig setEnableTimeNs(boolean enableTimeNs) {
+        ensureMutable();
         this.enableTimeNs = enableTimeNs;
         return this;
     }
 
     public LogProducerConfig addTag(String key, String value) {
+        ensureMutable();
         return this;
+    }
+
+    public LogProducerConfig freeze() {
+        this.frozen = true;
+        return this;
+    }
+
+    public boolean isFrozen() {
+        return frozen;
+    }
+
+    private void ensureMutable() {
+        if (frozen) {
+            throw new IllegalStateException("LogProducerConfig is frozen after client creation");
+        }
     }
 
     public boolean isValid() {

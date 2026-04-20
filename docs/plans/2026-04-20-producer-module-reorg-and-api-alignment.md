@@ -22,6 +22,26 @@
 
 This means the main producer size problem was not JNI alone. It was the old `producer-native -> :core` dependency direction.
 
+## Re-prioritized Execution Order (2026-04-20)
+
+Before revisiting module/package evolution, prioritize the next wave in this order:
+
+1. **Improve producer failure classification ergonomics**
+   - Keep the callback shape stable.
+   - Add clearer `LogProducerResult` helpers/grouping so app code no longer needs to manually combine `code`, `httpCode`, `transportCode`, `errorCode`, and `errorMessage`.
+   - Treat this as a producer DX fix, not an API redesign.
+
+2. **Audit `HttpURLConnection` vs `OkHttp` with a real lifecycle cost inventory**
+   - Measure size/runtime/dependency impact and maintenance/security/testing cost.
+   - Do not assume `OkHttp` is better just because it is richer, and do not assume `HttpURLConnection` is free just because it is smaller.
+   - This task is evidence-gathering first; no transport migration should happen in the same wave.
+
+3. **Resolve the remaining spec-plus-API semantic gaps**
+   - Work only on the items that still need explicit product semantics or public API clarification beyond `updateEndpoint()`.
+   - Prefer narrowing docs/specs or adding runtime guardrails before adding new knobs.
+
+Only after those three tracks are materially settled should the repo revisit package evolution.
+
 ---
 
 ## Alignment Rule
@@ -82,6 +102,25 @@ This is the highest-value next step because it removes the current `slf4jProvide
 
 Keep `:core` heavy for now. Do not split it further until logger SPI extraction is done and measured. The current evidence says producer size is already fixed by cutting the wrong direction dependency; a broad `core` refactor would add risk before proving extra value.
 
+### Deferred package evolution direction
+
+After the three priority tracks above, reevaluate package evolution with this working hypothesis:
+
+- Do **not** make `full` depend directly on `producer-native`; that would re-couple Java-only users to JNI/native delivery and undo the current producer minimization.
+- If the current `core` and `full` remain semantically inseparable after the semantic cleanup work, consider collapsing them into one Java SDK module with a clearer name.
+- If a one-stop artifact is still needed for external users, add a new SLS-like aggregator package later that depends on the Java SDK module plus `producer-native`, instead of renaming the current heavy `:core` and pretending it matches SLS `core`.
+
+In other words, the likely end state is closer to:
+
+```text
+producer-native   -> standalone minimal producer
+java-sdk          -> current heavy core/full Java API runtime
+logger-spi        -> tiny shared contracts
+aggregator-core   -> optional convenience artifact depending on java-sdk + producer-native
+```
+
+This should only proceed after the current semantic/API cleanup wave, because otherwise the package reshuffle will hide unresolved contract problems instead of simplifying them.
+
 ---
 
 ## Review Of The 9 Concerns
@@ -120,6 +159,17 @@ This should be treated as a spec correction first, not as silent support.
 ---
 
 ## Recommended Work Order
+
+### Task 0: Finish the pre-reorg semantic cleanup
+
+- Land the producer failure-classification ergonomics improvements.
+- Complete the `HttpURLConnection` vs `OkHttp` cost inventory with explicit size, testing, maintenance, and audit tradeoffs.
+- Finish the remaining spec/API semantic decisions that are still open beyond `updateEndpoint()`.
+
+Resolution artifacts from this wave:
+
+- `docs/plans/2026-04-20-producer-httpurlconnection-vs-okhttp-cost-inventory.md`
+- `docs/plans/2026-04-20-producer-semantic-gap-ledger.md`
 
 ### Task 1: Lock the current dependency direction
 

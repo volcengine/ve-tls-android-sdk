@@ -24,13 +24,20 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
 
     public long create(ConfigSnapshot config, LogProducerCallback callback) {
         LogProducerConfig nativeConfig = config == null ? null : config.toConfig();
-        int destroyWaitMs = config == null ? 0 : config.getDestroyWaitMs();
-        return createInternal(nativeConfig, destroyWaitMs, callback);
+        int destroyWaitMs = config == null || config.isDestroyWaitSplitConfigured() ? 0 : config.getDestroyWaitMs();
+        int destroyFlusherWaitMs = config == null ? 0 : config.getDestroyFlusherWaitMs();
+        int destroySenderWaitMs = config == null ? 0 : config.getDestroySenderWaitMs();
+        boolean destroyWaitSplitEnabled = config != null && config.isDestroyWaitSplitConfigured();
+        return createInternal(nativeConfig, destroyWaitMs, destroyFlusherWaitMs, destroySenderWaitMs, destroyWaitSplitEnabled, callback);
     }
 
     @Override
     public long create(LogProducerConfig config, LogProducerCallback callback) {
-        return createInternal(config, config == null ? 0 : config.getDestroyWaitMs(), callback);
+        int destroyWaitMs = config == null || config.isDestroyWaitSplitConfigured() ? 0 : config.getDestroyWaitMs();
+        int destroyFlusherWaitMs = config == null ? 0 : config.getDestroyFlusherWaitMs();
+        int destroySenderWaitMs = config == null ? 0 : config.getDestroySenderWaitMs();
+        boolean destroyWaitSplitEnabled = config != null && config.isDestroyWaitSplitConfigured();
+        return createInternal(config, destroyWaitMs, destroyFlusherWaitMs, destroySenderWaitMs, destroyWaitSplitEnabled, callback);
     }
 
     @Override
@@ -57,27 +64,27 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
     }
 
     @Override
-    public void destroy(long producerHandle, int destroyWaitMs) {
+    public void destroy(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled) {
         if (producerHandle == 0) {
             return;
         }
         requireNativeLibrary();
-        nativeDestroy(producerHandle, destroyWaitMs);
+        nativeDestroy(producerHandle, destroyWaitMs, destroyFlusherWaitMs, destroySenderWaitMs, destroyWaitSplitEnabled);
     }
 
     @Override
-    public void destroyAsync(long producerHandle, int destroyWaitMs) {
+    public void destroyAsync(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled) {
         if (producerHandle == 0) {
             return;
         }
         Thread destroyThread = new Thread(
-                () -> destroy(producerHandle, destroyWaitMs),
+                () -> destroy(producerHandle, destroyWaitMs, destroyFlusherWaitMs, destroySenderWaitMs, destroyWaitSplitEnabled),
                 "tls-producer-destroy");
         destroyThread.setDaemon(true);
         destroyThread.start();
     }
 
-    private long createInternal(LogProducerConfig config, int destroyWaitMs, LogProducerCallback callback) {
+    private long createInternal(LogProducerConfig config, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled, LogProducerCallback callback) {
         requireNativeLibrary();
         if (config == null) {
             throw new IllegalArgumentException("config == null");
@@ -112,6 +119,9 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
                 config.getRequestTimeoutMs(),
                 config.isEnableTimeNs(),
                 destroyWaitMs,
+                destroyFlusherWaitMs,
+                destroySenderWaitMs,
+                destroyWaitSplitEnabled,
                 callbackDispatcher);
         if (handle == 0) {
             throw new IllegalStateException("native producer create failed");
@@ -180,6 +190,9 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
             int requestTimeoutMs,
             boolean enableTimeNs,
             int destroyWaitMs,
+            int destroyFlusherWaitMs,
+            int destroySenderWaitMs,
+            boolean destroyWaitSplitEnabled,
             Object callbackDispatcher);
 
     private static native int nativeAddLog(
@@ -198,5 +211,10 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
             String accessKeySecret,
             String securityToken);
 
-    private static native void nativeDestroy(long producerHandle, int destroyWaitMs);
+    private static native void nativeDestroy(
+            long producerHandle,
+            int destroyWaitMs,
+            int destroyFlusherWaitMs,
+            int destroySenderWaitMs,
+            boolean destroyWaitSplitEnabled);
 }

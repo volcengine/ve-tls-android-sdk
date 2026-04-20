@@ -264,15 +264,7 @@ public class BenchmarkActivity extends Activity {
     }
 
     private String formatFailure(LogProducerResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Callback fail code=").append(result.getCode())
-                .append(" http=").append(result.getHttpCode())
-                .append(" errorCode=").append(String.valueOf(result.getErrorCode()))
-                .append(" errorMessage=").append(String.valueOf(result.getErrorMessage()));
-        if (result.getRequestId() != null && !result.getRequestId().isEmpty()) {
-            sb.append(" reqId=").append(result.getRequestId());
-        }
-        return sb.toString();
+        return "Callback fail " + result.getFailureSummary();
     }
 
     private void writeFile(File f, String body) throws Exception {
@@ -287,8 +279,12 @@ public class BenchmarkActivity extends Activity {
     }
 
     private static LogProducerConfig.CompressType parseCompressType(String ct) {
-        return "none".equalsIgnoreCase(ct)
-                ? LogProducerConfig.CompressType.NONE
-                : LogProducerConfig.CompressType.LZ4;
+        if ("none".equalsIgnoreCase(ct)) {
+            return LogProducerConfig.CompressType.NONE;
+        }
+        if ("lz4".equalsIgnoreCase(ct)) {
+            return LogProducerConfig.CompressType.LZ4;
+        }
+        throw new IllegalArgumentException("unsupported compress type: " + ct);
     }
 }

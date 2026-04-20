@@ -159,14 +159,7 @@ public class MainActivity extends Activity {
                         appendLog("Producer Success: " + index + " " + detail);
                         handler.postDelayed(sendTask, 2000);
                     } else {
-                        String detail = "code=" + result.getCode()
-                                + " http=" + result.getHttpCode()
-                                + " errorCode=" + String.valueOf(result.getErrorCode())
-                                + " errorMessage=" + String.valueOf(result.getErrorMessage());
-                        if (result.getRequestId() != null && !result.getRequestId().isEmpty()) {
-                            detail += " reqId=" + result.getRequestId();
-                        }
-                        appendLog("Producer Failed: " + detail);
+                        appendLog("Producer Failed: " + result.getFailureSummary());
                         isRunning = false;
                     }
                 });
@@ -218,8 +211,12 @@ public class MainActivity extends Activity {
     }
 
     private static LogProducerConfig.CompressType parseCompressType(String compress) {
-        return "none".equalsIgnoreCase(compress)
-                ? LogProducerConfig.CompressType.NONE
-                : LogProducerConfig.CompressType.LZ4;
+        if ("none".equalsIgnoreCase(compress)) {
+            return LogProducerConfig.CompressType.NONE;
+        }
+        if ("lz4".equalsIgnoreCase(compress)) {
+            return LogProducerConfig.CompressType.LZ4;
+        }
+        throw new IllegalArgumentException("unsupported compress type: " + compress);
     }
 }

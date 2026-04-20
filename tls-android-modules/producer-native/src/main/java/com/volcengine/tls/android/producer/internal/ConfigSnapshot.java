@@ -28,6 +28,9 @@ public final class ConfigSnapshot {
     private final int connectTimeoutMs;
     private final int requestTimeoutMs;
     private final int destroyWaitMs;
+    private final int destroyFlusherWaitMs;
+    private final int destroySenderWaitMs;
+    private final boolean destroyWaitSplitConfigured;
     private final boolean callbackFromSenderThread;
     private final boolean enableTimeNs;
     private final boolean hasSourceConfig;
@@ -60,6 +63,9 @@ public final class ConfigSnapshot {
             this.connectTimeoutMs = 0;
             this.requestTimeoutMs = 0;
             this.destroyWaitMs = 0;
+            this.destroyFlusherWaitMs = 0;
+            this.destroySenderWaitMs = 0;
+            this.destroyWaitSplitConfigured = false;
             this.callbackFromSenderThread = false;
             this.enableTimeNs = false;
             return;
@@ -91,7 +97,10 @@ public final class ConfigSnapshot {
         this.retryCount = sourceConfig.getRetryCount();
         this.connectTimeoutMs = sourceConfig.getConnectTimeoutMs();
         this.requestTimeoutMs = sourceConfig.getRequestTimeoutMs();
-        this.destroyWaitMs = sourceConfig.getDestroyWaitMs();
+        this.destroyWaitMs = sourceConfig.isDestroyWaitSplitConfigured() ? 0 : sourceConfig.getDestroyWaitMs();
+        this.destroyFlusherWaitMs = sourceConfig.getDestroyFlusherWaitMs();
+        this.destroySenderWaitMs = sourceConfig.getDestroySenderWaitMs();
+        this.destroyWaitSplitConfigured = sourceConfig.isDestroyWaitSplitConfigured();
         this.callbackFromSenderThread = sourceConfig.isCallbackFromSenderThread();
         this.enableTimeNs = sourceConfig.isEnableTimeNs();
         this.sendThreadCount = this.persistent ? 1 : sourceConfig.getSendThreadCount();
@@ -102,7 +111,7 @@ public final class ConfigSnapshot {
             return null;
         }
 
-        return new LogProducerConfig()
+        LogProducerConfig config = new LogProducerConfig()
                 .setEndpoint(endpoint)
                 .setRegion(region)
                 .setProjectId(projectId)
@@ -127,9 +136,15 @@ public final class ConfigSnapshot {
                 .setPersistentMaxLogCount(persistentMaxLogCount)
                 .setConnectTimeoutMs(connectTimeoutMs)
                 .setRequestTimeoutMs(requestTimeoutMs)
-                .setDestroyWaitMs(destroyWaitMs)
                 .setCallbackFromSenderThread(callbackFromSenderThread)
                 .setEnableTimeNs(enableTimeNs);
+        if (destroyWaitSplitConfigured) {
+            config.setDestroyFlusherWaitMs(destroyFlusherWaitMs);
+            config.setDestroySenderWaitMs(destroySenderWaitMs);
+        } else {
+            config.setDestroyWaitMs(destroyWaitMs);
+        }
+        return config;
     }
 
     public int getSendThreadCount() {
@@ -137,7 +152,22 @@ public final class ConfigSnapshot {
     }
 
     public int getDestroyWaitMs() {
+        if (destroyWaitSplitConfigured) {
+            return destroyFlusherWaitMs + destroySenderWaitMs;
+        }
         return destroyWaitMs;
+    }
+
+    public int getDestroyFlusherWaitMs() {
+        return destroyFlusherWaitMs;
+    }
+
+    public int getDestroySenderWaitMs() {
+        return destroySenderWaitMs;
+    }
+
+    public boolean isDestroyWaitSplitConfigured() {
+        return destroyWaitSplitConfigured;
     }
 
     public String getPersistentFilePath() {

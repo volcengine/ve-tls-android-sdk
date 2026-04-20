@@ -43,6 +43,24 @@ public class LogProducerClientBridgeTest {
     }
 
     @Test
+    public void constructor_freezesOriginalConfigImmediately() {
+        LogProducerConfig config = new LogProducerConfig()
+                .setEndpoint("https://tls-cn-beijing.volces.com")
+                .setRegion("cn-beijing")
+                .setProjectId("project-id")
+                .setTopicId("topic-id")
+                .setPersistent(true);
+
+        FakeBridge bridge = new FakeBridge();
+        LogProducerClient client = LogProducerClient.forTest(config, bridge, "demo");
+
+        assertThrows(IllegalStateException.class, () -> config.setPersistent(false));
+
+        client.addLog(new Log());
+        assertTrue(bridge.createInputConfig.isPersistent());
+    }
+
+    @Test
     public void create_doesNotRewritePersistentPathForMainProcess() {
         LogProducerConfig config = new LogProducerConfig()
                 .setPersistent(true)
@@ -89,6 +107,25 @@ public class LogProducerClientBridgeTest {
         assertEquals(1, bridge.destroyAsyncCalls);
 
         assertThrows(IllegalStateException.class, () -> client.addLog(new Log()));
+    }
+
+    @Test
+    public void destroyLogProducer_prefersSplitWaitsWhenConfigured() {
+        FakeBridge bridge = new FakeBridge();
+        LogProducerClient client = LogProducerClient.forTest(
+                new LogProducerConfig()
+                        .setDestroyFlusherWaitMs(2)
+                        .setDestroySenderWaitMs(3),
+                bridge,
+                "demo");
+
+        client.destroyLogProducer();
+
+        assertEquals(1, bridge.destroyAsyncCalls);
+        assertTrue(bridge.destroyWaitSplitEnabled);
+        assertEquals(0, bridge.destroyWaitMs);
+        assertEquals(2, bridge.destroyFlusherWaitMs);
+        assertEquals(3, bridge.destroySenderWaitMs);
     }
 
     @Test
@@ -141,7 +178,10 @@ public class LogProducerClientBridgeTest {
         destroyThread.join(1000);
 
         assertEquals(1, bridge.destroyAsyncCalls);
+        assertFalse(bridge.destroyWaitSplitEnabled);
         assertEquals(1, bridge.destroyWaitMs);
+        assertEquals(0, bridge.destroyFlusherWaitMs);
+        assertEquals(0, bridge.destroySenderWaitMs);
     }
 
     private static void awaitAndRun(CountDownLatch start, Runnable action) {
@@ -161,6 +201,9 @@ public class LogProducerClientBridgeTest {
         private LogProducerConfig createInputConfig;
         protected long destroyAsyncCalls;
         protected int destroyWaitMs;
+        protected int destroyFlusherWaitMs;
+        protected int destroySenderWaitMs;
+        protected boolean destroyWaitSplitEnabled;
         private String lastEndpoint;
         private String lastRegion;
         private String lastTopicId;
@@ -203,14 +246,17 @@ public class LogProducerClientBridgeTest {
         }
 
         @Override
-        public void destroy(long producerHandle, int destroyWaitMs) {
+        public void destroy(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled) {
             // no-op
         }
 
         @Override
-        public void destroyAsync(long producerHandle, int destroyWaitMs) {
+        public void destroyAsync(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled) {
             destroyAsyncCalls++;
             this.destroyWaitMs = destroyWaitMs;
+            this.destroyFlusherWaitMs = destroyFlusherWaitMs;
+            this.destroySenderWaitMs = destroySenderWaitMs;
+            this.destroyWaitSplitEnabled = destroyWaitSplitEnabled;
         }
     }
 
@@ -265,9 +311,9 @@ public class LogProducerClientBridgeTest {
         }
 
         @Override
-        public void destroyAsync(long producerHandle, int destroyWaitMs) {
+        public void destroyAsync(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled) {
             destroyEntered.countDown();
-            super.destroyAsync(producerHandle, destroyWaitMs);
+            super.destroyAsync(producerHandle, destroyWaitMs, destroyFlusherWaitMs, destroySenderWaitMs, destroyWaitSplitEnabled);
         }
     }
 }
