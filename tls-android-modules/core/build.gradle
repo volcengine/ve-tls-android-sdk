@@ -36,6 +36,7 @@ plugins {
 
 
   dependencies {
+    api project(':logger-spi')
     api 'com.squareup.okhttp3:okhttp:3.12.13'
     api 'com.squareup.okio:okio:1.17.5'
     api 'com.google.protobuf:protobuf-javalite:3.23.2'
