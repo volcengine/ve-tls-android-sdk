@@ -66,40 +66,40 @@ private:
 };
 
 struct ThreadEnvAttachment {
-    JNIEnv * env = nullptr;
-    int attached = 0;
+    JNIEnv * env;
+    int attached;
 };
 
 struct JniHttpBridgeState {
-    jobject bridge = nullptr;
-    jclass bridge_class = nullptr;
-    jclass request_class = nullptr;
-    jclass response_class = nullptr;
-    jmethodID request_ctor = nullptr;
-    jmethodID execute = nullptr;
-    jmethodID response_get_status_code = nullptr;
-    jmethodID response_get_body = nullptr;
-    jmethodID response_get_request_id = nullptr;
-    jmethodID response_get_error_code = nullptr;
-    jmethodID response_get_error_message = nullptr;
+    jobject bridge;
+    jclass bridge_class;
+    jclass request_class;
+    jclass response_class;
+    jmethodID request_ctor;
+    jmethodID execute;
+    jmethodID response_get_status_code;
+    jmethodID response_get_body;
+    jmethodID response_get_request_id;
+    jmethodID response_get_error_code;
+    jmethodID response_get_error_message;
 };
 
 struct CallbackState {
-    jobject dispatcher = nullptr;
-    jclass dispatcher_class = nullptr;
-    jmethodID dispatch = nullptr;
+    jobject dispatcher;
+    jclass dispatcher_class;
+    jmethodID dispatch;
 };
 
 struct HttpBridgeStateNode {
-    ve_tls_producer * producer = nullptr;
-    JniHttpBridgeState * state = nullptr;
-    HttpBridgeStateNode * next = nullptr;
+    ve_tls_producer * producer;
+    JniHttpBridgeState * state;
+    HttpBridgeStateNode * next;
 };
 
 struct CallbackStateNode {
-    ve_tls_producer * producer = nullptr;
-    CallbackState * state = nullptr;
-    CallbackStateNode * next = nullptr;
+    ve_tls_producer * producer;
+    CallbackState * state;
+    CallbackStateNode * next;
 };
 
 ve_tls_producer * producer_from_handle(jlong producer_handle) {
@@ -269,7 +269,7 @@ void destroy_http_bridge_state(JniHttpBridgeState * state) {
         }
     }
     release_thread_env(&thread_env);
-    delete state;
+    std::free(state);
 }
 
 int remember_http_bridge_state(ve_tls_producer * producer, JniHttpBridgeState * state) {
@@ -331,7 +331,10 @@ JniHttpBridgeState * create_http_bridge_state(JNIEnv * env) {
         return nullptr;
     }
 
-    auto * state = new JniHttpBridgeState();
+    auto * state = static_cast<JniHttpBridgeState *>(std::calloc(1, sizeof(JniHttpBridgeState)));
+    if (state == nullptr) {
+        return nullptr;
+    }
 
     jclass local_bridge_class = env->FindClass("com/volcengine/tls/android/producer/internal/NativeHttpBridge");
     if (local_bridge_class == nullptr) {
@@ -430,7 +433,7 @@ void destroy_callback_state(CallbackState * state) {
         }
     }
     release_thread_env(&thread_env);
-    delete state;
+    std::free(state);
 }
 
 int remember_callback_state(ve_tls_producer * producer, CallbackState * state) {
@@ -493,7 +496,10 @@ CallbackState * create_callback_state(JNIEnv * env, jobject dispatcher) {
         return nullptr;
     }
 
-    auto * state = new CallbackState();
+    auto * state = static_cast<CallbackState *>(std::calloc(1, sizeof(CallbackState)));
+    if (state == nullptr) {
+        return nullptr;
+    }
     state->dispatcher = env->NewGlobalRef(dispatcher);
     if (state->dispatcher == nullptr) {
         destroy_callback_state(state);
