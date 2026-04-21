@@ -31,10 +31,10 @@ Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access 
 
 ## 选择指南（不同场景用哪个包）
 - 只需要发送日志（建议）
-  - 依赖 `io.github.volcengine-tls:tls-android-producer-native`
+  - 依赖 `io.github.volcengine-tls:tls-android-producer`
   - 使用 `LogProducerClient.addLog(Log)` / `destroyLogProducer()` 的正式 Producer 接口
 - 需要 native persistent / recover 能力
-  - 依赖 `io.github.volcengine-tls:tls-android-producer-native`
+  - 依赖 `io.github.volcengine-tls:tls-android-producer`
   - 适合需要与 `ve-tls-c-sdk` persistent 语义对齐的 Android SDK、宿主 App 和嵌入式 Android 场景
 - 需要完整管理能力（创建 Project/Topic/Index、检索等）
   - 依赖 `io.github.volcengine-tls:tls-android-full`（携带完整 Client API），自动依赖 `tls-android-core`
@@ -47,14 +47,14 @@ Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access 
 ```groovy
 dependencies {
   // native producer（推荐，正式 Producer 模块）
-  implementation 'io.github.volcengine-tls:tls-android-producer-native:2.0.4'
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
   // 如需完整能力（管理+发送）
   // implementation 'io.github.volcengine-tls:tls-android-full:2.0.4'
 }
 ```
 
 说明：
-- `tls-android-producer-native` / `tls-android-full` 会自动拉取 `tls-android-core`，无需手动声明 core。
+- `tls-android-producer` 不依赖 `tls-android-core`；`tls-android-full` 仍会自动拉取 `tls-android-core`。
 - 从 2.0.1 起已发布 Gradle Module Metadata（`.module`），Gradle/AGP 可直接解析到 AAR 变体，无需 `@aar`。
 - 如果你的 App 必须支持 `minSdk=16`：请使用 `2.0.4-api16`（兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）。
 
@@ -148,6 +148,12 @@ native API 参考：
 - [LogProducerConfig.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-native/src/main/java/com/volcengine/tls/android/producer/LogProducerConfig.java)
 - [LogProducerClient.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-native/src/main/java/com/volcengine/tls/android/producer/LogProducerClient.java)
 
+persistent 语义与 `ve-tls-c-sdk` 对齐：
+- 这是 **at-least-once** producer；进程崩溃、partial send、recover 边界允许少量重复，不承诺 exactly-once。
+- `success callback` 或应用侧观察到的发送成功，不等价于 persistent checkpoint 已 durable 落盘。
+- 如果业务不能接受重复，必须依赖业务主键或消费侧去重。
+- 重用同一 `persistentFilePath` 时应保持 `endpoint/region/topicId` 稳定；若目标身份变更，请切换到新的 persistent 目录。
+
 ### 方式 B：同步 Client API（完整能力）
 
 ```java
@@ -172,7 +178,7 @@ client.destroy();
   ```groovy
   dependencies {
     // native producer（推荐，正式 Producer 模块）
-    implementation 'io.github.volcengine-tls:tls-android-producer-native:2.0.4'
+    implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
     // 如需完整能力（管理+发送）
     // implementation 'io.github.volcengine-tls:tls-android-full:2.0.4'
   }
@@ -332,10 +338,10 @@ client.destroy();
 - 在服务端查询对应 `topicId` 的最新日志，确认字段（logTime/contents/group tags）与期望一致
 
 ## 本次更新与迁移指南（1.1.5 → 2.0.x）
-- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer-native:2.0.4`（正式 Producer 模块）或 `io.github.volcengine-tls:tls-android-full:2.0.4`（完整能力）。
+- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer:2.0.4`（正式 Producer 模块）或 `io.github.volcengine-tls:tls-android-full:2.0.4`（完整能力）。
 - API 迁移：Producer 发送从 `start()/close()/sendLog(Map)` 切换为 `LogProducerClient.addLog(Log)` / `destroyLogProducer()`
   - 入口：`Log` 承载内容与 `logTime`
-  - `producer-native` 公共 `CompressType` 仅支持 `NONE/LZ4`，默认 `LZ4`
+  - `producer` 公共 `CompressType` 仅支持 `NONE/LZ4`，默认 `LZ4`
   - 参考：
     - LogProducerClient.java：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-native/src/main/java/com/volcengine/tls/android/producer/LogProducerClient.java
     - LogProducerConfig.java：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-native/src/main/java/com/volcengine/tls/android/producer/LogProducerConfig.java
