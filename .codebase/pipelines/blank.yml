@@ -86,7 +86,7 @@ jobs:
             # ======================================
 
             cd /tmp/external-repo
-            git checkout main
+            git checkout sync-main
             git add -A
             git diff --staged --quiet || git commit -m "Sync from internal repo"
             git push origin HEAD
