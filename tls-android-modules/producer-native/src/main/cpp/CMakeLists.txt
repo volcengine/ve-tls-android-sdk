@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.18)
 project(tls_producer_native C CXX)
 
-set(VE_TLS_C_SDK_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../../../../ve-tls-c-sdk")
+if (NOT DEFINED VE_TLS_C_SDK_DIR OR "${VE_TLS_C_SDK_DIR}" STREQUAL "")
+  set(VE_TLS_C_SDK_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../../../../ve-tls-c-sdk")
+endif()
 
 if (NOT EXISTS "${VE_TLS_C_SDK_DIR}/CMakeLists.txt")
   message(FATAL_ERROR "Cannot find ve-tls-c-sdk at ${VE_TLS_C_SDK_DIR}")

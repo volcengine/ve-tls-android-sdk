@@ -4,16 +4,32 @@ plugins {
   id 'signing'
 }
 
+def minSdkValue = ((findProperty('MIN_SDK_OVERRIDE') ?: 19) as int)
+def legacyPublication = minSdkValue < 19
+def publicationArtifactId = legacyPublication ? "tls-android-producer-legacy${minSdkValue}" : 'tls-android-producer'
+def publicationName = publicationArtifactId
+def publicationDescription = legacyPublication
+        ? "Unsupported best-effort legacy minSdk ${minSdkValue} build of the VOLC Engine TLS Producer SDK for Android, for designated customer delivery only"
+        : 'VOLC Engine TLS Producer SDK for Android'
+def veTlsCSdkDir = findProperty('VE_TLS_C_SDK_DIR') ?: System.getenv('VE_TLS_C_SDK_DIR')
+
 android {
   namespace 'com.volcengine.tls.android.producer'
   compileSdk 34
+  buildFeatures {
+    buildConfig true
+  }
   defaultConfig {
-    minSdk ((findProperty('MIN_SDK_OVERRIDE') ?: 19) as int)
+    minSdk minSdkValue
     targetSdk 34
+    testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     consumerProguardFiles 'consumer-rules.pro'
     externalNativeBuild {
       cmake {
         cppFlags ''
+        if (veTlsCSdkDir != null && veTlsCSdkDir.toString().trim().length() > 0) {
+          arguments "-DVE_TLS_C_SDK_DIR=${veTlsCSdkDir}"
+        }
       }
     }
   }
@@ -45,6 +61,9 @@ android {
 }
 
 dependencies {
+  androidTestImplementation 'androidx.test:core:1.5.0'
+  androidTestImplementation 'androidx.test:runner:1.5.2'
+  androidTestImplementation 'junit:junit:4.13.2'
   testImplementation 'junit:junit:4.13.2'
 }
 
@@ -59,11 +78,11 @@ afterEvaluate {
       release(MavenPublication) {
         from components.release
         groupId = project.group
-        artifactId = 'tls-android-producer'
+        artifactId = publicationArtifactId
         version = project.version
         pom {
-          name = 'tls-android-producer'
-          description = 'VOLC Engine TLS Producer SDK for Android'
+          name = publicationName
+          description = publicationDescription
           url = 'https://github.com/volcengine/ve-tls-android-sdk'
           licenses {
             license {

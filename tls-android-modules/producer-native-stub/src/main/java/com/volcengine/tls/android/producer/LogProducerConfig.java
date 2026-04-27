@@ -18,7 +18,10 @@ public final class LogProducerConfig {
     private int packetLogCount = 1024;
     private int packetTimeoutMs = 3000;
     private int sendThreadCount = 1;
-    private int retryCount = 3;
+    private int retryMaxAttempts = 0;
+    private int retryTotalTimeoutMs = 90 * 1000;
+    private int retryInitialIntervalMs = 500;
+    private int retryMaxIntervalMs = 10 * 1000;
 
     public LogProducerConfig() {}
     public LogProducerConfig(Context context) { this(); }
@@ -45,6 +48,12 @@ public final class LogProducerConfig {
     public LogProducerConfig setPacketTimeoutMs(int packetTimeoutMs) { this.packetTimeoutMs = packetTimeoutMs; return this; }
     public int getSendThreadCount() { return sendThreadCount; }
     public LogProducerConfig setSendThreadCount(int sendThreadCount) { this.sendThreadCount = sendThreadCount; return this; }
-    public int getRetryCount() { return retryCount; }
-    public LogProducerConfig setRetryCount(int retryCount) { this.retryCount = retryCount; return this; }
+    public int getRetryMaxAttempts() { return retryMaxAttempts; }
+    public LogProducerConfig setRetryMaxAttempts(int retryMaxAttempts) { this.retryMaxAttempts = retryMaxAttempts; return this; }
+    public int getRetryTotalTimeoutMs() { return retryTotalTimeoutMs; }
+    public LogProducerConfig setRetryTotalTimeoutMs(int retryTotalTimeoutMs) { this.retryTotalTimeoutMs = retryTotalTimeoutMs; return this; }
+    public int getRetryInitialIntervalMs() { return retryInitialIntervalMs; }
+    public LogProducerConfig setRetryInitialIntervalMs(int retryInitialIntervalMs) { this.retryInitialIntervalMs = retryInitialIntervalMs; return this; }
+    public int getRetryMaxIntervalMs() { return retryMaxIntervalMs; }
+    public LogProducerConfig setRetryMaxIntervalMs(int retryMaxIntervalMs) { this.retryMaxIntervalMs = retryMaxIntervalMs; return this; }
 }

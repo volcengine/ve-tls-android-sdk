@@ -10,24 +10,11 @@ public final class NativeHttpResponse {
     private final int statusCode;
     private final Map<String, List<String>> headers;
     private final byte[] body;
-    private final int errorCode;
-    private final String errorMessage;
 
     public NativeHttpResponse(int statusCode, Map<String, List<String>> headers, byte[] body) {
-        this(statusCode, headers, body, 0, null);
-    }
-
-    public NativeHttpResponse(
-            int statusCode,
-            Map<String, List<String>> headers,
-            byte[] body,
-            int errorCode,
-            String errorMessage) {
         this.statusCode = statusCode;
         this.headers = copyHeaders(headers);
         this.body = body == null ? new byte[0] : body.clone();
-        this.errorCode = errorCode;
-        this.errorMessage = errorMessage;
     }
 
     public int getStatusCode() {
@@ -44,14 +31,6 @@ public final class NativeHttpResponse {
 
     public String getRequestId() {
         return getHeaderFirstIgnoreCase("x-tls-requestid", "x-request-id");
-    }
-
-    public int getErrorCode() {
-        return errorCode;
-    }
-
-    public String getErrorMessage() {
-        return errorMessage;
     }
 
     private static Map<String, List<String>> copyHeaders(Map<String, List<String>> source) {

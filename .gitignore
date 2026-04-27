@@ -12,6 +12,7 @@
 **/build/
 **/captures/
 **/.externalNativeBuild/
+**/.cxx/
 **/outputs/
 *.log
 **/build_*/

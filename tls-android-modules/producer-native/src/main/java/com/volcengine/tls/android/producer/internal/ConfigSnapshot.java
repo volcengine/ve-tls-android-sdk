@@ -18,7 +18,10 @@ public final class ConfigSnapshot {
     private final int packetTimeoutMs;
     private final int maxBufferLimit;
     private final int sendThreadCount;
-    private final int retryCount;
+    private final int retryMaxAttempts;
+    private final int retryTotalTimeoutMs;
+    private final int retryInitialIntervalMs;
+    private final int retryMaxIntervalMs;
     private final boolean persistent;
     private final String persistentFilePath;
     private final boolean persistentForceFlush;
@@ -33,11 +36,11 @@ public final class ConfigSnapshot {
     private final boolean destroyWaitSplitConfigured;
     private final boolean callbackFromSenderThread;
     private final boolean enableTimeNs;
-    private final boolean hasSourceConfig;
+    private final String[] tagKeys;
+    private final String[] tagValues;
 
     public ConfigSnapshot(LogProducerConfig sourceConfig, String processName) {
         if (sourceConfig == null) {
-            this.hasSourceConfig = false;
             this.endpoint = null;
             this.region = null;
             this.projectId = null;
@@ -52,7 +55,10 @@ public final class ConfigSnapshot {
             this.packetLogCount = 0;
             this.packetTimeoutMs = 0;
             this.maxBufferLimit = 0;
-            this.retryCount = 0;
+            this.retryMaxAttempts = 0;
+            this.retryTotalTimeoutMs = 0;
+            this.retryInitialIntervalMs = 0;
+            this.retryMaxIntervalMs = 0;
             this.sendThreadCount = 0;
             this.persistent = false;
             this.persistentFilePath = null;
@@ -68,10 +74,11 @@ public final class ConfigSnapshot {
             this.destroyWaitSplitConfigured = false;
             this.callbackFromSenderThread = false;
             this.enableTimeNs = false;
+            this.tagKeys = new String[0];
+            this.tagValues = new String[0];
             return;
         }
 
-        this.hasSourceConfig = true;
         this.endpoint = sourceConfig.getEndpoint();
         this.region = sourceConfig.getRegion();
         this.projectId = sourceConfig.getProjectId();
@@ -86,6 +93,10 @@ public final class ConfigSnapshot {
         this.packetLogCount = sourceConfig.getPacketLogCount();
         this.packetTimeoutMs = sourceConfig.getPacketTimeoutMs();
         this.maxBufferLimit = sourceConfig.getMaxBufferLimit();
+        this.retryMaxAttempts = sourceConfig.getRetryMaxAttempts();
+        this.retryTotalTimeoutMs = sourceConfig.getRetryTotalTimeoutMs();
+        this.retryInitialIntervalMs = sourceConfig.getRetryInitialIntervalMs();
+        this.retryMaxIntervalMs = sourceConfig.getRetryMaxIntervalMs();
         this.persistent = sourceConfig.isPersistent();
         this.persistentFilePath = this.persistent
                 ? ProcessUtil.rewritePersistentPath(sourceConfig.getPersistentFilePath(), processName)
@@ -94,7 +105,6 @@ public final class ConfigSnapshot {
         this.persistentMaxFileCount = sourceConfig.getPersistentMaxFileCount();
         this.persistentMaxFileSize = sourceConfig.getPersistentMaxFileSize();
         this.persistentMaxLogCount = sourceConfig.getPersistentMaxLogCount();
-        this.retryCount = sourceConfig.getRetryCount();
         this.connectTimeoutMs = sourceConfig.getConnectTimeoutMs();
         this.requestTimeoutMs = sourceConfig.getRequestTimeoutMs();
         this.destroyWaitMs = sourceConfig.isDestroyWaitSplitConfigured() ? 0 : sourceConfig.getDestroyWaitMs();
@@ -104,47 +114,12 @@ public final class ConfigSnapshot {
         this.callbackFromSenderThread = sourceConfig.isCallbackFromSenderThread();
         this.enableTimeNs = sourceConfig.isEnableTimeNs();
         this.sendThreadCount = this.persistent ? 1 : sourceConfig.getSendThreadCount();
-    }
-
-    public LogProducerConfig toConfig() {
-        if (!hasSourceConfig) {
-            return null;
+        this.tagKeys = new String[sourceConfig.getTagCount()];
+        this.tagValues = new String[sourceConfig.getTagCount()];
+        for (int i = 0; i < tagKeys.length; i++) {
+            tagKeys[i] = sourceConfig.getTagKey(i);
+            tagValues[i] = sourceConfig.getTagValue(i);
         }
-
-        LogProducerConfig config = new LogProducerConfig()
-                .setEndpoint(endpoint)
-                .setRegion(region)
-                .setProjectId(projectId)
-                .setTopicId(topicId)
-                .setAccessKeyId(accessKeyId)
-                .setAccessKeySecret(accessKeySecret)
-                .setSecurityToken(securityToken)
-                .setHashKey(hashKey)
-                .setSource(source)
-                .setCompressType(compressType)
-                .setPacketLogBytes(packetLogBytes)
-                .setPacketLogCount(packetLogCount)
-                .setPacketTimeoutMs(packetTimeoutMs)
-                .setMaxBufferLimit(maxBufferLimit)
-                .setSendThreadCount(sendThreadCount)
-                .setRetryCount(retryCount)
-                .setPersistent(persistent)
-                .setPersistentFilePath(persistentFilePath)
-                .setPersistentForceFlush(persistentForceFlush)
-                .setPersistentMaxFileCount(persistentMaxFileCount)
-                .setPersistentMaxFileSize(persistentMaxFileSize)
-                .setPersistentMaxLogCount(persistentMaxLogCount)
-                .setConnectTimeoutMs(connectTimeoutMs)
-                .setRequestTimeoutMs(requestTimeoutMs)
-                .setCallbackFromSenderThread(callbackFromSenderThread)
-                .setEnableTimeNs(enableTimeNs);
-        if (destroyWaitSplitConfigured) {
-            config.setDestroyFlusherWaitMs(destroyFlusherWaitMs);
-            config.setDestroySenderWaitMs(destroySenderWaitMs);
-        } else {
-            config.setDestroyWaitMs(destroyWaitMs);
-        }
-        return config;
     }
 
     public int getSendThreadCount() {
@@ -152,9 +127,6 @@ public final class ConfigSnapshot {
     }
 
     public int getDestroyWaitMs() {
-        if (destroyWaitSplitConfigured) {
-            return destroyFlusherWaitMs + destroySenderWaitMs;
-        }
         return destroyWaitMs;
     }
 
@@ -172,5 +144,153 @@ public final class ConfigSnapshot {
 
     public String getPersistentFilePath() {
         return persistentFilePath;
+    }
+
+    public int getTagCount() {
+        return tagKeys.length;
+    }
+
+    public String getTagKey(int index) {
+        return tagKeys[index];
+    }
+
+    public String getTagValue(int index) {
+        return tagValues[index];
+    }
+
+    public String getEndpoint() {
+        return endpoint;
+    }
+
+    public String getRegion() {
+        return region;
+    }
+
+    public String getProjectId() {
+        return projectId;
+    }
+
+    public String getTopicId() {
+        return topicId;
+    }
+
+    public String getAccessKeyId() {
+        return accessKeyId;
+    }
+
+    public String getAccessKeySecret() {
+        return accessKeySecret;
+    }
+
+    public String getSecurityToken() {
+        return securityToken;
+    }
+
+    public String getHashKey() {
+        return hashKey;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public LogProducerConfig.CompressType getCompressType() {
+        return compressType;
+    }
+
+    public int getPacketLogBytes() {
+        return packetLogBytes;
+    }
+
+    public int getPacketLogCount() {
+        return packetLogCount;
+    }
+
+    public int getPacketTimeoutMs() {
+        return packetTimeoutMs;
+    }
+
+    public int getMaxBufferLimit() {
+        return maxBufferLimit;
+    }
+
+    public int getRetryMaxAttempts() {
+        return retryMaxAttempts;
+    }
+
+    public int getRetryTotalTimeoutMs() {
+        return retryTotalTimeoutMs;
+    }
+
+    public int getRetryInitialIntervalMs() {
+        return retryInitialIntervalMs;
+    }
+
+    public int getRetryMaxIntervalMs() {
+        return retryMaxIntervalMs;
+    }
+
+    public boolean isPersistent() {
+        return persistent;
+    }
+
+    public boolean isPersistentForceFlush() {
+        return persistentForceFlush;
+    }
+
+    public int getPersistentMaxFileCount() {
+        return persistentMaxFileCount;
+    }
+
+    public int getPersistentMaxFileSize() {
+        return persistentMaxFileSize;
+    }
+
+    public int getPersistentMaxLogCount() {
+        return persistentMaxLogCount;
+    }
+
+    public int getConnectTimeoutMs() {
+        return connectTimeoutMs;
+    }
+
+    public int getRequestTimeoutMs() {
+        return requestTimeoutMs;
+    }
+
+    public boolean isCallbackFromSenderThread() {
+        return callbackFromSenderThread;
+    }
+
+    public boolean isEnableTimeNs() {
+        return enableTimeNs;
+    }
+
+    public void validateForCreate() {
+        requireNonBlank(endpoint, "endpoint is required");
+        requireNonBlank(region, "region is required");
+        requireNonBlank(topicId, "topicId is required");
+        if (sendThreadCount <= 0) {
+            throw new IllegalArgumentException("sendThreadCount must be > 0");
+        }
+        if (retryTotalTimeoutMs <= 0) {
+            throw new IllegalArgumentException("retryTotalTimeoutMs must be > 0");
+        }
+        if (retryMaxIntervalMs < retryInitialIntervalMs) {
+            throw new IllegalArgumentException("retryMaxIntervalMs must be >= retryInitialIntervalMs");
+        }
+        if (persistent && isBlank(persistentFilePath)) {
+            throw new IllegalArgumentException("persistent mode requires persistentFilePath");
+        }
+    }
+
+    private static void requireNonBlank(String value, String message) {
+        if (isBlank(value)) {
+            throw new IllegalArgumentException(message);
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

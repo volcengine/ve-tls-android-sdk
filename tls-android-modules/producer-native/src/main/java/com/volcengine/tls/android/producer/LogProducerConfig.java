@@ -2,6 +2,8 @@ package com.volcengine.tls.android.producer;
 
 import android.content.Context;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public final class LogProducerConfig {
@@ -9,6 +11,16 @@ public final class LogProducerConfig {
         NONE,
         LZ4
     }
+
+    private static final int RETRY_MAX_ATTEMPTS_MIN = 0;
+    private static final int RETRY_MAX_ATTEMPTS_MAX = 50;
+    private static final int RETRY_TOTAL_TIMEOUT_MS_DEFAULT = 90 * 1000;
+    private static final int RETRY_INITIAL_INTERVAL_MS_DEFAULT = 500;
+    private static final int RETRY_MAX_INTERVAL_MS_DEFAULT = 10 * 1000;
+    private static final int RETRY_INITIAL_INTERVAL_MS_MIN = 100;
+    private static final int RETRY_INITIAL_INTERVAL_MS_MAX = 30 * 1000;
+    private static final int RETRY_MAX_INTERVAL_MS_MIN = 1000;
+    private static final int RETRY_MAX_INTERVAL_MS_MAX = 60 * 1000;
 
     private String endpoint;
     private String region;
@@ -25,7 +37,10 @@ public final class LogProducerConfig {
     private int packetTimeoutMs = 3000;
     private int maxBufferLimit = 64 * 1024 * 1024;
     private int sendThreadCount = 1;
-    private int retryCount = 3;
+    private int retryMaxAttempts;
+    private int retryTotalTimeoutMs = RETRY_TOTAL_TIMEOUT_MS_DEFAULT;
+    private int retryInitialIntervalMs = RETRY_INITIAL_INTERVAL_MS_DEFAULT;
+    private int retryMaxIntervalMs = RETRY_MAX_INTERVAL_MS_DEFAULT;
     private boolean persistent;
     private String persistentFilePath;
     private boolean persistentForceFlush;
@@ -40,11 +55,19 @@ public final class LogProducerConfig {
     private boolean destroyWaitSplitConfigured;
     private boolean callbackFromSenderThread;
     private boolean enableTimeNs;
+    private final List<String> tagKeys = new ArrayList<>();
+    private final List<String> tagValues = new ArrayList<>();
     private boolean frozen;
 
     public LogProducerConfig() {
     }
 
+    /**
+     * Compatibility-only constructor. It does not derive a default persistent path from
+     * {@link Context}; call {@link #setPersistentFilePath(String)} explicitly before enabling
+     * persistent mode.
+     */
+    @Deprecated
     public LogProducerConfig(Context context) {
         this();
     }
@@ -68,14 +91,32 @@ public final class LogProducerConfig {
         this.securityToken = securityToken;
     }
 
+    /**
+     * Compatibility-only constructor. It does not derive a default persistent path from
+     * {@link Context}; call {@link #setPersistentFilePath(String)} explicitly before enabling
+     * persistent mode.
+     */
+    @Deprecated
     public LogProducerConfig(Context context, String endpoint, String region, String projectId, String topicId) {
         this(endpoint, region, projectId, topicId);
     }
 
+    /**
+     * Compatibility-only constructor. It does not derive a default persistent path from
+     * {@link Context}; call {@link #setPersistentFilePath(String)} explicitly before enabling
+     * persistent mode.
+     */
+    @Deprecated
     public LogProducerConfig(Context context, String endpoint, String region, String projectId, String topicId, String accessKeyId, String accessKeySecret) {
         this(endpoint, region, projectId, topicId, accessKeyId, accessKeySecret);
     }
 
+    /**
+     * Compatibility-only constructor. It does not derive a default persistent path from
+     * {@link Context}; call {@link #setPersistentFilePath(String)} explicitly before enabling
+     * persistent mode.
+     */
+    @Deprecated
     public LogProducerConfig(Context context, String endpoint, String region, String projectId, String topicId, String accessKeyId, String accessKeySecret, String securityToken) {
         this(endpoint, region, projectId, topicId, accessKeyId, accessKeySecret, securityToken);
     }
@@ -256,13 +297,57 @@ public final class LogProducerConfig {
         return this;
     }
 
-    public int getRetryCount() {
-        return retryCount;
+    public int getRetryMaxAttempts() {
+        return retryMaxAttempts;
     }
 
-    public LogProducerConfig setRetryCount(int retryCount) {
+    public LogProducerConfig setRetryMaxAttempts(int retryMaxAttempts) {
         ensureMutable();
-        this.retryCount = retryCount;
+        if (retryMaxAttempts < RETRY_MAX_ATTEMPTS_MIN || retryMaxAttempts > RETRY_MAX_ATTEMPTS_MAX) {
+            throw new IllegalArgumentException("retryMaxAttempts must be in [0, 50]");
+        }
+        this.retryMaxAttempts = retryMaxAttempts;
+        return this;
+    }
+
+    public int getRetryTotalTimeoutMs() {
+        return retryTotalTimeoutMs;
+    }
+
+    public LogProducerConfig setRetryTotalTimeoutMs(int retryTotalTimeoutMs) {
+        ensureMutable();
+        if (retryTotalTimeoutMs <= 0) {
+            throw new IllegalArgumentException("retryTotalTimeoutMs must be > 0");
+        }
+        this.retryTotalTimeoutMs = retryTotalTimeoutMs;
+        return this;
+    }
+
+    public int getRetryInitialIntervalMs() {
+        return retryInitialIntervalMs;
+    }
+
+    public LogProducerConfig setRetryInitialIntervalMs(int retryInitialIntervalMs) {
+        ensureMutable();
+        if (retryInitialIntervalMs < RETRY_INITIAL_INTERVAL_MS_MIN
+                || retryInitialIntervalMs > RETRY_INITIAL_INTERVAL_MS_MAX) {
+            throw new IllegalArgumentException("retryInitialIntervalMs must be in [100, 30000]");
+        }
+        this.retryInitialIntervalMs = retryInitialIntervalMs;
+        return this;
+    }
+
+    public int getRetryMaxIntervalMs() {
+        return retryMaxIntervalMs;
+    }
+
+    public LogProducerConfig setRetryMaxIntervalMs(int retryMaxIntervalMs) {
+        ensureMutable();
+        if (retryMaxIntervalMs < RETRY_MAX_INTERVAL_MS_MIN
+                || retryMaxIntervalMs > RETRY_MAX_INTERVAL_MS_MAX) {
+            throw new IllegalArgumentException("retryMaxIntervalMs must be in [1000, 60000]");
+        }
+        this.retryMaxIntervalMs = retryMaxIntervalMs;
         return this;
     }
 
@@ -280,6 +365,13 @@ public final class LogProducerConfig {
         return persistentFilePath;
     }
 
+    /**
+     * Sets the directory used for local persistent files.
+     * Reusing one persistent path across restarts is allowed, but callers should keep
+     * {@code endpoint/region/topicId} stable for that path. If the send target changes,
+     * switch to a new persistent path; otherwise backlog recovered from the old path may
+     * be sent to the new target.
+     */
     public LogProducerConfig setPersistentFilePath(String persistentFilePath) {
         ensureMutable();
         this.persistentFilePath = persistentFilePath;
@@ -347,9 +439,6 @@ public final class LogProducerConfig {
     }
 
     public int getDestroyWaitMs() {
-        if (destroyWaitSplitConfigured) {
-            return destroyFlusherWaitMs + destroySenderWaitMs;
-        }
         return destroyWaitMs;
     }
 
@@ -410,7 +499,24 @@ public final class LogProducerConfig {
 
     public LogProducerConfig addTag(String key, String value) {
         ensureMutable();
+        if (key == null || value == null) {
+            throw new IllegalArgumentException("tag key and value cannot be null");
+        }
+        tagKeys.add(key);
+        tagValues.add(value);
         return this;
+    }
+
+    public int getTagCount() {
+        return tagKeys.size();
+    }
+
+    public String getTagKey(int index) {
+        return tagKeys.get(index);
+    }
+
+    public String getTagValue(int index) {
+        return tagValues.get(index);
     }
 
     public LogProducerConfig freeze() {
@@ -428,13 +534,65 @@ public final class LogProducerConfig {
         }
     }
 
+    void validateForCreate(String processName) {
+        requireNonBlank(endpoint, "endpoint is required");
+        requireNonBlank(region, "region is required");
+        requireNonBlank(topicId, "topicId is required");
+        if (sendThreadCount <= 0) {
+            throw new IllegalArgumentException("sendThreadCount must be > 0");
+        }
+        if (retryTotalTimeoutMs <= 0) {
+            throw new IllegalArgumentException("retryTotalTimeoutMs must be > 0");
+        }
+        if (retryInitialIntervalMs < RETRY_INITIAL_INTERVAL_MS_MIN
+                || retryInitialIntervalMs > RETRY_INITIAL_INTERVAL_MS_MAX) {
+            throw new IllegalArgumentException("retryInitialIntervalMs must be in [100, 30000]");
+        }
+        if (retryMaxIntervalMs < RETRY_MAX_INTERVAL_MS_MIN
+                || retryMaxIntervalMs > RETRY_MAX_INTERVAL_MS_MAX) {
+            throw new IllegalArgumentException("retryMaxIntervalMs must be in [1000, 60000]");
+        }
+        if (retryMaxAttempts < RETRY_MAX_ATTEMPTS_MIN || retryMaxAttempts > RETRY_MAX_ATTEMPTS_MAX) {
+            throw new IllegalArgumentException("retryMaxAttempts must be in [0, 50]");
+        }
+        if (retryMaxIntervalMs < retryInitialIntervalMs) {
+            throw new IllegalArgumentException("retryMaxIntervalMs must be >= retryInitialIntervalMs");
+        }
+        if (persistent) {
+            requireNonBlank(persistentFilePath, "persistent mode requires persistentFilePath");
+            if (isBlank(processName)) {
+                throw new IllegalStateException("persistent mode requires resolvable process identity");
+            }
+        }
+    }
+
     public boolean isValid() {
-        return endpoint != null && !endpoint.trim().isEmpty() &&
-                region != null && !region.trim().isEmpty() &&
-                topicId != null && !topicId.trim().isEmpty();
+        return !isBlank(endpoint)
+                && !isBlank(region)
+                && !isBlank(topicId)
+                && sendThreadCount > 0
+                && retryTotalTimeoutMs > 0
+                && retryInitialIntervalMs >= RETRY_INITIAL_INTERVAL_MS_MIN
+                && retryInitialIntervalMs <= RETRY_INITIAL_INTERVAL_MS_MAX
+                && retryMaxIntervalMs >= RETRY_MAX_INTERVAL_MS_MIN
+                && retryMaxIntervalMs <= RETRY_MAX_INTERVAL_MS_MAX
+                && retryMaxIntervalMs >= retryInitialIntervalMs
+                && retryMaxAttempts >= RETRY_MAX_ATTEMPTS_MIN
+                && retryMaxAttempts <= RETRY_MAX_ATTEMPTS_MAX
+                && (!persistent || !isBlank(persistentFilePath));
     }
 
     public boolean isEnabled() {
         return isValid();
+    }
+
+    private static void requireNonBlank(String value, String message) {
+        if (isBlank(value)) {
+            throw new IllegalArgumentException(message);
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

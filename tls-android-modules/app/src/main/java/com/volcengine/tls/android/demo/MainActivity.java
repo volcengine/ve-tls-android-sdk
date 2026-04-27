@@ -1,6 +1,7 @@
 package com.volcengine.tls.android.demo;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -97,6 +98,24 @@ public class MainActivity extends Activity {
             }
         });
 
+        Button configBtn = new Button(this);
+        configBtn.setText("Open Config");
+        configBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openConfigPage();
+            }
+        });
+
+        Button formalBtn = new Button(this);
+        formalBtn.setText("Open Formal Benchmark");
+        formalBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openFormalBenchmarkPage();
+            }
+        });
+
         logView = new TextView(this);
         logView.setText("Ready");
         logView.setPadding(0, 50, 0, 0);
@@ -106,6 +125,8 @@ public class MainActivity extends Activity {
 
         layout.addView(startBtn);
         layout.addView(stopBtn);
+        layout.addView(configBtn);
+        layout.addView(formalBtn);
         layout.addView(logView);
         setContentView(layout);
     }
@@ -123,8 +144,9 @@ public class MainActivity extends Activity {
         String token = ConfigLoader.get(props, "token");
         String compress = ConfigLoader.get(props, "compress");
         if (compress == null || compress.length() == 0) compress = "lz4";
-        if (endPoint == null || region == null || ak == null || sk == null || ConfigLoader.get(props, "topicId") == null) {
+        if (!ConfigLoader.hasRequiredConfig(props)) {
             appendLog("Missing config: endPoint/region/ak/sk/topicId");
+            openConfigPage();
             return;
         }
         appendLog("Config endPoint=" + endPoint);
@@ -134,7 +156,7 @@ public class MainActivity extends Activity {
         appendLog("Config ak=" + maskSecret(ak));
         appendLog("Config sk=" + maskSecret(sk));
         appendLog("Config token=" + (token == null || token.isEmpty() ? "" : maskSecret(token)));
-        appendLog("Config sendThreadCount=1 retryCount=3");
+        appendLog("Config sendThreadCount=1 retryMaxAttempts=3");
 
         try {
             if (producerClient == null) {
@@ -148,7 +170,7 @@ public class MainActivity extends Activity {
                         .setTopicId(ConfigLoader.get(props, "topicId"))
                         .setCompressType(compressType)
                         .setSendThreadCount(1)
-                        .setRetryCount(3);
+                        .setRetryMaxAttempts(3);
                 producerClient = new LogProducerClient(config, result -> {
                     long index = pendingIndex.get();
                     if (result.isSuccess()) {
@@ -208,6 +230,14 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         stopLogging();
+    }
+
+    private void openConfigPage() {
+        startActivity(new Intent(this, ConfigActivity.class));
+    }
+
+    private void openFormalBenchmarkPage() {
+        startActivity(new Intent(this, FormalBenchmarkActivity.class));
     }
 
     private static LogProducerConfig.CompressType parseCompressType(String compress) {

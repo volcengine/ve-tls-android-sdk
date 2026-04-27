@@ -1,14 +1,19 @@
 package com.volcengine.tls.android.producer;
 
 import com.volcengine.tls.android.producer.internal.NativeProducerBridge;
+import com.volcengine.tls.android.producer.internal.ConfigSnapshot;
 
 import org.junit.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.lang.reflect.Method;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertThrows;
@@ -35,7 +40,7 @@ public class LogProducerClientBridgeTest {
         LogProducerClient client = LogProducerClient.forTest(config, bridge, "demo:push");
         client.addLog(new Log());
         assertEquals(1, bridge.createCalls);
-        assertNotSame(config, bridge.createInputConfig);
+        assertNotSame(config, bridge.createInputSnapshot);
         assertTrue(bridge.lastCreatePath.contains("demo_push"));
         assertEquals(1, bridge.lastSendThreadCount);
         assertEquals("/data/user/0/demo/files/tls/producer", config.getPersistentFilePath());
@@ -49,7 +54,8 @@ public class LogProducerClientBridgeTest {
                 .setRegion("cn-beijing")
                 .setProjectId("project-id")
                 .setTopicId("topic-id")
-                .setPersistent(true);
+                .setPersistent(true)
+                .setPersistentFilePath("/data/user/0/demo/files/tls/producer");
 
         FakeBridge bridge = new FakeBridge();
         LogProducerClient client = LogProducerClient.forTest(config, bridge, "demo");
@@ -57,12 +63,15 @@ public class LogProducerClientBridgeTest {
         assertThrows(IllegalStateException.class, () -> config.setPersistent(false));
 
         client.addLog(new Log());
-        assertTrue(bridge.createInputConfig.isPersistent());
+        assertTrue(bridge.createInputSnapshot.isPersistent());
     }
 
     @Test
     public void create_doesNotRewritePersistentPathForMainProcess() {
         LogProducerConfig config = new LogProducerConfig()
+                .setEndpoint("https://tls-cn-beijing.volces.com")
+                .setRegion("cn-beijing")
+                .setTopicId("topic-id")
                 .setPersistent(true)
                 .setPersistentFilePath("/data/user/0/demo/files/tls/producer")
                 .setSendThreadCount(8);
@@ -73,6 +82,28 @@ public class LogProducerClientBridgeTest {
         client.addLog(new Log());
         assertEquals("/data/user/0/demo/files/tls/producer", bridge.lastCreatePath);
         assertEquals(1, bridge.lastSendThreadCount);
+    }
+
+    @Test
+    public void create_passesTagOrderAndDuplicatesToSnapshot() {
+        LogProducerConfig config = new LogProducerConfig()
+                .setEndpoint("https://tls-cn-beijing.volces.com")
+                .setRegion("cn-beijing")
+                .setProjectId("project-id")
+                .setTopicId("topic-id")
+                .addTag("region", "cn-beijing")
+                .addTag("region", "cn-shanghai")
+                .addTag("role", "producer");
+
+        FakeBridge bridge = new FakeBridge();
+        LogProducerClient client = LogProducerClient.forTest(config, bridge, "demo");
+        client.addLog(new Log());
+
+        assertEquals(3, bridge.lastTagCount);
+        assertArrayEquals(new String[]{"region", "region", "role"}, bridge.lastTagKeys);
+        assertArrayEquals(new String[]{"cn-beijing", "cn-shanghai", "producer"}, bridge.lastTagValues);
+        assertEquals("region", bridge.createInputSnapshot.getTagKey(1));
+        assertEquals("cn-shanghai", bridge.createInputSnapshot.getTagValue(1));
     }
 
     @Test
@@ -101,27 +132,40 @@ public class LogProducerClientBridgeTest {
     @Test
     public void destroyLogProducer_rejectsAddLog() {
         FakeBridge bridge = new FakeBridge();
-        LogProducerClient client = LogProducerClient.forTest(new LogProducerConfig(), bridge, "demo");
+        LogProducerClient client = LogProducerClient.forTest(baseValidConfig(), bridge, "demo");
 
         client.destroyLogProducer();
-        assertEquals(1, bridge.destroyAsyncCalls);
+        assertEquals(0, bridge.destroyCalls);
 
         assertThrows(IllegalStateException.class, () -> client.addLog(new Log()));
+    }
+
+    @Test
+    public void destroyLogProducer_rejectsUpdateEndpointAndResetSecurityToken() {
+        FakeBridge bridge = new FakeBridge();
+        LogProducerClient client = LogProducerClient.forTest(baseValidConfig(), bridge, "demo");
+
+        client.destroyLogProducer();
+
+        assertThrows(IllegalStateException.class, () -> client.updateEndpoint("e", "r", "t"));
+        assertThrows(IllegalStateException.class, () -> client.resetSecurityToken("ak", "sk", "token"));
     }
 
     @Test
     public void destroyLogProducer_prefersSplitWaitsWhenConfigured() {
         FakeBridge bridge = new FakeBridge();
         LogProducerClient client = LogProducerClient.forTest(
-                new LogProducerConfig()
+                baseValidConfig()
                         .setDestroyFlusherWaitMs(2)
                         .setDestroySenderWaitMs(3),
                 bridge,
                 "demo");
 
+        client.addLog(new Log());
         client.destroyLogProducer();
+        assertTrue(awaitDestroy(client, 1000));
 
-        assertEquals(1, bridge.destroyAsyncCalls);
+        assertEquals(1, bridge.destroyCalls);
         assertTrue(bridge.destroyWaitSplitEnabled);
         assertEquals(0, bridge.destroyWaitMs);
         assertEquals(2, bridge.destroyFlusherWaitMs);
@@ -131,7 +175,7 @@ public class LogProducerClientBridgeTest {
     @Test
     public void concurrentFirstAccess_createsProducerOnlyOnce() throws Exception {
         BlockingCreateBridge bridge = new BlockingCreateBridge();
-        LogProducerClient client = LogProducerClient.forTest(new LogProducerConfig(), bridge, "demo");
+        LogProducerClient client = LogProducerClient.forTest(baseValidConfig(), bridge, "demo");
         CountDownLatch start = new CountDownLatch(1);
 
         Thread first = new Thread(() -> awaitAndRun(start, () -> client.updateEndpoint("e1", "r1", "t1")));
@@ -157,7 +201,7 @@ public class LogProducerClientBridgeTest {
     public void destroyLogProducer_waitsForInflightBridgeCall() throws Exception {
         BlockingUpdateBridge bridge = new BlockingUpdateBridge();
         LogProducerClient client = LogProducerClient.forTest(
-                new LogProducerConfig().setDestroyWaitMs(1),
+                baseValidConfig().setDestroyWaitMs(1),
                 bridge,
                 "demo");
         client.addLog(new Log());
@@ -176,12 +220,53 @@ public class LogProducerClientBridgeTest {
         bridge.releaseUpdate.countDown();
         updateThread.join(1000);
         destroyThread.join(1000);
+        assertTrue(awaitDestroy(client, 1000));
 
-        assertEquals(1, bridge.destroyAsyncCalls);
+        assertEquals(1, bridge.destroyCalls);
         assertFalse(bridge.destroyWaitSplitEnabled);
         assertEquals(1, bridge.destroyWaitMs);
         assertEquals(0, bridge.destroyFlusherWaitMs);
         assertEquals(0, bridge.destroySenderWaitMs);
+    }
+
+    @Test
+    public void createFailure_locksClientAndPreservesOriginalReason() {
+        CreateFailingBridge bridge = new CreateFailingBridge();
+        LogProducerClient client = LogProducerClient.forTest(baseValidConfig(), bridge, "demo");
+
+        IllegalStateException first = assertThrows(IllegalStateException.class, () -> client.addLog(new Log()));
+        IllegalStateException second = assertThrows(IllegalStateException.class, () -> client.updateEndpoint("e", "r", "t"));
+        IllegalStateException third = assertThrows(IllegalStateException.class, () -> client.resetSecurityToken("ak", "sk", "token"));
+
+        assertEquals("main-thread callback mode unavailable", first.getMessage());
+        assertEquals("main-thread callback mode unavailable", second.getMessage());
+        assertEquals("main-thread callback mode unavailable", third.getMessage());
+        assertEquals(1, bridge.createCalls);
+    }
+
+    @Test
+    public void destroyLogProducer_awaitDestroyReturnsWithinTimeoutAndUsesNonDaemonWorker() throws Exception {
+        BlockingDestroyBridge bridge = new BlockingDestroyBridge();
+        LogProducerClient client = LogProducerClient.forTest(
+                baseValidConfig().setDestroyFlusherWaitMs(2).setDestroySenderWaitMs(3),
+                bridge,
+                "demo");
+        client.addLog(new Log());
+
+        client.destroyLogProducer();
+        assertTrue(bridge.destroyEntered.await(1, TimeUnit.SECONDS));
+        assertFalse(bridge.destroyThreadDaemon);
+        String stderr = captureStderr(() -> assertFalse(awaitDestroy(client, 50)));
+        assertTrue(stderr.contains("destroy wait timed out after 50ms"));
+
+        bridge.releaseDestroy.countDown();
+
+        assertTrue(awaitDestroy(client, 1000));
+        assertEquals(1, bridge.destroyCalls);
+        assertTrue(bridge.destroyWaitSplitEnabled);
+        assertEquals(0, bridge.destroyWaitMs);
+        assertEquals(2, bridge.destroyFlusherWaitMs);
+        assertEquals(3, bridge.destroySenderWaitMs);
     }
 
     private static void awaitAndRun(CountDownLatch start, Runnable action) {
@@ -193,13 +278,48 @@ public class LogProducerClientBridgeTest {
         }
     }
 
+    private static boolean awaitDestroy(LogProducerClient client, long timeoutMs) {
+        try {
+            Method method = LogProducerClient.class.getDeclaredMethod("awaitDestroy", long.class);
+            method.setAccessible(true);
+            return (Boolean) method.invoke(client, timeoutMs);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static String captureStderr(Runnable action) {
+        PrintStream original = System.err;
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        PrintStream capture = new PrintStream(buffer, true);
+        try {
+            System.setErr(capture);
+            action.run();
+            capture.flush();
+            return buffer.toString();
+        } finally {
+            System.setErr(original);
+            capture.close();
+        }
+    }
+
+    private static LogProducerConfig baseValidConfig() {
+        return new LogProducerConfig()
+                .setEndpoint("https://tls-cn-beijing.volces.com")
+                .setRegion("cn-beijing")
+                .setTopicId("topic-id");
+    }
+
     private static class FakeBridge implements NativeProducerBridge {
         protected int createCalls;
         private long lastCreateHandle;
         private String lastCreatePath;
         private int lastSendThreadCount;
-        private LogProducerConfig createInputConfig;
-        protected long destroyAsyncCalls;
+        private ConfigSnapshot createInputSnapshot;
+        private int lastTagCount;
+        private String[] lastTagKeys;
+        private String[] lastTagValues;
+        protected long destroyCalls;
         protected int destroyWaitMs;
         protected int destroyFlusherWaitMs;
         protected int destroySenderWaitMs;
@@ -212,11 +332,18 @@ public class LogProducerClientBridgeTest {
         private String lastSecurityToken;
 
         @Override
-        public long create(LogProducerConfig config, LogProducerCallback callback) {
+        public long create(ConfigSnapshot config, LogProducerCallback callback) {
             createCalls++;
-            createInputConfig = config;
+            createInputSnapshot = config;
             lastCreatePath = config.getPersistentFilePath();
             lastSendThreadCount = config.getSendThreadCount();
+            lastTagCount = config.getTagCount();
+            lastTagKeys = new String[lastTagCount];
+            lastTagValues = new String[lastTagCount];
+            for (int i = 0; i < lastTagCount; i++) {
+                lastTagKeys[i] = config.getTagKey(i);
+                lastTagValues[i] = config.getTagValue(i);
+            }
             lastCreateHandle = 1000L + createCalls;
             return lastCreateHandle;
         }
@@ -247,17 +374,13 @@ public class LogProducerClientBridgeTest {
 
         @Override
         public void destroy(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled) {
-            // no-op
-        }
-
-        @Override
-        public void destroyAsync(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled) {
-            destroyAsyncCalls++;
+            destroyCalls++;
             this.destroyWaitMs = destroyWaitMs;
             this.destroyFlusherWaitMs = destroyFlusherWaitMs;
             this.destroySenderWaitMs = destroySenderWaitMs;
             this.destroyWaitSplitEnabled = destroyWaitSplitEnabled;
         }
+
     }
 
     private static final class BlockingCreateBridge extends FakeBridge {
@@ -267,7 +390,7 @@ public class LogProducerClientBridgeTest {
         private final AtomicInteger updateEndpointCalls = new AtomicInteger();
 
         @Override
-        public long create(LogProducerConfig config, LogProducerCallback callback) {
+        public long create(ConfigSnapshot config, LogProducerCallback callback) {
             long handle = super.create(config, callback);
             if (createCalls == 1) {
                 firstCreateEntered.countDown();
@@ -311,9 +434,35 @@ public class LogProducerClientBridgeTest {
         }
 
         @Override
-        public void destroyAsync(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled) {
+        public void destroy(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled) {
             destroyEntered.countDown();
-            super.destroyAsync(producerHandle, destroyWaitMs, destroyFlusherWaitMs, destroySenderWaitMs, destroyWaitSplitEnabled);
+            super.destroy(producerHandle, destroyWaitMs, destroyFlusherWaitMs, destroySenderWaitMs, destroyWaitSplitEnabled);
+        }
+    }
+
+    private static final class BlockingDestroyBridge extends FakeBridge {
+        private final CountDownLatch destroyEntered = new CountDownLatch(1);
+        private final CountDownLatch releaseDestroy = new CountDownLatch(1);
+        private volatile boolean destroyThreadDaemon = true;
+
+        @Override
+        public void destroy(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled) {
+            destroyThreadDaemon = Thread.currentThread().isDaemon();
+            destroyEntered.countDown();
+            try {
+                assertTrue(releaseDestroy.await(1, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                throw new AssertionError(e);
+            }
+            super.destroy(producerHandle, destroyWaitMs, destroyFlusherWaitMs, destroySenderWaitMs, destroyWaitSplitEnabled);
+        }
+    }
+
+    private static final class CreateFailingBridge extends FakeBridge {
+        @Override
+        public long create(ConfigSnapshot config, LogProducerCallback callback) {
+            createCalls++;
+            throw new IllegalStateException("main-thread callback mode unavailable");
         }
     }
 }

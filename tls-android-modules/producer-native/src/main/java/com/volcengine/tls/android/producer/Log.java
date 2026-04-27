@@ -9,7 +9,10 @@ public final class Log {
     private long logTime = System.currentTimeMillis();
 
     public Log putContent(String key, String value) {
-        content.put(key, value);
+        if (key == null) {
+            throw new IllegalArgumentException("log content key cannot be null");
+        }
+        content.put(key, normalizeValue(value));
         return this;
     }
 
@@ -17,7 +20,9 @@ public final class Log {
         if (contents == null) {
             return this;
         }
-        content.putAll(contents);
+        for (Map.Entry<String, String> entry : contents.entrySet()) {
+            putContent(entry.getKey(), entry.getValue());
+        }
         return this;
     }
 
@@ -32,5 +37,9 @@ public final class Log {
     public Log setLogTime(long logTime) {
         this.logTime = logTime;
         return this;
+    }
+
+    private static String normalizeValue(String value) {
+        return value == null ? "" : value;
     }
 }

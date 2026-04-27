@@ -2,10 +2,9 @@ package com.volcengine.tls.android.producer.internal;
 
 import com.volcengine.tls.android.producer.Log;
 import com.volcengine.tls.android.producer.LogProducerCallback;
-import com.volcengine.tls.android.producer.LogProducerConfig;
 
 public interface NativeProducerBridge {
-    long create(LogProducerConfig config, LogProducerCallback callback);
+    long create(ConfigSnapshot config, LogProducerCallback callback);
 
     void updateEndpoint(long producerHandle, String endpoint, String region, String topicId);
 
@@ -16,6 +15,4 @@ public interface NativeProducerBridge {
     void addLog(long producerHandle, Log log, int flush);
 
     void destroy(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled);
-
-    void destroyAsync(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled);
 }

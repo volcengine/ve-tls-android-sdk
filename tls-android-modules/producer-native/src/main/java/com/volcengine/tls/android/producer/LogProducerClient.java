@@ -5,13 +5,19 @@ import com.volcengine.tls.android.producer.internal.ConfigSnapshot;
 import com.volcengine.tls.android.producer.internal.JniNativeProducerBridge;
 import com.volcengine.tls.android.producer.internal.ProcessUtil;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 public final class LogProducerClient {
+    private static final CountDownLatch DESTROY_NOT_STARTED = new CountDownLatch(0);
     private final Object lifecycleLock = new Object();
     private final ConfigSnapshot config;
     private final LogProducerCallback callback;
     private final NativeProducerBridge bridge;
     private volatile long producerHandle = 0;
     private volatile boolean destroyed;
+    private volatile CountDownLatch destroyCompletion = DESTROY_NOT_STARTED;
+    private volatile RuntimeException createFailure;
 
     public LogProducerClient(LogProducerConfig config) {
         this(config, null);
@@ -26,6 +32,9 @@ public final class LogProducerClient {
     }
 
     LogProducerClient(LogProducerConfig config, LogProducerCallback callback, String processName, NativeProducerBridge bridge) {
+        if (config != null) {
+            validatePersistentSetup(config, processName);
+        }
         this.config = config == null ? null : new ConfigSnapshot(config, processName);
         if (config != null) {
             config.freeze();
@@ -60,6 +69,9 @@ public final class LogProducerClient {
      * Updates the send target for new requests. Any request that has already entered the
      * native send path may still use the previously captured endpoint, but subsequent
      * requests should converge quickly to the refreshed endpoint/region/topic.
+     * This call does not rewrite or isolate persistent backlog that already exists under
+     * the configured {@code persistentFilePath}; if target identity changes, callers should
+     * switch to a new persistent path to avoid replaying durable backlog to the new target.
      */
     public void updateEndpoint(String endpoint, String region, String topicId) {
         synchronized (lifecycleLock) {
@@ -92,12 +104,44 @@ public final class LogProducerClient {
             }
             long handle = producerHandle;
             producerHandle = 0;
-            bridge.destroyAsync(
-                    handle,
-                    config == null || config.isDestroyWaitSplitConfigured() ? 0 : config.getDestroyWaitMs(),
-                    config == null ? 0 : config.getDestroyFlusherWaitMs(),
-                    config == null ? 0 : config.getDestroySenderWaitMs(),
-                    config != null && config.isDestroyWaitSplitConfigured());
+            if (handle == 0) {
+                destroyCompletion = DESTROY_NOT_STARTED;
+                return;
+            }
+            int destroyWaitMs = config == null || config.isDestroyWaitSplitConfigured() ? 0 : config.getDestroyWaitMs();
+            int destroyFlusherWaitMs = config == null ? 0 : config.getDestroyFlusherWaitMs();
+            int destroySenderWaitMs = config == null ? 0 : config.getDestroySenderWaitMs();
+            boolean destroyWaitSplitEnabled = config != null && config.isDestroyWaitSplitConfigured();
+            CountDownLatch completion = new CountDownLatch(1);
+            destroyCompletion = completion;
+            Thread destroyWorker = new Thread(() -> {
+                try {
+                    bridge.destroy(handle, destroyWaitMs, destroyFlusherWaitMs, destroySenderWaitMs, destroyWaitSplitEnabled);
+                } finally {
+                    completion.countDown();
+                }
+            }, "tls-producer-destroy");
+            destroyWorker.setDaemon(false);
+            destroyWorker.start();
+        }
+    }
+
+    /**
+     * Waits up to {@code timeoutMs} for the already-scheduled destroy work to complete.
+     * A {@code false} result only means the Java-side wait timed out or was interrupted;
+     * it does not imply forcible native teardown.
+     */
+    public boolean awaitDestroy(long timeoutMs) {
+        try {
+            boolean completed = destroyCompletion.await(timeoutMs, TimeUnit.MILLISECONDS);
+            if (!completed) {
+                System.err.println("LogProducerClient destroy wait timed out after " + timeoutMs + "ms");
+            }
+            return completed;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.err.println("LogProducerClient destroy wait interrupted");
+            return false;
         }
     }
 
@@ -105,17 +149,43 @@ public final class LogProducerClient {
         if (destroyed) {
             throw new IllegalStateException("producer destroyed");
         }
+        if (createFailure != null) {
+            throw createFailure;
+        }
         if (producerHandle != 0) {
             return producerHandle;
         }
         if (bridge == null) {
             return 0;
         }
-        if (bridge instanceof JniNativeProducerBridge) {
-            producerHandle = ((JniNativeProducerBridge) bridge).create(config, callback);
-            return producerHandle;
+        if (config == null) {
+            throw rememberCreateFailure(new IllegalArgumentException("config == null"));
         }
-        producerHandle = bridge.create(config == null ? null : config.toConfig(), callback);
+        config.validateForCreate();
+        try {
+            producerHandle = bridge.create(config, callback);
+        } catch (RuntimeException e) {
+            throw rememberCreateFailure(e);
+        }
+        if (producerHandle == 0) {
+            throw rememberCreateFailure(new IllegalStateException("native producer create failed"));
+        }
         return producerHandle;
+    }
+
+    private RuntimeException rememberCreateFailure(RuntimeException failure) {
+        if (createFailure == null) {
+            createFailure = failure;
+        }
+        return createFailure;
+    }
+
+    private static void validatePersistentSetup(LogProducerConfig config, String processName) {
+        if (!config.isPersistent()) {
+            return;
+        }
+        if (processName == null || processName.trim().isEmpty()) {
+            throw new IllegalStateException("persistent mode requires resolvable process identity");
+        }
     }
 }

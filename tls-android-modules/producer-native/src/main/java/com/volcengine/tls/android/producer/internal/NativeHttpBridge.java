@@ -1,5 +1,7 @@
 package com.volcengine.tls.android.producer.internal;
 
+import com.volcengine.tls.android.producer.BuildConfig;
+
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -27,16 +29,34 @@ import javax.net.ssl.X509TrustManager;
 
 public final class NativeHttpBridge {
     private static final HostnameVerifier PERMISSIVE_HOSTNAME_VERIFIER = (hostname, session) -> true;
-    private static final SSLSocketFactory PERMISSIVE_SOCKET_FACTORY = createPermissiveSocketFactory();
 
     private final ConnectionFactory connectionFactory;
+    private final boolean debugBuild;
+    private final SocketFactorySupplier permissiveSocketFactorySupplier;
+    private final WarningReporter warningReporter;
+    private volatile SSLSocketFactory permissiveSocketFactory;
 
     public NativeHttpBridge() {
         this(url -> (HttpURLConnection) url.openConnection());
     }
 
     public NativeHttpBridge(ConnectionFactory connectionFactory) {
+        this(
+                connectionFactory,
+                BuildConfig.DEBUG,
+                NativeHttpBridge::createPermissiveSocketFactory,
+                NativeHttpBridge::reportWarning);
+    }
+
+    public NativeHttpBridge(
+            ConnectionFactory connectionFactory,
+            boolean debugBuild,
+            SocketFactorySupplier permissiveSocketFactorySupplier,
+            WarningReporter warningReporter) {
         this.connectionFactory = connectionFactory;
+        this.debugBuild = debugBuild;
+        this.permissiveSocketFactorySupplier = permissiveSocketFactorySupplier;
+        this.warningReporter = warningReporter;
     }
 
     public NativeHttpResponse execute(Request request) throws IOException {
@@ -99,19 +119,48 @@ public final class NativeHttpBridge {
     }
 
     private void applyTlsOptions(HttpURLConnection connection, Request request) throws IOException {
+        boolean permissivePeer = request.getTlsVerifyPeer() == 0;
+        boolean permissiveHost = request.getTlsVerifyHost() == 0;
+        if (permissivePeer || permissiveHost) {
+            enforcePermissiveTlsAllowed(request);
+        }
         if (!(connection instanceof HttpsURLConnection)) {
             return;
         }
 
         HttpsURLConnection httpsConnection = (HttpsURLConnection) connection;
-        if (request.getTlsVerifyPeer() == 0) {
-            httpsConnection.setSSLSocketFactory(PERMISSIVE_SOCKET_FACTORY);
+        if (permissivePeer || permissiveHost) {
+            warningReporter.report("permissive TLS activated for " + request.getUrl()
+                    + " tlsVerifyPeer=" + request.getTlsVerifyPeer()
+                    + " tlsVerifyHost=" + request.getTlsVerifyHost());
+        }
+        if (permissivePeer) {
+            httpsConnection.setSSLSocketFactory(getPermissiveSocketFactory());
         } else if (request.getCaCertPath() != null && !request.getCaCertPath().trim().isEmpty()) {
             httpsConnection.setSSLSocketFactory(createSocketFactoryFromCaCert(request.getCaCertPath()));
         }
 
-        if (request.getTlsVerifyHost() == 0) {
+        if (permissiveHost) {
             httpsConnection.setHostnameVerifier(PERMISSIVE_HOSTNAME_VERIFIER);
+        }
+    }
+
+    private void enforcePermissiveTlsAllowed(Request request) {
+        if (!debugBuild) {
+            throw new SecurityException("permissive TLS is debug-only: " + request.getUrl());
+        }
+    }
+
+    private SSLSocketFactory getPermissiveSocketFactory() {
+        SSLSocketFactory current = permissiveSocketFactory;
+        if (current != null) {
+            return current;
+        }
+        synchronized (this) {
+            if (permissiveSocketFactory == null) {
+                permissiveSocketFactory = permissiveSocketFactorySupplier.get();
+            }
+            return permissiveSocketFactory;
         }
     }
 
@@ -169,6 +218,10 @@ public final class NativeHttpBridge {
         }
     }
 
+    private static void reportWarning(String message) {
+        System.err.println("NativeHttpBridge WARN: " + message);
+    }
+
     private static SSLSocketFactory createSocketFactoryFromCaCert(String caCertPath) throws IOException {
         try (InputStream inputStream = new FileInputStream(caCertPath)) {
             CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
@@ -206,6 +259,16 @@ public final class NativeHttpBridge {
             }
             return (HttpURLConnection) url.openConnection(proxy);
         }
+    }
+
+    @FunctionalInterface
+    public interface SocketFactorySupplier {
+        SSLSocketFactory get();
+    }
+
+    @FunctionalInterface
+    public interface WarningReporter {
+        void report(String message);
     }
 
     public static final class Request {

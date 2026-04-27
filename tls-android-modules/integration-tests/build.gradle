@@ -9,6 +9,7 @@ dependencies {
     "$rootDir/full/build/intermediates/aar_main_jar/release/syncReleaseLibJars/classes.jar",
     "$rootDir/producer-native/build/intermediates/aar_main_jar/release/syncReleaseLibJars/classes.jar"
   )
+  testImplementation fileTree(dir: "$rootDir/logger-spi/build/libs", include: ['*.jar'])
   // Runtime deps used by core/full
   testImplementation 'com.squareup.okhttp3:okhttp:3.12.13'
   testImplementation 'com.squareup.okio:okio:1.17.5'
@@ -19,7 +20,7 @@ dependencies {
 }
 
 tasks.named('compileTestJava') {
-  dependsOn ':core:syncReleaseLibJars', ':full:syncReleaseLibJars', ':producer-native:syncReleaseLibJars'
+  dependsOn ':core:syncReleaseLibJars', ':full:syncReleaseLibJars', ':producer-native:syncReleaseLibJars', ':logger-spi:jar'
 }
 
 tasks.named('test') {

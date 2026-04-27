@@ -1,6 +1,7 @@
 package com.volcengine.tls.android.demo;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -60,6 +61,16 @@ public class BenchmarkActivity extends Activity {
         Button stopBtn = new Button(this);
         stopBtn.setText("Stop & Export");
         stopBtn.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { stopAndExport(); } });
+        Button configBtn = new Button(this);
+        configBtn.setText("Open Config");
+        configBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { openConfigPage(); }
+        });
+        Button formalBtn = new Button(this);
+        formalBtn.setText("Open Formal Benchmark");
+        formalBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { openFormalBenchmarkPage(); }
+        });
         logView = new TextView(this);
         logView.setText("Ready");
         logView.setMovementMethod(new ScrollingMovementMethod());
@@ -67,6 +78,8 @@ public class BenchmarkActivity extends Activity {
         layout.addView(startLz4);
         layout.addView(startNone);
         layout.addView(stopBtn);
+        layout.addView(configBtn);
+        layout.addView(formalBtn);
         layout.addView(logView);
         setContentView(layout);
     }
@@ -96,8 +109,9 @@ public class BenchmarkActivity extends Activity {
                 String topicId = ConfigLoader.get(props, "topicId");
                 String cfgCompress = ConfigLoader.get(props, "compress");
                 if (cfgCompress != null && cfgCompress.length() > 0) { compressType = parseCompressType(cfgCompress); }
-                if (endPoint == null || region == null || ak == null || sk == null || topicId == null) {
+                if (!ConfigLoader.hasRequiredConfig(props)) {
                     append("Missing config: endPoint/region/ak/sk/topicId");
+                    openConfigPage();
                     return;
                 }
                 int threadCount = Runtime.getRuntime().availableProcessors();
@@ -110,7 +124,7 @@ public class BenchmarkActivity extends Activity {
                 append("Config ak=" + maskSecret(ak));
                 append("Config sk=" + maskSecret(sk));
                 append("Config token=" + (token == null || token.isEmpty() ? "" : maskSecret(token)));
-                append("Config sendThreadCount=" + threadCount + " retryCount=3");
+                append("Config sendThreadCount=" + threadCount + " retryMaxAttempts=3");
                 LogProducerConfig cfg = new LogProducerConfig()
                         .setEndpoint(endPoint)
                         .setRegion(region)
@@ -120,7 +134,7 @@ public class BenchmarkActivity extends Activity {
                         .setTopicId(topicId)
                         .setCompressType(compressType)
                         .setSendThreadCount(threadCount)
-                        .setRetryCount(3)
+                        .setRetryMaxAttempts(3)
                         .setPacketLogBytes(1024 * 256)
                         .setPacketLogCount(512)
                         .setPacketTimeoutMs(1000);
@@ -286,5 +300,13 @@ public class BenchmarkActivity extends Activity {
             return LogProducerConfig.CompressType.LZ4;
         }
         throw new IllegalArgumentException("unsupported compress type: " + ct);
+    }
+
+    private void openConfigPage() {
+        startActivity(new Intent(this, ConfigActivity.class));
+    }
+
+    private void openFormalBenchmarkPage() {
+        startActivity(new Intent(this, FormalBenchmarkActivity.class));
     }
 }

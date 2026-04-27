@@ -7,11 +7,16 @@ import com.volcengine.tls.android.producer.LogProducerCallback;
 import com.volcengine.tls.android.producer.LogProducerResult;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 final class CallbackDispatcher {
     private final LogProducerCallback callback;
     private final boolean callbackFromSenderThread;
     private final Executor callbackExecutor;
+    private final AtomicInteger dispatchFailureCount = new AtomicInteger();
+    private final AtomicReference<String> lastDispatchFailureMessage = new AtomicReference<>();
 
     CallbackDispatcher(LogProducerCallback callback, boolean callbackFromSenderThread) {
         this(callback, callbackFromSenderThread, createMainThreadExecutor());
@@ -20,6 +25,9 @@ final class CallbackDispatcher {
     CallbackDispatcher(LogProducerCallback callback, boolean callbackFromSenderThread, Executor callbackExecutor) {
         this.callback = callback;
         this.callbackFromSenderThread = callbackFromSenderThread;
+        if (callback != null && !callbackFromSenderThread && callbackExecutor == null) {
+            throw new IllegalStateException("main-thread callback mode unavailable");
+        }
         this.callbackExecutor = callbackFromSenderThread ? null : callbackExecutor;
     }
 
@@ -48,12 +56,29 @@ final class CallbackDispatcher {
                 logBytes,
                 compressedBytes);
 
-        if (callbackFromSenderThread || callbackExecutor == null) {
+        if (callbackFromSenderThread) {
             callback.onCompletion(result);
             return;
         }
 
-        callbackExecutor.execute(() -> callback.onCompletion(result));
+        if (callbackExecutor == null) {
+            reportDispatchFailure("main-thread callback executor unavailable", null, result);
+            return;
+        }
+
+        try {
+            callbackExecutor.execute(() -> callback.onCompletion(result));
+        } catch (RuntimeException e) {
+            reportDispatchFailure("main-thread callback dispatch rejected", e, result);
+        }
+    }
+
+    int getDispatchFailureCount() {
+        return dispatchFailureCount.get();
+    }
+
+    String getLastDispatchFailureMessage() {
+        return lastDispatchFailureMessage.get();
     }
 
     private static Executor createMainThreadExecutor() {
@@ -64,8 +89,17 @@ final class CallbackDispatcher {
         Handler handler = new Handler(mainLooper);
         return command -> {
             if (!handler.post(command)) {
-                command.run();
+                throw new RejectedExecutionException("main looper rejected callback dispatch");
             }
         };
+    }
+
+    private void reportDispatchFailure(String message, Throwable error, LogProducerResult result) {
+        dispatchFailureCount.incrementAndGet();
+        lastDispatchFailureMessage.set(message);
+        System.err.println("CallbackDispatcher failure: " + message + " result=" + result.getFailureSummary());
+        if (error != null) {
+            error.printStackTrace(System.err);
+        }
     }
 }
