@@ -94,3 +94,6 @@ item.addContent("test-key", "test-value");
 producer.sendLogV2("", topicId, "test-source", "test-file", item, callBack);
 ```
 
+## Security and privacy
+This project takes security seriously. 
+For vulnerability reporting and supported versions, see [SECURITY.md](SECURITY.md)
