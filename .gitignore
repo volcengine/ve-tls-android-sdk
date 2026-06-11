@@ -89,3 +89,4 @@ tls-android-modules/res/
 **/docs/
 repos/
 ve-tls-c-sdk/
+**/develop_docs/**
