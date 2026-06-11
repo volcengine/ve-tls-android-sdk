@@ -1,6 +1,12 @@
+## 2.1.1
+- 发布坐标继续使用 `io.github.volcengine-tls:tls-android-producer`，不新增独立 native 坐标。
+- Producer 写入路径基于 native producer，新增断点续传、退避重试、批量聚合、压缩与 Android 桥接优化。
+- Android 请求 User-Agent 统一为 `volc-tls-android/producer/v2.1.1`，便于服务端识别 Android SDK 流量。
+- 文档口径转向 Android Producer 写入能力；管控面、读侧和其他全量 TLS API 由 Java SDK 承接。
+
 ## 2.0.0
 - 统一日志映射到 core.AdaptorUtil，producer-native 与 full 保持一致
-- Producer 迁移到 `producer-native`：依赖坐标改为 `io.github.volcengine-tls:tls-android-producer-native`，公开发送 API 改为 `LogProducerClient.addLog(Log)` / `destroyLogProducer()`
+- Producer 迁移到内部 `producer-native` 模块，公开发送 API 改为 `LogProducerClient.addLog(Log)` / `destroyLogProducer()`
 - `CompressType` 公共枚举仅保留 `NONE/LZ4`，默认 `LZ4`
 - 新增 TimeNs 支持与开关；支持用户自填时间与纳秒，归一化至毫秒
 - 修复 demo 与脚本，提供 native/full 运行与集成测试模块

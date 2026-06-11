@@ -143,7 +143,7 @@ public abstract class BaseServiceImpl implements IBaseService {
         if (s.length() > 0 && ((double) printable / (double) s.length()) >= 0.85) {
             return bytes.length > limit ? (s + "\n...(truncated)") : s;
         }
-        String b64 = Base64.getEncoder().encodeToString(head);
+        String b64 = android.util.Base64.encodeToString(head, android.util.Base64.NO_WRAP);
         return "base64:" + b64 + (bytes.length > limit ? "...(truncated)" : "");
     }
 

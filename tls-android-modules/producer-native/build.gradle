@@ -12,6 +12,11 @@ def publicationDescription = legacyPublication
         ? "Unsupported best-effort legacy minSdk ${minSdkValue} build of the VOLC Engine TLS Producer SDK for Android, for designated customer delivery only"
         : 'VOLC Engine TLS Producer SDK for Android'
 def veTlsCSdkDir = findProperty('VE_TLS_C_SDK_DIR') ?: System.getenv('VE_TLS_C_SDK_DIR')
+def baseVersion = (findProperty('POM_VERSION') ?: '2.1.1').toString()
+def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
+
+group = 'io.github.volcengine-tls'
+version = baseVersion + versionSuffix
 
 android {
   namespace 'com.volcengine.tls.android.producer'
@@ -24,6 +29,8 @@ android {
     targetSdk 34
     testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     consumerProguardFiles 'consumer-rules.pro'
+    buildConfigField 'String', 'SDK_VERSION', "\"${project.version}\""
+    buildConfigField 'String', 'SDK_USER_AGENT', "\"volc-tls-android/producer/v${project.version}\""
     externalNativeBuild {
       cmake {
         cppFlags ''
@@ -66,11 +73,6 @@ dependencies {
   androidTestImplementation 'junit:junit:4.13.2'
   testImplementation 'junit:junit:4.13.2'
 }
-
-group = 'io.github.volcengine-tls'
-def baseVersion = (findProperty('POM_VERSION') ?: '2.0.4').toString()
-def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
-version = baseVersion + versionSuffix
 
 afterEvaluate {
   publishing {

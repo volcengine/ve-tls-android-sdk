@@ -110,7 +110,7 @@ public class BenchmarkActivity extends Activity {
                 append("Config ak=" + maskSecret(ak));
                 append("Config sk=" + maskSecret(sk));
                 append("Config token=" + (token == null || token.isEmpty() ? "" : maskSecret(token)));
-                append("Config sendThreadCount=" + threadCount + " retryCount=3");
+                append("Config sendThreadCount=" + threadCount + " retryMaxAttempts=3");
                 LogProducerConfig cfg = new LogProducerConfig()
                         .setEndpoint(endPoint)
                         .setRegion(region)
@@ -120,7 +120,7 @@ public class BenchmarkActivity extends Activity {
                         .setTopicId(topicId)
                         .setCompressType(compressType)
                         .setSendThreadCount(threadCount)
-                        .setRetryCount(3)
+                        .setRetryMaxAttempts(3)
                         .setPacketLogBytes(1024 * 256)
                         .setPacketLogCount(512)
                         .setPacketTimeoutMs(1000);

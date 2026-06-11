@@ -123,7 +123,11 @@ public class FormalBenchmarkService extends Service {
             broadcast("Formal benchmark failed: " + String.valueOf(t), true, null, null);
         } finally {
             running = false;
-            stopForeground(STOP_FOREGROUND_REMOVE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE);
+            } else {
+                stopForeground(true);
+            }
             stopSelf();
         }
     }

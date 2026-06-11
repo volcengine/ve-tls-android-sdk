@@ -41,7 +41,7 @@ android {
 }
 
 dependencies {
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.1.1'
   implementation 'net.jpountz.lz4:lz4:1.3.0'
   testImplementation 'junit:junit:4.13.2'
 }

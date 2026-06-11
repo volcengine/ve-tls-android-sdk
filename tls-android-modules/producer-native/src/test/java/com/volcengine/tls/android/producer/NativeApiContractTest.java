@@ -37,6 +37,7 @@ public class NativeApiContractTest {
                 String.class,
                 String.class,
                 String.class,
+                String.class,
                 int.class,
                 int.class,
                 boolean.class,

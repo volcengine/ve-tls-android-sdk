@@ -59,6 +59,7 @@ public class JniNativeProducerBridgeTest {
         assertEquals(90_000, args.getConfig().getRetryTotalTimeoutMs());
         assertEquals(500, args.getConfig().getRetryInitialIntervalMs());
         assertEquals(10_000, args.getConfig().getRetryMaxIntervalMs());
+        assertEquals("volc-tls-android/producer/v2.1.1", args.getConfig().getUserAgent());
         assertFalse(args.isDestroyWaitSplitEnabled());
         assertEquals(2, args.getLogTagCount());
         assertArrayEquals(new String[] {"env", "env"}, args.getLogTagKeys());

@@ -1,5 +1,5 @@
 ## 发布说明
-- 版本策略：SemVer（主.次.修订），当前主版本为 2.0.4（相较 1.1.5 为重大变更）
+- 版本策略：SemVer（主.次.修订），当前发布版本为 2.1.1
 - 最低支持：Android 4.4（API 19）
 - 构建产物：producer AAR
 - Maven 坐标：`io.github.volcengine-tls:tls-android-producer`
@@ -16,7 +16,7 @@
   tls-android-modules/scripts/publish-local.sh
   ```
 - 校验工件：
-  - `~/.m2/repository/io/github/volcengine-tls/tls-android-producer/2.0.4/`
+  - `~/.m2/repository/io/github/volcengine-tls/tls-android-producer/2.1.1/`
 - 在消费工程临时启用 `mavenLocal()` 验证依赖解析与使用
 
 ## Gradle 发布配置模板
@@ -84,4 +84,4 @@ cd tls-android-modules
   PGP_PASSPHRASE=YOUR_PGP_PASSPHRASE bash scripts/publish-central-mvn.sh
   ```
 - 发布坐标：
-  - `io.github.volcengine-tls:tls-android-producer:2.0.4`
+  - `io.github.volcengine-tls:tls-android-producer:2.1.1`

@@ -1,5 +1,6 @@
 package com.volcengine.tls.android.demo;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -75,10 +76,11 @@ public class FormalBenchmarkActivity extends Activity {
     }
 
     @Override
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     protected void onResume() {
         super.onResume();
         IntentFilter filter = new IntentFilter(FormalBenchmarkService.ACTION_EVENT);
-        if (Build.VERSION.SDK_INT >= 33) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
             registerReceiver(receiver, filter);

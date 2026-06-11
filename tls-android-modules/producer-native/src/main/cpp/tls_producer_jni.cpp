@@ -834,6 +834,7 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     jstring access_key_id,
     jstring access_key_secret,
     jstring security_token,
+    jstring user_agent,
     jstring source,
     jstring hash_key,
     jint compress_type,
@@ -871,6 +872,7 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     ScopedUtfChars access_key_id_chars(env, access_key_id);
     ScopedUtfChars access_key_secret_chars(env, access_key_secret);
     ScopedUtfChars security_token_chars(env, security_token);
+    ScopedUtfChars user_agent_chars(env, user_agent);
     ScopedUtfChars source_chars(env, source);
     ScopedUtfChars hash_key_chars(env, hash_key);
     ScopedUtfChars persistent_file_path_chars(env, persistent_file_path);
@@ -894,6 +896,7 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     config_view.access_key_id = access_key_id_chars.c_str();
     config_view.access_key_secret = access_key_secret_chars.c_str();
     config_view.security_token = security_token_chars.c_str();
+    config_view.user_agent = user_agent_chars.c_str();
     config_view.source = source_chars.c_str();
     config_view.hash_key = hash_key_chars.c_str();
     config_view.log_tags = log_tags;

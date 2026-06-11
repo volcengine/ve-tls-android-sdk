@@ -1,5 +1,6 @@
 package com.volcengine.tls.android.producer.internal;
 
+import com.volcengine.tls.android.producer.BuildConfig;
 import com.volcengine.tls.android.producer.LogProducerConfig;
 
 public final class ConfigSnapshot {
@@ -10,6 +11,7 @@ public final class ConfigSnapshot {
     private final String accessKeyId;
     private final String accessKeySecret;
     private final String securityToken;
+    private final String userAgent;
     private final String hashKey;
     private final String source;
     private final LogProducerConfig.CompressType compressType;
@@ -48,6 +50,7 @@ public final class ConfigSnapshot {
             this.accessKeyId = null;
             this.accessKeySecret = null;
             this.securityToken = null;
+            this.userAgent = null;
             this.hashKey = null;
             this.source = null;
             this.compressType = null;
@@ -86,6 +89,7 @@ public final class ConfigSnapshot {
         this.accessKeyId = sourceConfig.getAccessKeyId();
         this.accessKeySecret = sourceConfig.getAccessKeySecret();
         this.securityToken = sourceConfig.getSecurityToken();
+        this.userAgent = BuildConfig.SDK_USER_AGENT;
         this.hashKey = sourceConfig.getHashKey();
         this.source = sourceConfig.getSource();
         this.compressType = sourceConfig.getCompressType();
@@ -184,6 +188,10 @@ public final class ConfigSnapshot {
 
     public String getSecurityToken() {
         return securityToken;
+    }
+
+    public String getUserAgent() {
+        return userAgent;
     }
 
     public String getHashKey() {

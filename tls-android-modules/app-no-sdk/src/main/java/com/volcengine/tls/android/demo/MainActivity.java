@@ -134,7 +134,7 @@ public class MainActivity extends Activity {
         appendLog("Config ak=" + maskSecret(ak));
         appendLog("Config sk=" + maskSecret(sk));
         appendLog("Config token=" + (token == null || token.isEmpty() ? "" : maskSecret(token)));
-        appendLog("Config sendThreadCount=1 retryCount=3");
+        appendLog("Config sendThreadCount=1 retryMaxAttempts=3");
 
         try {
             if (producerClient == null) {
@@ -148,7 +148,7 @@ public class MainActivity extends Activity {
                         .setTopicId(ConfigLoader.get(props, "topicId"))
                         .setCompressType(compressType)
                         .setSendThreadCount(1)
-                        .setRetryCount(3);
+                        .setRetryMaxAttempts(3);
                 producerClient = new LogProducerClient(config, result -> {
                     long index = pendingIndex.get();
                     if (result.isSuccess()) {
