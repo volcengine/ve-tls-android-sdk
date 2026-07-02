@@ -379,3 +379,8 @@ try {
 | 非 Android 服务端接入 | Java SDK |
 
 后续如果没有明确的 Android 特殊适配需求，本仓库只维护 `tls-android-producer` 写入能力；管控面、读侧和其他全量 TLS API 统一由 Java SDK 承接。
+
+## Security and privacy
+
+This project takes security seriously.
+For vulnerability reporting and supported versions, see [SECURITY.md](SECURITY.md).

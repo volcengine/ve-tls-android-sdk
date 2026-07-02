@@ -7,6 +7,7 @@ google-gson : Apache License 2.0
 Guava InternalFutureFailureAccess and InternalFutures : Apache License 2.0
 Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava : Apache License 2.0
 Guava: Google Core Libraries for Java v33.5.0 : Apache License 2.0
+org.slf4j: MIT License
 JUnit : Eclipse Public License 1.0
 Project Lombok : MIT License
 Protocol Buffer Java API : BSD 3-clause "New" or "Revised" License
