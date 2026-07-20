@@ -1,0 +1,22 @@
+pluginManagement {
+  repositories {
+    gradlePluginPortal()
+    google()
+    mavenCentral()
+  }
+  plugins {
+    id 'com.android.application' version '8.4.2' apply false
+  }
+}
+
+dependencyResolutionManagement {
+  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+  repositories {
+    mavenLocal()
+    google()
+    mavenCentral()
+  }
+}
+
+rootProject.name = "consumer-sample"
+include(":app")

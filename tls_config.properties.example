@@ -1,0 +1,7 @@
+endPoint=https://tls-cn-xxx.volces.com
+region=cn-xxx
+ak=AK_EXAMPLE
+sk=SK_EXAMPLE
+token=
+topicId=topic-example
+compress=lz4

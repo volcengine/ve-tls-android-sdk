@@ -1,0 +1,148 @@
+plugins {
+  id 'com.android.library'
+  id 'maven-publish'
+  id 'signing'
+}
+
+android {
+  namespace 'com.volcengine.tls.android.full'
+  compileSdk 34
+  defaultConfig {
+    minSdk ((findProperty('MIN_SDK_OVERRIDE') ?: 19) as int)
+    targetSdk 34
+    consumerProguardFiles 'consumer-rules.pro'
+  }
+  buildTypes {
+    release {
+      minifyEnabled false
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+    }
+  }
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+  }
+  publishing {
+    singleVariant("release") {
+      withSourcesJar()
+    }
+  }
+  testOptions {
+    unitTests.returnDefaultValues = true
+  }
+  packagingOptions {
+    exclude 'darwin/**'
+    exclude 'linux/**'
+    exclude 'win/**'
+    exclude 'google/protobuf/**'
+    pickFirst 'com/volcengine/version'
+  }
+  // source now only from this module; external src has been migrated
+}
+
+dependencies {
+  api project(':core')
+  implementation 'com.alibaba:fastjson:1.2.83'
+  compileOnly 'org.projectlombok:lombok:1.18.20'
+  annotationProcessor 'org.projectlombok:lombok:1.18.20'
+  testImplementation 'junit:junit:4.13.2'
+}
+
+group = 'io.github.volcengine-tls'
+def baseVersion = (findProperty('POM_VERSION') ?: '2.1.1').toString()
+def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
+version = baseVersion + versionSuffix
+
+afterEvaluate {
+  publishing {
+    publications {
+      release(MavenPublication) {
+        from components.release
+        groupId = project.group
+        artifactId = 'tls-android-full'
+        version = project.version
+        pom {
+          name = 'tls-android-full'
+          description = 'VOLC Engine TLS Full SDK for Android'
+          url = 'https://github.com/volcengine/ve-tls-android-sdk'
+          licenses {
+            license {
+              name = 'The Apache Software License, Version 2.0'
+              url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+              distribution = 'repo'
+            }
+          }
+          developers {
+            developer {
+              id = 'volcproducts'
+              name = 'VOLC TLS ANDROID SDK'
+            }
+          }
+          scm {
+            url = 'https://github.com/volcengine/ve-tls-android-sdk'
+            connection = 'scm:git:https://github.com/volcengine/ve-tls-android-sdk.git'
+            developerConnection = 'scm:git:https://github.com/volcengine/ve-tls-android-sdk.git'
+          }
+        }
+      }
+    }
+    repositories {
+      maven {
+        name = 'sonatype'
+        url = uri('https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/')
+        credentials {
+          username = findProperty('ossrhUsername') ?: System.getenv('OSSRH_USERNAME')
+          password = findProperty('ossrhPassword') ?: System.getenv('OSSRH_PASSWORD')
+        }
+      }
+    }
+  }
+
+  signing {
+    def key = findProperty('signingKey') ?: System.getenv('SIGNING_KEY')
+    def pw = findProperty('signingPassword') ?: System.getenv('SIGNING_PASSWORD')
+    if (key != null && pw != null) {
+      useInMemoryPgpKeys(key, pw)
+      sign publishing.publications
+    } else {
+      def gpgKeyName = findProperty('signing.gnupg.keyName') ?: System.getenv('SIGNING_GPG_KEYNAME')
+      if (gpgKeyName != null) {
+        useGpgCmd()
+        sign publishing.publications
+      }
+    }
+  }
+}
+
+// One-time migration task to copy sources from old src tree into this module
+tasks.register('migrateSrcToFull', Copy) {
+  from(file('../../src/main/java'))
+  into(file('src/main/java'))
+  exclude('com/volcengine/demo/**')
+  exclude('com/volcengine/auth/**')
+  exclude('com/volcengine/http/**')
+  exclude('com/volcengine/util/**')
+  exclude('com/volcengine/model/ApiInfo.java')
+  exclude('com/volcengine/model/Header.java')
+  exclude('com/volcengine/model/NameValuePair.java')
+  exclude('com/volcengine/model/ServiceInfo.java')
+  exclude('com/volcengine/model/Credentials.java')
+  exclude('com/volcengine/model/RequestParam.java')
+  exclude('com/volcengine/model/SignRequest.java')
+  exclude('com/volcengine/model/response/RawResponse.java')
+  exclude('com/volcengine/service/BaseServiceImpl.java')
+  exclude('com/volcengine/model/tls/Const.java')
+  exclude('com/volcengine/error/**')
+  exclude('com/volcengine/model/tls/LogItem.java')
+  exclude('com/volcengine/model/tls/LogContent.java')
+  exclude('com/volcengine/model/tls/util/AdaptorUtil.java')
+  exclude('com/volcengine/model/tls/util/TimeUtil.java')
+  exclude('com/volcengine/model/tls/pb/**')
+  exclude('com/volcengine/model/tls/exception/**')
+  exclude('com/volcengine/model/tls/ClientConfig.java')
+  exclude('com/volcengine/service/IBaseService.java')
+}
+
+// Proto generation removed; generated Java is checked into core/pb
+
+// No proto tasks needed

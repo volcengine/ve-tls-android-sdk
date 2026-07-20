@@ -1,0 +1,63 @@
+plugins {
+  id 'java-library'
+  id 'maven-publish'
+  id 'signing'
+}
+
+java {
+  sourceCompatibility = JavaVersion.VERSION_1_8
+  targetCompatibility = JavaVersion.VERSION_1_8
+  withSourcesJar()
+}
+
+dependencies {
+  testImplementation 'junit:junit:4.13.2'
+}
+
+group = 'io.github.volcengine-tls'
+def baseVersion = (findProperty('POM_VERSION') ?: '2.1.1').toString()
+def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
+version = baseVersion + versionSuffix
+
+publishing {
+  publications {
+    release(MavenPublication) {
+      from components.java
+      groupId = project.group
+      artifactId = 'tls-android-logger-spi'
+      version = project.version
+      pom {
+        name = 'tls-android-logger-spi'
+        description = 'VOLC Engine TLS Logger SPI for Android SDK modules'
+        url = 'https://github.com/volcengine/ve-tls-android-sdk'
+        licenses {
+          license {
+            name = 'The Apache Software License, Version 2.0'
+            url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+            distribution = 'repo'
+          }
+        }
+        developers {
+          developer {
+            id = 'volcproducts'
+            name = 'VOLC TLS ANDROID SDK'
+          }
+        }
+        scm {
+          url = 'https://github.com/volcengine/ve-tls-android-sdk'
+          connection = 'scm:git:https://github.com/volcengine/ve-tls-android-sdk.git'
+          developerConnection = 'scm:git:https://github.com/volcengine/ve-tls-android-sdk.git'
+        }
+      }
+    }
+  }
+}
+
+signing {
+  def key = findProperty('signingKey') ?: System.getenv('SIGNING_KEY')
+  def pw = findProperty('signingPassword') ?: System.getenv('SIGNING_PASSWORD')
+  if (key != null && pw != null) {
+    useInMemoryPgpKeys(key, pw)
+    sign publishing.publications
+  }
+}
