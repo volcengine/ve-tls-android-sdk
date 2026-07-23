@@ -6,7 +6,7 @@
 ## 测试与验证
 - 构建与测试：
   - `./gradlew :logger-spi:assemble :producer-native-stub:assembleRelease :producer-native:assembleRelease -PVE_TLS_C_SDK_DIR=/path/to/ve-tls-c-sdk`
-  - `./gradlew :integration-tests:test`
+  - `./gradlew :integration-tests:test -PVE_TLS_C_SDK_DIR=/path/to/ve-tls-c-sdk`
 - 关键用例：
 
 ## 风险与兼容性
