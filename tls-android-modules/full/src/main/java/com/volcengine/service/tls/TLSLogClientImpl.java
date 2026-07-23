@@ -19,8 +19,6 @@ import com.volcengine.model.tls.util.AdaptorUtil;
 import com.volcengine.model.tls.util.MessageUtil;
 import com.volcengine.model.tls.util.TimeUtil;
 import com.volcengine.util.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,10 +32,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 
 import static com.volcengine.model.tls.Const.*;
-import static com.volcengine.model.tls.producer.ProducerConfig.EXTERNAL_ERROR;
-import static com.volcengine.model.tls.producer.ProducerConfig.TOO_MANY_REQUEST_ERROR;
 
 public class TLSLogClientImpl implements TLSLogClient {
+    private static final int TOO_MANY_REQUEST_ERROR = 429;
+    private static final int EXTERNAL_ERROR = 500;
+
     static {
         JSON.DEFAULT_GENERATE_FEATURE |= SerializerFeature.DisableCircularReferenceDetect.getMask();
     }

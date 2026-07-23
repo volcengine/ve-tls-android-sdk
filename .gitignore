@@ -5,14 +5,17 @@
 .idea/
 *.iml
 .vscode/
+.comate/
 
 # Gradle/Android build outputs
 .gradle/
 **/build/
 **/captures/
 **/.externalNativeBuild/
+**/.cxx/
 **/outputs/
 *.log
+**/build_*/
 
 # Artifacts
 **/*.apk
@@ -68,9 +71,22 @@ tls-android-*.jar
 tls-android-modules/maven-central-publish/.work-*/
 tls-android-modules/maven-central-publish/dist/
 
+# Accidental extracted APK/AAR contents
+tls-android-modules/classes*.dex
+tls-android-modules/resources.arsc
+tls-android-modules/AndroidManifest.xml
+tls-android-modules/META-INF/
+tls-android-modules/okhttp3/
+tls-android-modules/res/
+
 # Local publish/sign artifacts
 **/*.asc
 **/*.md5
 **/*.sha1
 **/*.sha256
 **/*.sha512
+**/cospec/
+**/docs/
+repos/
+ve-tls-c-sdk/
+**/develop_docs/**

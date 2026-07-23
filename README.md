@@ -1,323 +1,393 @@
-<h1 align="center"><img src="https://iam.volccdn.com/obj/volcengine-public/pic/volcengine-icon.png"></h1>
+# TLS Android Producer SDK
 
-# Volcengine TLS Android SDK
+本仓库后续定位为 **Android Producer 写入 SDK**：面向 Android 端日志写入场景，基于 native producer 提供异步写入、聚合发送、压缩、重试与断点续传能力。
 
-该仓库提供在 Android/Java 环境下访问火山引擎 TLS（日志服务）的 SDK 与示例，支持同步 Client API 与异步 Producer 发送。已针对移动端体积与稳定性做优化：可选网络栈（OkHttp 3.x）、压缩（lz4/zlib）、R8 裁剪与安全日志映射。
+本仓库不再作为 Android 全量接口 SDK 维护。Project/Topic 管理、查询、索引、消费等全量接口，请使用 Java SDK；历史 core、full、OT、Trace、Crash、Network Diagnosis、OkHttp/WebView instrumentation 等模块不作为后续主要维护和客户接入口。
 
-从 0 到 1 接入文档请优先阅读：
-- SDK 使用指南（推荐）：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/SDK_USAGE_GUIDE.md
-- 本地配置文件模板（不含真实密钥）：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls_config.properties.example
+如果仓库中仍保留历史模块目录或发布脚本，仅作为存量代码与迁移参考，不代表这些模块会进入后续 Android SDK 发布物。后续 Android 侧发布、文档和客户支持口径都以 `tls-android-producer` 写入能力为准。
 
-## 前置准备
-### 服务开通
-请先在火山引擎控制台开通日志服务：https://console.volcengine.com/
-进入日志服务控制台后，按向导创建项目与主题，确保具备写入权限。
+## 版本线策略
 
-### 获取安全凭证
-Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access Key ID 与 Secret Access Key。
-创建与管理入口：
-- 访问控制：https://console.volcengine.com/iam
-- 访问密钥：https://console.volcengine.com/iam/keymanage/
-更多说明参考文档：https://www.volcengine.com/docs/6291/65568
-如需临时鉴权，可使用安全令牌（ST）。
+- `2.1.x` 及后续版本是 producer-native 主线，只发布并推荐使用 `io.github.volcengine-tls:tls-android-producer`。
+- `2.0.x` 是历史 Android SDK 维护线，仅用于 core、full、老 producer 的必要 bugfix、安全修复和构建兼容修复。
+- 新接入不要使用本仓库历史 full/core 模块；如果需要全量 TLS API，请使用 Java SDK。
+- 历史模块如继续保留在仓库中，只用于存量迁移参考或内部兼容验证，不进入 `2.1.x` 发布口径。
 
-## 模块结构
-- `tls-android-modules/core`：公共模型、HTTP 与签名实现、protobuf（javalite）生成代码、统一日志映射工具
-- `tls-android-modules/full`：完整 Client API（创建/检索/删除等）与 Producer 发送实现
-- `tls-android-modules/producer`：轻量 Producer 封装（映射到 `producer-lite`），提供 Android 友好的 `LogProducerClient`
-- `tls-android-modules/app`：演示 App（使用 `LogProducerClient`），含 BenchmarkActivity 压测页
-- `tls-android-modules/app-empty`：最简 UI，便于体积对比
-- `android-example`：Java 控制台示例（QuickStart、ProducerDemo 等）
+## 适用场景
 
-## 选择指南（不同场景用哪个包）
-- 只需要发送日志（建议）
-  - 依赖 `io.github.volcengine-tls:tls-android-producer`（轻量封装，自动依赖 `tls-android-core`）
-  - Android 应用或 SDK 集成优先选择该包以获得更小体积与更少依赖
-- 需要完整管理能力（创建 Project/Topic/Index、检索等）
-  - 依赖 `io.github.volcengine-tls:tls-android-full`（携带完整 Client API），自动依赖 `tls-android-core`
-  - 体积较大，适合工具类或后管应用
+- Android App 或 Android SDK 只需要写入日志到 TLS。
+- 需要 native producer 的聚合、压缩、异步发送能力。
+- 需要断点续传，保证日志上传 At Least Once。
+- 需要在 Android 侧控制缓存、批量大小、超时、持久化文件等写入参数。
 
-## 获取与安装
-### 方式 A：从 Maven Central 使用（推荐）
-在应用项目的仓库中确保包含 `mavenCentral()`，然后直接添加依赖：
+不适合使用本仓库的场景：
+
+- 需要创建、修改、删除 Project/Topic/Index 等管控接口。
+- 需要查询、消费、分析等全量 TLS API。
+- 需要纯 Java、非 Android 的服务端或工具链集成。
+
+这些场景请使用 Java SDK，避免把 Android Producer 写入包当成全量 SDK。
+
+## 当前维护范围
+
+当前客户接入只应关注 Producer 写入模块。
+
+| 能力 | 状态 | 说明 |
+| --- | --- | --- |
+| 异步写入 | 支持 | `addLog` 写入后由 native producer 后台发送 |
+| 聚合发送 | 支持 | 按日志数、包大小、超时时间聚合 |
+| 压缩 | 支持 | 默认 LZ4，也支持按需关闭压缩；源码启用 ZLIB 后可使用 ZLIB |
+| 缓存上限 | 支持 | 超过上限后写入失败，调用方需处理返回码 |
+| 断点续传 | 支持 | 写入本地 binlog，发送成功后删除，提供 At Least Once 语义 |
+| 多客户端 | 支持 | 不同客户端必须使用不同持久化文件 |
+| 全量 TLS API | 不提供 | 请使用 Java SDK |
+
+## 性能测试
+
+以下数据来自 `tls-android-producer` release 包的基线 benchmark，仅用于接入容量评估和回归对比，不承诺为不同设备、网络、日志结构下的固定 SLA。表格只保留客户接入时最常用的判断口径。
+
+测试口径：
+
+- 环境：Android API 29 arm64 模拟器，4 个可用处理器。
+- 配置：LZ4 压缩，单 producer client，按目标 LPS 持续写入并等待 drain 完成。
+- 日志规格：`约 200 B/条`、`约 700 B/条` 表示单条日志序列化前的近似大小。
+- 发送：实际进入 producer 的写入速度，四舍五入为 `条/秒`。
+- 日志量：按原始日志大小换算为 `MB/分钟`；开启 LZ4 后，实际网络上传流量通常会更低。
+- CPU：换算为单核等效占比，`100%` 表示约占满 1 个 CPU 核。
+- 内存：以进程 PSS 峰值为主，RSS 受系统共享库映射影响更大，仅适合辅助观察。
+
+| 模式 | 日志规格 | 发送 | 日志量 | 单核等效 CPU | PSS 峰值 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 内存缓存 | 约 200 B/条 | 200 条/秒 | 2.3 MB/分钟 | 2.2% | 23.5 MB |
+| 内存缓存 | 约 200 B/条 | 500 条/秒 | 5.7 MB/分钟 | 5.1% | 24.1 MB |
+| 内存缓存 | 约 700 B/条 | 200 条/秒 | 8.3 MB/分钟 | 2.0% | 24.4 MB |
+| 内存缓存 | 约 700 B/条 | 500 条/秒 | 20.8 MB/分钟 | 4.3% | 24.9 MB |
+| 断点续传 | 约 200 B/条 | 200 条/秒 | 2.2 MB/分钟 | 6.0% | 24.9 MB |
+| 断点续传 | 约 200 B/条 | 500 条/秒 | 5.7 MB/分钟 | 13.2% | 24.7 MB |
+| 断点续传 | 约 700 B/条 | 200 条/秒 | 8.3 MB/分钟 | 6.4% | 24.9 MB |
+| 断点续传 | 约 700 B/条 | 500 条/秒 | 20.8 MB/分钟 | 14.3% | 25.6 MB |
+
+业务侧做性能验收时应固定以下变量，否则不同轮次无法直接比较：
+
+- 使用 release 包，不使用 debug 包或打开额外日志。
+- 使用相同设备、Android 版本、网络、endpoint、Topic、日志字段、日志大小、压缩类型和 persistent 开关。
+- 至少记录发送条数、失败条数、`cpu_ms`、`wall_total_ms`、`available_processors`、`pss_peak_kb` 和上传流量。
+- 高可靠场景必须单独测试 persistent 模式；不要用 memory 模式数据推断断点续传成本。
+
+## SDK 包体积
+
+包体积建议看“接入 SDK 后 APK 增量”，不要只看 AAR 原始大小。AAR 是发布形态，最终 APK/AAB 会受 R8、资源裁剪、ABI split、依赖传递和签名方式影响。
+
+以下是最小接入样例的 release 包对比，口径为 `noProvider`、R8 开启、资源裁剪开启、4 个 ABI 全部打入 APK：
+
+| 项目 | 大小 | 说明 |
+| --- | ---: | --- |
+| 未接入 SDK 的空样例 APK | 45.1 KB | 用于做 APK Analyzer 的 previous APK |
+| 接入 producer 后 APK | 300.2 KB | 包含 producer Java wrapper 与 4 个 ABI 的 native 库 |
+| APK 增量 | +255.2 KB | 客户最应该关注的包体积影响 |
+| producer AAR | 267.8 KB | 发布 AAR 本身，不能直接等同于 APK 增量 |
+
+APK 增量主要来自 native 库和少量 Java wrapper：
+
+| 增量项 | APK 内压缩后大小 | 说明 |
+| --- | ---: | --- |
+| `lib/*.so` | 221.3 KB | 4 个 ABI 合计；单设备只需要其中 1 个 ABI |
+| `classes.dex` | 32.6 KB | producer Java API、回调和 JNI wrapper |
+| Manifest / META-INF 等 | 小于 2 KB | 对总包体积影响很小 |
+
+要达到最小包体积，按以下顺序收敛：
+
+1. 只接入 `tls-android-producer` 写入包，不接入 full/core 查询、消费、管控模块。
+2. 使用 release 构建，并开启 `minifyEnabled true`、`shrinkResources true`。
+3. 避免宽泛 keep 整个 `com.volcengine.*`，只保留 README 中给出的 producer 必要 keep 规则。
+4. 使用 `noProvider` 形态，不额外引入 SLF4J provider、OkHttp 或其他日志门面依赖。
+5. 默认使用 LZ4 最小 native 包；只有明确需要时再启用 ZLIB。
+6. 面向线上分发时开启 ABI split 或使用 AAB，让用户设备只下载匹配 ABI 的 native 库。
+7. 用 Android Studio APK Analyzer 的 `Compare with previous APK...` 对比“未接 SDK 空样例”和“接入 SDK 样例”，以最终 APK 增量作为发布口径。
+
+如果不启用 ABI split，APK 会同时携带 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64`；如果只面向真机发布，通常至少保留 `arm64-v8a`，再按业务兼容范围决定是否保留 `armeabi-v7a`。
+
+## 环境要求
+
+- Android API 14 及以上。
+- Android 工程需声明 `INTERNET` 权限。
+- 如果开启断点续传，持久化文件路径必须位于应用可写目录。
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+```
+
+## Gradle 接入
 
 ```groovy
+repositories {
+    mavenCentral()
+}
+
 dependencies {
-  // 轻量发送（推荐）
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
-  // 如需完整能力（管理+发送）
-  // implementation 'io.github.volcengine-tls:tls-android-full:2.0.2'
-  // 仅当使用 lz4 压缩时引入
-  implementation 'net.jpountz.lz4:lz4:1.3.0'
+    implementation 'io.github.volcengine-tls:tls-android-producer:2.1.1'
 }
 ```
 
-说明：
-- `tls-android-producer` / `tls-android-full` 会自动拉取 `tls-android-core`，无需手动声明 core。
-- 从 2.0.1 起已发布 Gradle Module Metadata（`.module`），Gradle/AGP 可直接解析到 AAR 变体，无需 `@aar`。
-- 如果你的 App 必须支持 `minSdk=16`：请使用 `2.0.2-api16`（兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）。
-
-### 方式 B：源码方式接入（仓库开发/二次开发）
-在工程的 `settings.gradle` 中包含需要的模块：
+如果使用源码方式接入，只依赖 producer-native 写入模块即可：
 
 ```groovy
-include ':core', ':full', ':producer', ':app'
-// 注意：':producer' 映射到轻量封装
-project(':producer').projectDir = new File('tls-android-modules/producer-lite')
+include ':producer-native'
 ```
 
-应用侧 `build.gradle`：
+## 混淆配置
 
-```groovy
-dependencies {
-  implementation project(':producer') // 或者 ':full'（按你的场景）
-  // 仅当使用 lz4 压缩时引入，否则可省略
-  implementation 'net.jpountz.lz4:lz4:1.3.0'
+SDK AAR 已内置 consumer rules；如果宿主工程有更严格的 R8/ProGuard 配置，按下面规则补齐，不要直接 keep 整个 `com.volcengine.*`。
+
+```proguard
+# Public producer API used by application code.
+-keep class com.volcengine.tls.android.producer.Log { *; }
+-keep class com.volcengine.tls.android.producer.LogProducerClient { *; }
+-keep class com.volcengine.tls.android.producer.LogProducerConfig { *; }
+-keep class com.volcengine.tls.android.producer.LogProducerCallback { *; }
+-keep class com.volcengine.tls.android.producer.LogProducerResult { *; }
+-keep class com.volcengine.tls.android.producer.LogProducerResult$* { *; }
+
+# JNI entry points and Java classes looked up from native code by name.
+-keep class com.volcengine.tls.android.producer.internal.JniNativeProducerBridge { *; }
+-keep class com.volcengine.tls.android.producer.internal.NativeHttpBridge { *; }
+-keep class com.volcengine.tls.android.producer.internal.NativeHttpBridge$Request { *; }
+-keep class com.volcengine.tls.android.producer.internal.NativeHttpResponse { *; }
+-keep class com.volcengine.tls.android.producer.internal.CallbackDispatcher { *; }
+
+-keepclassmembers class com.volcengine.tls.android.producer.internal.JniNativeProducerBridge {
+    native <methods>;
 }
 ```
 
-ProGuard/R8 规则已在 `tls-android-modules/app/proguard-rules.pro` 示例配置中给出，生产集成时请按需拷贝或增删。
-
-## 快速开始
-### 方式 A：异步 Producer 发送（推荐）
+## 最小写入示例
 
 ```java
-LogProducerConfig cfg = new LogProducerConfig()
-    .setEndpoint(System.getenv("endPoint"))
-    .setRegion(System.getenv("region"))
-    .setAccessKeyId(System.getenv("ak"))
-    .setAccessKeySecret(System.getenv("sk"))
-    .setSecurityToken(System.getenv("token")) // 可选
-    .setTopicId(System.getenv("topicId"))
-    .setCompressType("lz4")
-    .setSendThreadCount(2)
-    .setRetryCount(3)
-    .setPacketLogBytes(256 * 1024)
-    .setPacketLogCount(512)
-    .setPacketTimeout(1000);
+import com.volcengine.tls.android.producer.Log;
+import com.volcengine.tls.android.producer.LogProducerClient;
+import com.volcengine.tls.android.producer.LogProducerConfig;
 
-LogProducerClient client = new LogProducerClient(cfg);
-client.start();
+LogProducerConfig config = new LogProducerConfig()
+        .setEndpoint("https://your-tls-endpoint")
+        .setRegion("your_region")
+        .setTopicId("your_topic_id")
+        .setAccessKeyId("your_access_key_id")
+        .setAccessKeySecret("your_access_key_secret")
+        .setSecurityToken("") // STS 场景传临时 token；长期 AK/SK 可留空
+        .setCompressType(LogProducerConfig.CompressType.LZ4);
 
-Map<String,String> kv = new HashMap<>();
-kv.put("key", "value");
-client.sendLog(kv, result -> {
-  if (result.isSuccess()) {
-    // ok
-  }
+LogProducerClient client = new LogProducerClient(config, result -> {
+    if (!result.isSuccess()) {
+        android.util.Log.w("TLSProducer", result.getFailureSummary());
+    }
 });
 
-client.close();
+Log log = new Log()
+        .putContent("level", "info")
+        .putContent("message", "hello android producer")
+        .setLogTime(System.currentTimeMillis());
+
+client.addLog(log);
 ```
 
-更多示例参见：[LogProducerClient.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-lite/src/main/java/com/volcengine/tls/android/producer/LogProducerClient.java)
-
-### 方式 B：同步 Client API（完整能力）
+应用退出或不再写入时释放 producer：
 
 ```java
-ClientConfig cfg = new ClientConfig(
-  System.getenv("endPoint"),
-  System.getenv("region"),
-  System.getenv("ak"),
-  System.getenv("sk"),
-  System.getenv("token")
-);
-TLSLogClient client = com.volcengine.model.tls.ClientBuilder.newClient(cfg);
-
-PutLogsRequestV2 req = new PutLogsRequestV2(/* logs */ , System.getenv("topicId"), null, "lz4", "source", "file");
-PutLogsResponse resp = client.putLogsV2(req);
-client.destroy();
+client.destroyLogProducer();
+client.awaitDestroy(3000);
 ```
 
-参考完整示例：[TLSLogClientImpl](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/full/src/main/java/com/volcengine/service/tls/TLSLogClientImpl.java)
+## 配置说明
 
-### 新手三步接入（Android 应用）
-- 第一步：添加依赖与权限
-  ```groovy
-  dependencies {
-    // 轻量发送（推荐）
-    implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
-    // 如需完整能力（管理+发送）
-    // implementation 'io.github.volcengine-tls:tls-android-full:2.0.2'
-    // 使用 lz4 压缩时引入，否则可省略
-    implementation 'net.jpountz.lz4:lz4:1.3.0'
-  }
-  ```
-  ```xml
-  <!-- AndroidManifest.xml -->
-  <uses-permission android:name="android.permission.INTERNET" />
-  ```
-- 第二步：初始化并启动
-  ```java
-  LogProducerConfig cfg = new LogProducerConfig()
-      .setEndpoint(BuildConfig.TLS_ENDPOINT)
-      .setRegion(BuildConfig.TLS_REGION)
-      .setAccessKeyId(BuildConfig.TLS_AK)
-      .setAccessKeySecret(BuildConfig.TLS_SK)
-      .setSecurityToken(BuildConfig.TLS_TOKEN) // 可为空
-      .setTopicId(BuildConfig.TLS_TOPIC_ID)
-      .setCompressType("lz4") // 或 "zlib"
-      .setSendThreadCount(2)
-      .setRetryCount(3)
-      .setPacketLogBytes(256 * 1024)
-      .setPacketLogCount(512)
-      .setPacketTimeout(1000);
-  LogProducerClient client = new LogProducerClient(cfg);
-  client.start();
-  ```
-- 第三步：写入日志与关闭
-  ```java
-  Map<String,String> kv = new HashMap<>();
-  kv.put("key", "value");
-  client.sendLog(kv, r -> {});
-  // 如需自定义时间：
-  client.sendLog(kv, System.currentTimeMillis(), r -> {});
-  client.sendLog(kv, System.currentTimeMillis(), 123456789, r -> {});
-  client.close();
-  ```
+配置对象通过 `LogProducerConfig` 创建，再传入 `LogProducerClient`。`LogProducerClient` 会在构造时冻结 config，并在第一次写入时创建 native producer。
 
-### Android 项目配置来源建议
-- 避免在 Android 端使用 System.getenv 读取敏感配置；推荐：
-  - BuildConfig 常量（通过 build.gradle 注入）
-  - 应用的资源或配置文件（例如 res/raw 或 assets），并在发布流程中安全管理
-- 联调使用 http 时需配置 network_security_config 以允许明文流量（示例 app 已提供）
-- 仅在需要时启用 `enableTimeNs`，避免每条日志调用 nanoTime 的额外开销
-- R8/混淆：保留 okhttp/okio/protobuf 与 com.volcengine.*，示例规则可复用并按运行日志修正
+```java
+LogProducerConfig config = new LogProducerConfig()
+        .setEndpoint(endpoint)
+        .setRegion(region)
+        .setTopicId(topicId)
+        .setAccessKeyId(accessKeyId)
+        .setAccessKeySecret(accessKeySecret)
+        .setSecurityToken(securityToken)
+        .setHashKey("default-route")
+        .setCompressType(LogProducerConfig.CompressType.LZ4)
+        .setPacketLogBytes(1024 * 1024)
+        .setPacketLogCount(1024)
+        .setPacketTimeoutMs(3000)
+        .setMaxBufferLimit(64 * 1024 * 1024)
+        .setSendThreadCount(1)
+        .setRetryMaxAttempts(3)
+        .setRetryTotalTimeoutMs(90_000)
+        .setRetryInitialIntervalMs(500)
+        .setRetryMaxIntervalMs(10_000);
 
-### 接入必填信息
-- endpoint（必填）：形如 `https://tls-cn-xxx.volces.com`
-- region（必填）：例如 `cn-xxx`
-- accessKeyId / accessKeySecret（必填）：AK/SK 凭证
-- topicId（必填）：日志主题 ID
-- securityToken（可选）：临时鉴权场景使用
-- compressType（建议）：`lz4` 或 `zlib`
+LogProducerClient client = new LogProducerClient(config);
+```
 
-### 常见易错点与排查
-- Android 12 导出要求：含 `intent-filter` 的 Activity 必须声明 `android:exported="true"`
-- 网络安全：联调使用 `http` 时需配置 `network_security_config` 允许明文流量
-- 权限：`INTERNET` 必须声明（否则无法联网）
-  ```xml
-  <uses-permission android:name="android.permission.INTERNET" />
-  ```
-- 依赖：仅在使用 `lz4` 压缩时引入 `net.jpountz.lz4:lz4:1.3.0`；使用 `zlib` 无需额外三方依赖
-- R8/混淆：避免宽泛 keep 整个 `com.volcengine.*`，让 R8 移除未用代码；按日志最小化补充第三方库 keep
-- 时间戳：仅在需要纳秒级时间时开启 `enableTimeNs`；否则禁用以降低开销
-- 配置来源：不要在 Android 端使用 `System.getenv`；使用 BuildConfig/受控配置文件并妥善管理敏感信息
-- 本地签名与构建：受限环境无法写入 `~/.android` 时，使用项目自带 `debug.keystore` 并在 `signingConfigs` 指定
+关键配置建议：
 
-### 发布后快速验证
-- 构造 `LogProducerClient`，写入一条简单日志（`Map<String,String>`），回调 `result.isSuccess()` 为 `true`
-- 在服务端查询对应 `topicId` 的最新日志，确认字段（time/timeNs/contents/group tags）与期望一致
+- `endpoint`、`region`、`topicId`、`accessKeyId`、`accessKeySecret` 是最小必填项；STS 场景还需要 `securityToken`。
+- `hashKey` 用于服务端路由和有序性控制；同一个 hashKey 的日志在服务端按同一路由处理，不同 hashKey 可提升并发分散度。
+- `packetLogBytes`、`packetLogCount`、`packetTimeoutMs` 共同决定批量大小和发送延迟；吞吐优先可增大批量，低延迟优先可降低 timeout。
+- `maxBufferLimit` 是单 client 内存缓存上限；写入速度长期高于发送速度时，超过上限会导致 `addLog` 抛异常。
+- `retryMaxAttempts`、`retryTotalTimeoutMs`、`retryInitialIntervalMs`、`retryMaxIntervalMs` 控制 SDK 内部退避重试；业务侧不应在主线程做无界重试。
 
-## 本次更新与迁移指南（1.1.5 → 2.0.x）
-- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer:2.0.2`（轻量发送）或 `io.github.volcengine-tls:tls-android-full:2.0.2`（完整能力）。
-- 写日志统一路径：高频接口统一走 Map→LogItem→AdaptorUtil→PutLogRequest.LogGroup，避免分叉路径。
-  - 入口：LogProducerClient 的 `sendLog(Map)` 与带 `time/timeNs` 的重载
-  - 转换：统一在 AdaptorUtil 中完成时间归一、内容填充与 group tags 拼接
-  - 参考：
-    - LogProducerClient.java：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-lite/src/main/java/com/volcengine/tls/android/producer/LogProducerClient.java
-    - AdaptorUtil.java：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/core/src/main/java/com/volcengine/model/tls/util/AdaptorUtil.java
-    - ProducerImpl.java（lite）：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-lite/src/main/java/com/volcengine/service/tls/ProducerImpl.java
-    - settings.gradle（模块映射）：https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/settings.gradle
-- 时间戳行为：
-  - 用户自定义毫秒时间与纳秒时间均支持（`sendLog(kv, timeMillis)` / `sendLog(kv, timeMillis, timeNs)`）
-  - 未设置 `timeNs` 且启用 `enableTimeNs=true` 时，发送侧自动补充纳秒值
-- 性能优化：Map→LogItem 转换移除中间合并用的 HashMap，保留覆盖语义，减少 CPU 与 GC 开销。
-- 最低支持版本：Android 4.4（API 19）。
+### 动态更新配置
 
-## 日志映射与字段
-统一由公共工具完成：[core/AdaptorUtil.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/core/src/main/java/com/volcengine/model/tls/util/AdaptorUtil.java)
+不要通过继续修改原 `LogProducerConfig` 来做动态更新。原因有两点：
 
-- Log.Contents：写入每条日志的 `key/value`
-- Log.Time：优先使用用户传入的毫秒时间；未提供时在发送侧自动生成并归一化
-- Log.TimeNs（可选）：
-  - 用户可传入 `timeNs`
-  - 或通过开关 `enableTimeNs=true` 自动填充（次秒内纳秒值）
-- LogGroup.Source、FileName：按需填充
-- LogGroup.LogTags（可选）：组级标签（`groupTags`）在 producer 与 full 均支持
+- `LogProducerClient` 构造时会把 config 冻结，后续再调用 `config.setXxx(...)` 会抛出 `IllegalStateException`。
+- native producer 使用的是构造时生成的 `ConfigSnapshot`；即使绕过冻结去改 Java 对象，也不会自动同步到 native 发送路径。
 
-## 压缩与体积优化
-- 压缩：支持 `lz4` 与 `zlib`
-  - `lz4`：压缩/解压更快（推荐默认）
-  - `zlib`：无需引入 lz4 依赖，体积更小
-- 体积：默认网络栈为 OkHttp 3.12.13 + Okio 1.17.5（Java），结合 R8 可获得较小 APK
-- R8：示例 `app` 已开启 R8（minify/shrink），同时提供 keep 规则；如遇运行问题按日志定向补充
+当前支持在原 client 上动态更新的只有两类：
 
-## 基准测试（Benchmark）
-演示 App 中提供压测页：通过两种压缩模式对比发送吞吐与延迟分布，并导出报告。
-- 启动入口：[AndroidManifest.xml](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/app/src/main/AndroidManifest.xml)
-- 页面逻辑：[BenchmarkActivity.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/app/src/main/java/com/volcengine/tls/android/demo/BenchmarkActivity.java)
-- 报告导出路径：`/sdcard/Android/data/<app>/files/benchmark/`
+- `client.updateEndpoint(endpoint, region, topicId)`：更新后续新请求的发送目标；已经进入 native 发送路径的请求可能仍使用旧目标。
+- `client.resetSecurityToken(accessKeyId, accessKeySecret, securityToken)`：更新 AK/SK/STS token，适合临时凭证轮转。
 
-## 运行示例（控制台）
-- 运行 Producer（lite）：
-  ```bash
-  endPoint="https://tls-cn-xxx.volces.com" region="cn-xxx" ak="..." sk="..." token="" topicId="..." \
-  bash android-example/run-producer-demo.sh
-  ```
-- 运行 Producer（full）：
-  ```bash
-  endPoint="https://tls-cn-xxx.volces.com" region="cn-xxx" ak="..." sk="..." token="" topicId="..." \
-  bash android-example/run-full-producer-demo.sh
-  ```
-- 运行 QuickStart（full 客户端，创建/写入/检索/清理）：
-  ```bash
-  endPoint="https://tls-cn-xxx.volces.com" region="cn-xxx" ak="..." sk="..." token="" \
-  bash android-example/run-quickstart.sh
-  ```
- - 运行 DeleteResource（full 客户端，批量删除测试资源）：
-  ```bash
-  endPoint="https://tls-cn-xxx.volces.com" region="cn-xxx" ak="..." sk="..." token="" \
-  bash android-example/run-delete-resource.sh
-  ```
+```java
+client.updateEndpoint(newEndpoint, newRegion, newTopicId);
+client.resetSecurityToken(newAccessKeyId, newAccessKeySecret, newSecurityToken);
+```
 
-## 集成测试
-- 环境变量要求：endPoint、region、ak、sk（token 可选），部分用例需 topicId。
-- 最低支持 Android 版本：4.4（API 19）。SDK 库模块已统一设置 minSdk=19。
-- 运行方式：
-  ```bash
-  cd tls-android-modules
-  ./gradlew :core:assembleRelease :full:assembleRelease :producer:assembleRelease
-  ./gradlew :integration-tests:test
-  ```
+以下参数是 create-time 参数，运行中修改不会生效；如需变更，应创建新的 config/client，完成业务切流后销毁旧 client：
 
-## 接入说明
-- Gradle 配置（应用/库）：
-  ```gradle
-  android {
-    defaultConfig { minSdk 19 }
-  }
-  dependencies {
-    implementation project(':producer')
-    // 或使用 full 模块：
-    // implementation project(':full')
-  }
-  ```
-- User-Agent：SDK 自动注入统一标识，格式为 volc-tls-android/{module}/v{version}
+- 压缩类型、批量参数、缓存上限、发送线程数、重试策略。
+- persistent 开关、持久化路径、持久化容量、强制刷盘策略。
+- 默认 hashKey、source、tag、回调线程策略、连接/请求超时、destroy 等生命周期参数。
 
-## CI
-- 提供 GitHub Actions 工作流，包含构建 AAR 与运行集成测试
-- 路径：.github/workflows/android-ci.yml
-- 说明：
-  - 测试用例通过 Assumptions 检查环境变量，不满足时自动跳过，避免本地误触发。
-  - 创建/修改/检索链路参考：[ResourceCRUDIntegrationTest.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/integration-tests/src/test/java/com/volcengine/integration/ResourceCRUDIntegrationTest.java)
-  - 搜索/直方图/分片参考：[SearchIntegrationTest.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/integration-tests/src/test/java/com/volcengine/integration/SearchIntegrationTest.java)
+如果开启 persistent 且需要切换 endpoint/region/topicId，建议同时切换到新的 `persistentFilePath` 或直接新建 client。否则旧路径中已持久化的 backlog 可能被恢复后发送到新的目标。
 
-## 常见问题
-- R8 开启后发送卡住
-  - 确认 keep 规则完整（okhttp/okio/protobuf/com.volcengine.*）
-  - 观察 release 下 Logcat（可在 debug 下绑定 slf4j-simple 输出更多定位信息）
-- 服务端解压异常
-  - 头部含义：`x-tls-compresstype`（lz4/zlib），`x-tls-bodyrawsize`（压缩前长度）
-  - 服务端请按压缩前长度作为校验值，并采用有界读取避免内存膨胀
+### 全量参数说明
 
-## 代码参考
-- 发送管线（lite/full）：
-  - [ProducerImpl.java (lite)](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/producer-lite/src/main/java/com/volcengine/service/tls/ProducerImpl.java)
-  - [ProducerImpl.java (full)](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/full/src/main/java/com/volcengine/service/tls/ProducerImpl.java)
-- 公共映射工具：
-  - [AdaptorUtil.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/core/src/main/java/com/volcengine/model/tls/util/AdaptorUtil.java)
-- 压缩与发送：
-  - [BaseServiceImpl.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/core/src/main/java/com/volcengine/service/BaseServiceImpl.java)
+| 方法 | 默认值 | 取值与说明 | 推荐使用方式 |
+| --- | --- | --- | --- |
+| `setEndpoint(String)` | 无 | TLS endpoint，建议传完整协议前缀，例如 `https://...` | 必填 |
+| `setRegion(String)` | 无 | TLS region | 必填 |
+| `setProjectId(String)` | `null` | Project ID，当前 producer 写入路径保留字段 | 有明确业务需要时设置 |
+| `setTopicId(String)` | 无 | 写入目标 Topic ID | 必填 |
+| `setAccessKeyId(String)` | 无 | 访问凭证 AK | 必填 |
+| `setAccessKeySecret(String)` | 无 | 访问凭证 SK | 必填 |
+| `setSecurityToken(String)` | `null` | STS 临时 token；长期 AK/SK 场景可为空 | STS 场景必填 |
+| `setHashKey(String)` | `null` | 默认 hashKey，创建后不支持动态修改 | 需要有序或路由分散时设置 |
+| `setSource(String)` | `null` | `__source__` 字段 | 需要固定来源标识时设置 |
+| `addTag(String, String)` | 空 | 写入请求附带的 tag；重复 key 按追加顺序保留 | 需要公共标签时设置 |
+| `setCompressType(CompressType)` | `LZ4` | `LZ4` 或 `NONE` | 一般保持默认 |
+| `setPacketLogBytes(int)` | `1048576` | 单个发送包的日志字节数上限，单位 byte | 常用 `256 KB` ~ `1 MB` |
+| `setPacketLogCount(int)` | `1024` | 单个发送包的日志条数上限 | 常用 `512` ~ `1024` |
+| `setPacketTimeoutMs(int)` | `3000` | 缓存日志的发送超时时间，单位 ms | 低延迟 `1000`，常规 `3000` |
+| `setMaxBufferLimit(int)` | `67108864` | 单 client 内存缓存上限，单位 byte | 常用 `64 MB`，低内存设备可下调 |
+| `setSendThreadCount(int)` | `1` | 发送线程数；persistent 模式下会收敛为 `1` | 默认即可 |
+| `setRetryMaxAttempts(int)` | `0` | 最大尝试次数，范围 `[0, 50]`；`0` 表示不按次数限制，仅受总超时约束 | 常用 `3` |
+| `setRetryTotalTimeoutMs(int)` | `90000` | 单条发送含重试的总预算，必须 `> 0`，单位 ms | 默认 `90s` |
+| `setRetryInitialIntervalMs(int)` | `500` | 首次退避间隔，范围 `[100, 30000]`，单位 ms | 默认 `500ms` |
+| `setRetryMaxIntervalMs(int)` | `10000` | 最大退避间隔，范围 `[1000, 60000]`，且不小于 initial interval | 默认 `10s` |
+| `setEnableTimeNs(boolean)` | `false` | 是否启用纳秒时间字段；需配合带 `timeNs` 的 `addLog` 使用 | 只有需要高精度时间时开启 |
+| `setPersistent(boolean)` | `false` | 是否开启断点续传 | 高可靠场景开启 |
+| `setPersistentFilePath(String)` | `null` | 持久化文件路径；必须位于应用可写目录 | persistent 开启时必填 |
+| `setPersistentForceFlush(boolean)` | `false` | 每次写入后是否强制刷盘 | 只有极高可靠场景开启 |
+| `setPersistentMaxFileCount(int)` | `0` | 持久化文件滚动个数；`0` 由 native 默认策略处理 | 常用 `8` ~ `10` |
+| `setPersistentMaxFileSize(int)` | `0` | 单个持久化文件大小，单位 byte；`0` 由 native 默认策略处理 | 常用 `1 MB` ~ `10 MB` |
+| `setPersistentMaxLogCount(int)` | `0` | 本地最多缓存日志条数；`0` 由 native 默认策略处理 | 生产高可靠场景常用 `65536` |
+| `setConnectTimeoutMs(int)` | `0` | 连接超时，单位 ms；`0` 使用 native 默认值 | 弱网场景按业务调整 |
+| `setRequestTimeoutMs(int)` | `0` | 请求超时，单位 ms；`0` 使用 native 默认值 | 弱网场景按业务调整 |
+| `setDestroyWaitMs(int)` | `0` | destroy 总等待预算，单位 ms | 简单场景使用 |
+| `setDestroyFlusherWaitMs(int)` | `0` | flusher 销毁等待预算，单位 ms | 需要拆分等待时设置 |
+| `setDestroySenderWaitMs(int)` | `0` | sender 销毁等待预算，单位 ms | 需要拆分等待时设置 |
+| `setCallbackFromSenderThread(boolean)` | `false` | 是否直接从 sender 线程回调 | 回调逻辑很轻时才开启 |
 
-如需进一步体积优化、开关纳秒时间、或自定义日志映射策略，请在 Issue 中说明你的场景，我们会协助提供建议或改造示例。
+### 断点续传配置
+
+高可靠写入场景建议开启断点续传。持久化文件必须放在应用私有目录；多个 producer client 不要复用同一个文件。
+
+```java
+config.setPersistent(true);
+config.setPersistentFilePath(context.getFilesDir() + "/tls-producer/log.dat");
+config.setPersistentMaxFileCount(10);
+config.setPersistentMaxFileSize(1024 * 1024);
+config.setPersistentMaxLogCount(65536);
+config.setPersistentForceFlush(false);
+```
+
+注意：
+
+- 开启 persistent 后，发送线程数会被 Android binding 收敛为 `1`，避免本地恢复、发送确认和顺序语义变复杂。
+- 多进程场景下不要复用同一个持久化路径；当前 Java 接入不会自动为不同进程拆分路径，业务必须显式规划不同 client 的文件路径。
+- `setPersistentForceFlush(true)` 可靠性更高，但会增加 IO 成本；只有强可靠场景建议开启。
+- 如果切换 endpoint/region/topicId，建议同步切换 `persistentFilePath`，避免旧目标的 backlog 被恢复后发送到新目标。
+
+## 回调函数配合使用
+
+`LogProducerCallback` 表示后台发送完成后的最终结果；当前 Java API 的 `addLog` 不返回整数码，入参非法、producer 已销毁、native 入队失败等会通过异常暴露。
+
+- `client.addLog(log)` 正常返回：日志已进入 producer，本次调用没有同步失败。
+- `client.addLog(log)` 抛异常：日志未成功进入 producer，调用方应按业务策略降级或短暂重试。
+- `LogProducerCallback.onCompletion(result)`：后台发送最终结果；如果构造 client 时不传 callback，就不会收到逐条最终状态。
+
+推荐写法：
+
+```java
+LogProducerClient client = new LogProducerClient(config, result -> {
+    if (!result.isSuccess()) {
+        android.util.Log.w("TLSProducer", result.getFailureSummary());
+    }
+});
+
+try {
+    client.addLog(log);
+} catch (RuntimeException e) {
+    android.util.Log.w("TLSProducer", "enqueue failed", e);
+}
+```
+
+使用建议：
+
+- callback 中不要执行耗时任务、网络请求或阻塞等待；需要复杂处理时转交给业务自己的线程池。
+- 关键日志建议同时处理 `addLog` 异常和 callback 失败；只看 callback 会漏掉入队失败。
+- 非关键日志可以不传 callback，以降低对象持有和回调调度成本。
+- `LogProducerResult.getFailureSummary()` 会汇总失败类型、HTTP 状态码、错误码、错误信息和 requestId，适合直接接入业务日志。
+
+## 写入接口说明
+
+常用写入接口：
+
+| 方法 | 说明 |
+| --- | --- |
+| `new Log().putContent(key, value)` | 添加单个日志字段，`value == null` 会转为空串 |
+| `new Log().putContents(map)` | 批量添加 KV 字段 |
+| `log.setLogTime(System.currentTimeMillis())` | 显式指定毫秒时间戳 |
+| `client.addLog(log)` | 写入一条日志，`flush=0` |
+| `client.addLog(log, 1)` | 写入一条日志并提示 producer 尽快 flush |
+| `client.updateEndpoint(endpoint, region, topicId)` | 动态更新后续请求的写入目标 |
+| `client.resetSecurityToken(ak, sk, token)` | 动态更新 AK/SK/STS token |
+| `client.destroyLogProducer()` | 异步销毁 producer |
+| `client.awaitDestroy(timeoutMs)` | 等待已触发的 destroy 完成 |
+
+应用退出、账号切换、配置切换前，建议调用 `destroyLogProducer()`，必要时再调用 `awaitDestroy(timeoutMs)` 做有界等待。
+
+## 返回码与失败处理
+
+`addLog` 同步抛异常时，日志没有成功进入 producer 队列，调用方应根据业务策略处理。callback 返回失败时，表示日志进入 producer 后最终发送失败。
+
+常见处理方式：
+
+- 非关键日志：直接丢弃并记录本地计数。
+- 关键日志：业务侧短暂重试，但要避免在主线程阻塞。
+- 持续失败：降低采样率或关闭非关键日志，避免放大内存与磁盘压力。
+- persistent 模式持续失败：优先检查可写目录、剩余磁盘、持久化文件是否被多个 client 复用。
+
+## 与 Java SDK 的分工
+
+| 需求 | 推荐 SDK |
+| --- | --- |
+| Android 端写日志 | 本仓库 `tls-android-producer` |
+| Android 端断点续传写入 | 本仓库 `tls-android-producer` |
+| Project/Topic/Index 管理 | Java SDK |
+| 查询、消费、分析 | Java SDK |
+| 非 Android 服务端接入 | Java SDK |
+
+后续如果没有明确的 Android 特殊适配需求，本仓库只维护 `tls-android-producer` 写入能力；管控面、读侧和其他全量 TLS API 统一由 Java SDK 承接。
+
+## Security and privacy
+
+This project takes security seriously.
+For vulnerability reporting and supported versions, see [SECURITY.md](SECURITY.md).

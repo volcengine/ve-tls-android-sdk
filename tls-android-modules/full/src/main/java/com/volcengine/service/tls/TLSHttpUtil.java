@@ -16,11 +16,11 @@ import javax.net.ssl.*;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.volcengine.util.TlsLogger;
+import com.volcengine.util.TlsLoggerFactory;
 
 public class TLSHttpUtil extends BaseServiceImpl {
-    private static final Logger LOG = LoggerFactory.getLogger(TLSHttpUtil.class);
+    private static final TlsLogger LOG = TlsLoggerFactory.getLogger(TLSHttpUtil.class);
 
     public TLSHttpUtil(ServiceInfo info, Map<String, ApiInfo> apiInfoList) {
         super(info, apiInfoList);

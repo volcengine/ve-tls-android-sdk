@@ -5,9 +5,9 @@
 ## 你需要先知道的两件事
 
 - SDK 依赖坐标（Maven Central）
-  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.2`
-  - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.2`
-  - 如果你的 App 必须支持 `minSdk=16`：使用 `2.0.2-api16`（仅提供兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）
+  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.1.1`
+  - 需要完整管理能力（创建 Project/Topic/Index、检索等）：请使用 Java SDK，不再使用本仓库旧 Android full 模块。
+  - 如果你的 App 必须支持 `minSdk < 19`：当前主发布物不覆盖该场景；如确有存量兼容需求，应单独评估 legacy 构建。
 - 必要参数（后面会用到）
   - `endpoint`：TLS 接入域名，形如 `https://tls-cn-xxx.volces.com`
   - `region`：地域标识，例如 `cn-xxx`
@@ -58,7 +58,7 @@
    - `ak/sk`：访问密钥
    - `topicId`：日志主题 ID
    - `token`：STS token（可空）
-   - `compress`：`lz4` 或 `zlib`
+   - `compress`：`NONE` 或 `LZ4`，默认 `LZ4`
 
 ### 3A. 在真机上安装并运行
 
@@ -132,10 +132,8 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-  // 轻量发送（推荐）
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.2'
-  // 仅当使用 lz4 压缩时引入
-  implementation 'net.jpountz.lz4:lz4:1.3.0'
+  // Producer 写入模块
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.1.1'
 }
 ```
 
@@ -192,11 +190,12 @@ adb devices
 
 如果你在 Android Studio 的 Device Manager 里启动了模拟器，这里通常会看到类似 `emulator-5554 device` 的条目；后续 `adb push/adb shell` 会默认对它生效。
 
-### 5. 初始化并启动 Producer
+### 5. 初始化并创建 Producer
 
-在 `Application` 或首个页面创建并启动（建议全局单例）：
+在 `Application` 或首个页面创建（建议全局单例）：
 
 ```java
+import com.volcengine.tls.android.producer.Log;
 import com.volcengine.tls.android.producer.LogProducerClient;
 import com.volcengine.tls.android.producer.LogProducerConfig;
 
@@ -207,16 +206,69 @@ LogProducerConfig cfg = new LogProducerConfig()
     .setAccessKeySecret(BuildConfig.TLS_SK)
     .setSecurityToken(BuildConfig.TLS_TOKEN) // 可为空
     .setTopicId(BuildConfig.TLS_TOPIC_ID)
-    .setCompressType("lz4") // 或 "zlib"
+    .setCompressType(LogProducerConfig.CompressType.LZ4) // 或 NONE
     .setSendThreadCount(2)
-    .setRetryCount(3)
+    .setRetryMaxAttempts(3)
+    .setRetryTotalTimeoutMs(90_000)
+    .setRetryInitialIntervalMs(500)
+    .setRetryMaxIntervalMs(10_000)
     .setPacketLogBytes(256 * 1024)
     .setPacketLogCount(512)
-    .setPacketTimeout(1000);
+    .setPacketTimeoutMs(1000);
 
 LogProducerClient client = new LogProducerClient(cfg);
-client.start();
 ```
+
+### 5.1 Producer 配置参数说明（LogProducerConfig）
+
+下表按当前 `tls-android-producer` public API 整理，口径以 `LogProducerConfig` 实现为准，不复用旧 SDK 的参数名、单位或默认值语义。
+
+| 参数设置 | 说明 | 取值 | 默认值与约束 |
+| --- | --- | --- | --- |
+| `setTopicId` | 发送目标 Topic ID | 字符串 | 必填；对应 `topicId` |
+| `setHashKey` | Producer/request 级别 shard key | 字符串 | 默认空；当前不提供 per-log `hashKey` |
+| `addTag` | create-time tag，随 Producer 创建时写入 | 两个字符串 `key/value` | 默认无；重复 key 按追加顺序保留；`key/value` 都不能为 `null` |
+| `setSource` | `__source__` 字段值 | 字符串 | 默认空；未设置时不主动补 `Android` 常量 |
+| `setCompressType` | 上传压缩类型 | `CompressType.NONE` / `CompressType.LZ4` | 默认 `LZ4` |
+| `setPacketLogBytes` | 每个缓存日志包的大小上限 | 整数，单位字节 | 默认 `1024 * 1024` |
+| `setPacketLogCount` | 每个缓存日志包包含日志条数上限 | 整数 | 默认 `1024` |
+| `setPacketTimeoutMs` | 缓存日志的发送超时时间 | 整数，单位毫秒 | 默认 `3000` |
+| `setMaxBufferLimit` | 单个 Producer Client 可使用的内存上限 | 整数，单位字节 | 默认 `64 * 1024 * 1024` |
+| `setSendThreadCount` | sender 线程数 | 整数 | 默认 `1`；若开启 `persistent`，SDK 会在创建前归一到 `1` |
+| `setRetryMaxAttempts` | 最大尝试次数上限 | 整数 | 默认 `0`；范围 `[0, 50]`；`0` 表示不按次数截断，只受 `retryTotalTimeoutMs` 限制 |
+| `setRetryTotalTimeoutMs` | 单次请求整体重试预算 | 整数，单位毫秒 | 默认 `90000`；必须 `> 0` |
+| `setRetryInitialIntervalMs` | 首次重试前的基础等待间隔 | 整数，单位毫秒 | 默认 `500`；范围 `[100, 30000]` |
+| `setRetryMaxIntervalMs` | 单次等待间隔上限 | 整数，单位毫秒 | 默认 `10000`；范围 `[1000, 60000]`，且必须 `>= retryInitialIntervalMs` |
+| `setPersistent` | 是否开启 persistent/recover | 布尔值 | 默认 `false`；开启后为 **at-least-once** 语义，不承诺 exactly-once |
+| `setPersistentFilePath` | persistent 文件目录 | 字符串 | 默认空；开启 `persistent` 时必填；不同 target 建议使用不同目录 |
+| `setPersistentForceFlush` | 是否每次 `addLog` 都强制刷盘 | 布尔值 | 默认 `false` |
+| `setPersistentMaxFileCount` | persistent 文件滚动个数上限 | 整数 | 默认 `0`；开启 `persistent` 时建议显式配置，不要依赖 `0` |
+| `setPersistentMaxFileSize` | 单个 persistent 文件大小上限 | 整数，单位字节 | 默认 `0`；开启 `persistent` 时建议显式配置，不要依赖 `0` |
+| `setPersistentMaxLogCount` | 本地最多缓存日志条数 | 整数 | 默认 `0`；开启 `persistent` 时建议显式配置，不要依赖 `0` |
+| `setConnectTimeoutMs` | 网络连接超时时间 | 整数，单位毫秒 | Java 字段默认 `0`；运行时按 native 默认 `10000ms` 处理 |
+| `setRequestTimeoutMs` | 单次请求读超时 | 整数，单位毫秒 | Java 字段默认 `0`；运行时按 native 默认 `10000ms` 处理 |
+| `setDestroyWaitMs` | legacy destroy 等待预算 | 整数，单位毫秒 | 默认 `0`；仅在未配置 split destroy 时生效 |
+| `setDestroyFlusherWaitMs` | flusher 线程销毁等待预算 | 整数，单位毫秒 | 默认 `0`；与 `setDestroySenderWaitMs` 组成 split destroy |
+| `setDestroySenderWaitMs` | sender 线程池销毁等待预算 | 整数，单位毫秒 | 默认 `0`；与 `setDestroyFlusherWaitMs` 组成 split destroy |
+| `setEnableTimeNs` | 是否启用纳秒级时间戳字段 | 布尔值 | 默认 `false` |
+| `setCallbackFromSenderThread` | callback 线程模式 | 布尔值 | 默认 `false`；`false` 表示主线程回调契约，条件不满足时会显式失败，不会静默退回 sender 线程 |
+
+补充说明：
+- 本 SDK 当前没有旧 Android SDK 里的这些参数：`setNtpTimeOffset`、`setMaxLogDelayTime`、`setDropDelayLog`、`setDropUnauthorizedLog`。
+- 超时、destroy、retry 这组 public API 统一使用毫秒，不使用 `Sec` 后缀。
+- `null key` 不允许；日志内容里的 `null value` 会按空串 `""` 发送。如果要表达“没有这个字段”，不要放这个 key。
+- `setPersistentFilePath(...)` 重用同一路径时，应保持 `endpoint/region/topicId` 稳定；如果发送目标变了，请切换到新的 persistent 目录。
+
+### 5.2 关键参数推荐值（起步建议）
+
+如果只是先用一组稳妥配置跑通并上线观察，建议从下面这组开始：
+
+- 通用发送场景：`LZ4`、`packetLogBytes=1024*1024`、`packetLogCount=1024`、`packetTimeoutMs=3000`、`maxBufferLimit=64*1024*1024`、`sendThreadCount=1`。
+- 重试策略：`retryMaxAttempts=0`、`retryTotalTimeoutMs=90_000`、`retryInitialIntervalMs=500`、`retryMaxIntervalMs=10_000`。`0` 次数上限表示只按总时间预算截断。
+- 网络超时：通常不需要显式配置；如需声明，可用 `connectTimeoutMs=10_000`、`requestTimeoutMs=10_000`。
+- callback 线程：默认 `setCallbackFromSenderThread(false)`，即主线程回调契约。
+- persistent/recover：先明确这是 **at-least-once** 能力，不是 exactly-once；必须显式设置 `setPersistentFilePath(...)`；`setSendThreadCount` 仍建议按 `1` 使用。
+- persistent 容量参数不要留默认 `0`。仅做功能验证或保守起步时，可先用 `persistentMaxFileCount=4`、`persistentMaxFileSize=1024*1024`、`persistentMaxLogCount=1024`；生产场景应按峰值写入速率和离线容忍窗口重新估算。
 
 ### 6. 发送一条日志（验证链路）
 
@@ -229,20 +281,15 @@ kv.put("key", "value");
 kv.put("app", "demo");
 kv.put("ts", String.valueOf(System.currentTimeMillis()));
 
-client.sendLog(kv, result -> {
-  if (result.isSuccess()) {
-    // 发送成功
-  } else {
-    // 发送失败：可从 result.getAttempts() 里拿到 httpCode / errorCode / errorMessage
-  }
-});
+Log log = new Log().putContents(kv).setLogTime(System.currentTimeMillis());
+client.addLog(log);
 ```
 
 如果你希望自定义日志时间：
 
 ```java
-client.sendLog(kv, System.currentTimeMillis(), r -> {});
-client.sendLog(kv, System.currentTimeMillis(), 123456789, r -> {});
+Log log = new Log().putContents(kv).setLogTime(System.currentTimeMillis());
+client.addLog(log, 1);
 ```
 
 ### 7. 关闭与资源释放
@@ -250,7 +297,7 @@ client.sendLog(kv, System.currentTimeMillis(), 123456789, r -> {});
 在 `onDestroy` 或应用退出时关闭：
 
 ```java
-client.close();
+client.destroyLogProducer();
 ```
 
 ### 8. 控制台验证
@@ -258,7 +305,7 @@ client.close();
 在 TLS 控制台按 `topicId` 查询最新日志，检查：
 - 是否能看到你写入的 key/value
 - 时间字段是否正确
-- 压缩类型是否与配置一致（lz4/zlib）
+- 压缩类型是否与配置一致（NONE/LZ4）
 
 建议你按下面“截图式步骤”逐步核对（不同控制台 UI 可能略有差异，但路径一致）：
 
@@ -285,119 +332,22 @@ Release 打包开启 R8 后，如遇运行时反射/序列化相关问题，按�
 
 你也可以直接复制下面的模板到你自己的 `app/proguard-rules.pro`（按你实际依赖增删）。
 
-#### Producer（只发送日志）模板
+### 9.1 Producer 专用 keep 规则
 
 ```pro
 -keep class com.volcengine.tls.android.producer.** { *; }
--keep class com.volcengine.model.tls.producer.** { *; }
--keep class com.volcengine.model.tls.pb.** { *; }
--keep class com.volcengine.model.tls.exception.LogException { *; }
--keep class com.volcengine.service.tls.** { *; }
--keep class com.volcengine.http.** { *; }
--keep class com.volcengine.util.** { *; }
-
--keep class com.google.protobuf.** { *; }
--dontwarn com.google.protobuf.**
-
--keep class okhttp3.** { *; }
--keep interface okhttp3.** { *; }
--keep class okio.** { *; }
 -keepattributes Signature,*Annotation*,InnerClasses,EnclosingMethod
-
--dontwarn org.conscrypt.**
--dontwarn org.openjsse.**
--dontwarn org.bouncycastle.**
-
--dontwarn org.slf4j.impl.StaticLoggerBinder
-
- # 如果使用 lz4 压缩，保留下面两行；只用 zlib 可删除
- -keep class net.jpountz.** { *; }
- -dontwarn net.jpountz.**
 ```
 
-#### Full（管理 + 发送）模板（在 Producer 基础上增加）
-
-```pro
--keep class com.alibaba.fastjson.** { *; }
--keepclassmembers class ** { @com.alibaba.fastjson.annotation.JSONField *; }
--keepclassmembers class com.volcengine.model.tls.** { *; }
-
--dontwarn java.awt.**
--dontwarn javax.money.**
--dontwarn org.javamoney.**
--dontwarn org.joda.time.**
--dontwarn org.joda.time.format.**
-
--dontwarn springfox.documentation.**
--dontwarn javax.ws.rs.**
--dontwarn org.glassfish.jersey.**
--dontwarn javax.servlet.**
--dontwarn javax.servlet.http.**
--dontwarn org.springframework.**
--dontwarn org.springframework.core.**
--dontwarn org.springframework.http.**
--dontwarn org.springframework.http.converter.**
--dontwarn org.springframework.http.server.**
--dontwarn org.springframework.messaging.**
--dontwarn org.springframework.util.**
--dontwarn org.springframework.web.**
--dontwarn retrofit2.**
-```
+`tls-android-producer` AAR 不引入 OkHttp、Protobuf、Guava 或 Java LZ4 传递依赖；不要为了本 SDK 额外添加这些依赖约束。只有当你的 App 自己或其他 SDK 依赖这些库时，才按业务工程的统一依赖策略处理冲突。
 
 验证建议：
 - 先 `assembleRelease` 确保无 R8 “Missing class” 报错
 - 再用 release 包跑一次“初始化 + 发送一条日志 + 控制台查询”，如果仍有反射/序列化相关崩溃，再按堆栈最小化补 keep
 
-## Android 应用接入（可选：Full 同步 Client API）
+## 管控面与 Java SDK 分工
 
-如果你需要在客户端里做资源管理或同步调用（不推荐在移动端做大量管理类操作），使用 Full 包：
-
-```groovy
-dependencies {
-  implementation 'io.github.volcengine-tls:tls-android-full:2.0.2'
-  implementation 'net.jpountz.lz4:lz4:1.3.0'
-}
-```
-
-示例（写入日志）：
-
-```java
-import com.volcengine.model.tls.ClientBuilder;
-import com.volcengine.model.tls.ClientConfig;
-import com.volcengine.model.tls.request.PutLogsRequestV2;
-import com.volcengine.model.tls.response.PutLogsResponse;
-import com.volcengine.service.tls.TLSLogClient;
-
-ClientConfig cfg = new ClientConfig(
-  BuildConfig.TLS_ENDPOINT,
-  BuildConfig.TLS_REGION,
-  BuildConfig.TLS_AK,
-  BuildConfig.TLS_SK,
-  BuildConfig.TLS_TOKEN
-);
-
-TLSLogClient client = ClientBuilder.newClient(cfg);
-PutLogsRequestV2 req = new PutLogsRequestV2(/* logs */ , BuildConfig.TLS_TOPIC_ID, null, "lz4", "source", "file");
-PutLogsResponse resp = client.putLogsV2(req);
-client.destroy();
-```
-
-## Java 环境（命令行）QuickStart（创建资源 + 写入 + 检索 + 清理）
-
-仓库提供了可直接运行的 Java 示例：
-- [android-example/README.md](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/android-example/README.md)
-- QuickStart 源码：[QuickStart.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/android-example/src/main/java/com/volcengine/example/tls/QuickStart.java)
-
-运行方式（在仓库根目录）：
-
-```bash
-endPoint="https://tls-cn-xxx.volces.com" \
-region="cn-xxx" \
-ak="YOUR_AK" \
-sk="YOUR_SK" \
-token="" \
-bash android-example/run-quickstart.sh
-```
+本仓库后续只提供 Android 端 producer 写入能力。创建 Project/Topic/Index、查询、消费、分析、服务端工具链等全量 TLS API，请使用 Java SDK；不要在新接入中继续使用本仓库旧 Android full/core 模块。
 
 ## 常见问题排查
 
@@ -405,9 +355,9 @@ bash android-example/run-quickstart.sh
 
 如果你的 `endpoint` 是 `http://...`（不推荐），Android 9+ 默认禁用明文流量，需要配置 `network_security_config` 允许 cleartext。
 
-### 2）依赖冲突（okhttp/okio/protobuf 版本冲突）
+### 2）应用自身依赖冲突
 
-优先保持 App 里已有依赖版本不变，通过 Gradle 统一版本（示例写法）：
+`tls-android-producer` 不传递 OkHttp、Okio、Protobuf、Guava 或 Java LZ4 依赖。如果你的 App 或其他 SDK 自己引入了这些库，优先保持 App 里已有依赖版本不变，通过 Gradle 统一版本（示例写法）：
 
 ```groovy
 implementation('com.squareup.okhttp3:okhttp') {
@@ -428,3 +378,30 @@ implementation('com.squareup.okhttp3:okhttp') {
 - STS token 是否过期
 
 Producer 回调 `result.getAttempts()` 里通常能看到 httpCode 与 errorMessage（示例实现可参考 [MainActivity.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/app/src/main/java/com/volcengine/tls/android/demo/MainActivity.java)）。
+
+### 5）需要查看/接管 SDK 内部日志（TlsLogger Provider）
+
+SDK 内部日志用于排查网络/序列化/重试等运行问题，默认不依赖 slf4j。
+
+- 默认行为（不调用 `setProvider`）：
+  - Android：自动走 `android.util.Log`，tag 固定为 `TLS-SDK`，消息格式为 `[loggerName] msg`
+  - 纯 Java：自动走 `java.util.logging`（JUL），logger 名为 `loggerName`，level 映射为 `FINE/INFO/WARNING/SEVERE`
+- 自定义接入（推荐在 `Application.onCreate()` 里尽早设置）：
+  ```java
+  import com.volcengine.util.TlsLogger;
+  import com.volcengine.util.TlsLoggerFactory;
+  import com.volcengine.util.TlsLoggerProvider;
+  
+  TlsLoggerFactory.setProvider(new TlsLoggerProvider() {
+    @Override public TlsLogger getLogger(String name) {
+      return new MyAppTlsLogger(name);
+    }
+  });
+  ```
+- 回退与注意事项：
+  - Provider 返回 `null` 或抛异常时，会自动回退到默认实现（Android Log / JUL）
+  - `setProvider(...)` 会清空 logger 缓存；建议只设置一次，不要在运行中频繁切换
+- 格式化能力与差异：
+  - SDK 的 `TlsLogger.*(String format, Object... args)` 支持 `{}` 占位符格式化；最后一个参数为 `Throwable` 时会被当作异常
+  - Android 默认 logger：仅 `error(msg, t)` / `error(format, args...)` 会附带 `Throwable`
+  - JUL 默认 logger：若最后一个参数为 `Throwable`，debug/info/warn/error 都会输出异常堆栈

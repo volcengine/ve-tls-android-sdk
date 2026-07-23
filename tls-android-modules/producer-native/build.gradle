@@ -1,0 +1,136 @@
+plugins {
+  id 'com.android.library'
+  id 'maven-publish'
+  id 'signing'
+}
+
+def minSdkValue = ((findProperty('MIN_SDK_OVERRIDE') ?: 19) as int)
+def legacyPublication = minSdkValue < 19
+def publicationArtifactId = legacyPublication ? "tls-android-producer-legacy${minSdkValue}" : 'tls-android-producer'
+def publicationName = publicationArtifactId
+def publicationDescription = legacyPublication
+        ? "Unsupported best-effort legacy minSdk ${minSdkValue} build of the VOLC Engine TLS Producer SDK for Android, for designated customer delivery only"
+        : 'VOLC Engine TLS Producer SDK for Android'
+def veTlsCSdkDir = findProperty('VE_TLS_C_SDK_DIR') ?: System.getenv('VE_TLS_C_SDK_DIR')
+def baseVersion = (findProperty('POM_VERSION') ?: '2.1.1').toString()
+def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
+
+group = 'io.github.volcengine-tls'
+version = baseVersion + versionSuffix
+
+android {
+  namespace 'com.volcengine.tls.android.producer'
+  compileSdk 34
+  buildFeatures {
+    buildConfig true
+  }
+  defaultConfig {
+    minSdk minSdkValue
+    targetSdk 34
+    testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    consumerProguardFiles 'consumer-rules.pro'
+    buildConfigField 'String', 'SDK_VERSION', "\"${project.version}\""
+    buildConfigField 'String', 'SDK_USER_AGENT', "\"volc-tls-android/producer/v${project.version}\""
+    externalNativeBuild {
+      cmake {
+        cppFlags ''
+        if (veTlsCSdkDir != null && veTlsCSdkDir.toString().trim().length() > 0) {
+          arguments "-DVE_TLS_C_SDK_DIR=${veTlsCSdkDir}"
+        }
+      }
+    }
+  }
+  externalNativeBuild {
+    cmake {
+      path 'src/main/cpp/CMakeLists.txt'
+    }
+  }
+  buildTypes {
+    release {
+      minifyEnabled false
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+    }
+    debug {
+      minifyEnabled false
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+    }
+  }
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+  }
+  publishing {
+    singleVariant("release") {
+      withSourcesJar()
+    }
+  }
+  ndkVersion "25.2.9519653"
+}
+
+dependencies {
+  androidTestImplementation 'androidx.test:core:1.5.0'
+  androidTestImplementation 'androidx.test:runner:1.5.2'
+  androidTestImplementation 'junit:junit:4.13.2'
+  testImplementation 'junit:junit:4.13.2'
+}
+
+afterEvaluate {
+  publishing {
+    publications {
+      release(MavenPublication) {
+        from components.release
+        groupId = project.group
+        artifactId = publicationArtifactId
+        version = project.version
+        pom {
+          name = publicationName
+          description = publicationDescription
+          url = 'https://github.com/volcengine/ve-tls-android-sdk'
+          licenses {
+            license {
+              name = 'The Apache Software License, Version 2.0'
+              url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+              distribution = 'repo'
+            }
+          }
+          developers {
+            developer {
+              id = 'volcproducts'
+              name = 'VOLC TLS ANDROID SDK'
+            }
+          }
+          scm {
+            url = 'https://github.com/volcengine/ve-tls-android-sdk'
+            connection = 'scm:git:https://github.com/volcengine/ve-tls-android-sdk.git'
+            developerConnection = 'scm:git:https://github.com/volcengine/ve-tls-android-sdk.git'
+          }
+        }
+      }
+    }
+    repositories {
+      maven {
+        name = 'sonatype'
+        url = uri('https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/')
+        credentials {
+          username = findProperty('ossrhUsername') ?: System.getenv('OSSRH_USERNAME')
+          password = findProperty('ossrhPassword') ?: System.getenv('OSSRH_PASSWORD')
+        }
+      }
+    }
+  }
+
+  signing {
+    def key = findProperty('signingKey') ?: System.getenv('SIGNING_KEY')
+    def pw = findProperty('signingPassword') ?: System.getenv('SIGNING_PASSWORD')
+    if (key != null && pw != null) {
+      useInMemoryPgpKeys(key, pw)
+      sign publishing.publications
+    } else {
+      def gpgKeyName = findProperty('signing.gnupg.keyName') ?: System.getenv('SIGNING_GPG_KEYNAME')
+      if (gpgKeyName != null) {
+        useGpgCmd()
+        sign publishing.publications
+      }
+    }
+  }
+}

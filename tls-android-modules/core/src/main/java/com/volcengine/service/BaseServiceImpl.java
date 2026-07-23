@@ -13,9 +13,9 @@ import com.volcengine.model.ServiceInfo;
 import com.volcengine.model.response.RawResponse;
 import com.volcengine.util.Const;
 import com.volcengine.util.EncodeUtil;
+import com.volcengine.util.TlsLogger;
+import com.volcengine.util.TlsLoggerFactory;
 import okhttp3.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.Proxy;
 import java.nio.charset.StandardCharsets;
@@ -27,7 +27,7 @@ public abstract class BaseServiceImpl implements IBaseService {
     public static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json");
     public static final MediaType MEDIA_TYPE_PROTOBUF = MediaType.parse(Const.APPLICATION_X_PROTOBUF);
 
-    private static final Logger LOG = LoggerFactory.getLogger(BaseServiceImpl.class);
+    private static final TlsLogger LOG = TlsLoggerFactory.getLogger(BaseServiceImpl.class);
     private String VERSION;
 
     protected ServiceInfo serviceInfo;
@@ -143,7 +143,7 @@ public abstract class BaseServiceImpl implements IBaseService {
         if (s.length() > 0 && ((double) printable / (double) s.length()) >= 0.85) {
             return bytes.length > limit ? (s + "\n...(truncated)") : s;
         }
-        String b64 = Base64.getEncoder().encodeToString(head);
+        String b64 = android.util.Base64.encodeToString(head, android.util.Base64.NO_WRAP);
         return "base64:" + b64 + (bytes.length > limit ? "...(truncated)" : "");
     }
 
@@ -166,8 +166,7 @@ public abstract class BaseServiceImpl implements IBaseService {
             appendHeader(sb, h, com.volcengine.model.tls.Const.Latest_Log_Time_Header);
             appendHeader(sb, h, Const.CONTENT_TYPE);
             String line = "TLS request api=" + api + " url=" + request.url() + " " + sb.toString().trim();
-            LOG.info(line);
-            System.out.println(line);
+            LOG.debug(line);
         } catch (Exception ignored) {
         }
     }

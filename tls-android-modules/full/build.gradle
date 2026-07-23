@@ -30,24 +30,38 @@ android {
   testOptions {
     unitTests.returnDefaultValues = true
   }
+  packagingOptions {
+    exclude 'darwin/**'
+    exclude 'linux/**'
+    exclude 'win/**'
+    exclude 'google/protobuf/**'
+    pickFirst 'com/volcengine/version'
+  }
   // source now only from this module; external src has been migrated
 }
 
 dependencies {
   api project(':core')
   implementation 'com.alibaba:fastjson:1.2.83'
-  implementation 'com.google.guava:guava:31.1-android'
   compileOnly 'org.projectlombok:lombok:1.18.20'
   annotationProcessor 'org.projectlombok:lombok:1.18.20'
   testImplementation 'junit:junit:4.13.2'
 }
 
 group = 'io.github.volcengine-tls'
-def baseVersion = (findProperty('POM_VERSION') ?: '2.0.2').toString()
+def baseVersion = (findProperty('POM_VERSION') ?: '2.1.1').toString()
 def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
 version = baseVersion + versionSuffix
+def allowLegacyPublication = (findProperty('ALLOW_LEGACY_ANDROID_PUBLICATION') ?: System.getenv('ALLOW_LEGACY_ANDROID_PUBLICATION') ?: 'false').toString().toBoolean()
 
 afterEvaluate {
+  tasks.withType(PublishToMavenRepository).configureEach {
+    onlyIf { allowLegacyPublication }
+  }
+  tasks.withType(PublishToMavenLocal).configureEach {
+    onlyIf { allowLegacyPublication }
+  }
+
   publishing {
     publications {
       release(MavenPublication) {
@@ -92,17 +106,19 @@ afterEvaluate {
     }
   }
 
-  signing {
-    def key = findProperty('signingKey') ?: System.getenv('SIGNING_KEY')
-    def pw = findProperty('signingPassword') ?: System.getenv('SIGNING_PASSWORD')
-    if (key != null && pw != null) {
-      useInMemoryPgpKeys(key, pw)
-      sign publishing.publications
-    } else {
-      def gpgKeyName = findProperty('signing.gnupg.keyName') ?: System.getenv('SIGNING_GPG_KEYNAME')
-      if (gpgKeyName != null) {
-        useGpgCmd()
+  if (allowLegacyPublication) {
+    signing {
+      def key = findProperty('signingKey') ?: System.getenv('SIGNING_KEY')
+      def pw = findProperty('signingPassword') ?: System.getenv('SIGNING_PASSWORD')
+      if (key != null && pw != null) {
+        useInMemoryPgpKeys(key, pw)
         sign publishing.publications
+      } else {
+        def gpgKeyName = findProperty('signing.gnupg.keyName') ?: System.getenv('SIGNING_GPG_KEYNAME')
+        if (gpgKeyName != null) {
+          useGpgCmd()
+          sign publishing.publications
+        }
       }
     }
   }

@@ -1,33 +1,17 @@
 # Android Example for TLS
 
-该示例演示如何在Android/Java环境下使用TLS Android SDK的主要功能，包括：
-- 客户端（创建/修改/删除 Project/Topic/Index，PutLogs，SearchLogs）
-- Producer 异步发送日志
-- Consumer 消费日志与检查点管理
+本目录只保留 producer-native 真实环境 benchmark 入口，用于验证 `tls-android-producer` 写入链路和资源消耗。
+
+本仓库 `2.1.x` 起不再作为 Android 全量接口 SDK 维护。Project/Topic 管理、查询、索引、消费等全量 TLS API 请使用 Java SDK；历史 full/core 示例脚本不再作为新接入指导。
 
 ## 环境变量
-- `endPoint`：TLS服务的Endpoint，例如 `https://tls-cn-beijing.volces.com`
-- `region`：地域标识，例如 `cn-beijing`
-- `ak`：访问密钥AK
-- `sk`：访问密钥SK
-- `token`：STS临时Token（可选）
+- `tls_config.properties` 或 `CONFIG_PROPS` 指向的配置文件需包含 endpoint、region、topicId、ak、sk。
+- 也可以通过 `CONFIG_ENV` 指向环境变量文件，提供 `VE_TLS_ENDPOINT`、`VE_TLS_REGION`、`VE_TLS_TOPIC_ID`、`VE_TLS_ACCESS_KEY_ID`、`VE_TLS_ACCESS_KEY_SECRET`。
+- `token` / `VE_TLS_SECURITY_TOKEN`：STS 临时 Token，可选。
 
 ## 运行方式
-- 将示例中的环境变量替换为真实值或通过系统环境变量注入。
-- 可直接拷贝到你的应用工程中运行，或在本仓库中作为参考示例阅读。
-
-### 运行脚本
-- 运行 QuickStart（创建资源、写入、检索、清理）：
-  - `endPoint=... region=... ak=... sk=... token=... bash android-example/run-quickstart.sh`
-- 运行 ProducerDemo（发送日志到指定 Topic）：
-  - `endPoint=... region=... ak=... sk=... token=... bash android-example/run-producer-demo.sh`
-- 运行 ConsumerDemo（消费指定 Project/Topic 的日志）：
-  - `endPoint=... region=... ak=... sk=... projectId=... topicId=... token=... bash android-example/run-consumer-demo.sh`
-
-### 可配置项（通过环境变量）
-- ProducerDemo：
-  - `TOPIC_TTL`：Topic 生存时间，默认 `7`
-  - `INDEX_WAIT_SECONDS`：创建索引后的等待秒数，默认 `60`
-  - `PRODUCE_COUNT`：发送日志条数，默认 `20`
-  - `DO_SEARCH`：是否在写入后执行检索验证，默认 `true`
-  - `SEARCH_WINDOW_SECONDS`：检索时间窗口（秒），默认 `60`
+- 确认模拟器或真机已通过 adb 连接。
+- 运行 producer-native 真实环境 benchmark：
+  - `CONFIG_PROPS=./tls_config.properties bash android-example/run-producer-native-real-benchmark.sh`
+- 常用参数可通过环境变量覆盖，例如 `PROFILES="tls200 tls700"`、`MODE_LIST="memory persistent"`、`RATE_LIST="200 500"`、`DURATION_S=120`。
+- 脚本会安装测试 APK、执行 instrumented benchmark，并把结果保存到 `android-example/target/producer-native-benchmark/`。

@@ -17,13 +17,15 @@ dependencyResolutionManagement {
   repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
   repositories {
     google()
+    mavenLocal()
     mavenCentral()
     maven { url 'https://maven.aliyun.com/repository/google' }
     maven { url 'https://maven.aliyun.com/repository/public' }
   }
 }
 
-include ':core', ':full', ':app', ':app-empty', ':producer', ':integration-tests'
-project(':producer').projectDir = new File('producer-lite')
+include ':core', ':full', ':app', ':app-empty', ':app-no-sdk', ':logger-spi', ':producer-native', ':producer-native-stub', ':integration-tests'
+project(':logger-spi').projectDir = new File('logger-spi')
+project(':producer-native').projectDir = new File('producer-native')
+project(':producer-native-stub').projectDir = new File('producer-native-stub')
 project(':integration-tests').projectDir = new File('integration-tests')
-project(':producer').projectDir = new File('producer-lite')
