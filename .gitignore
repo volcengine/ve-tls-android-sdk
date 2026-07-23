@@ -1,15 +1,92 @@
-.idea
-.settings
-settings.json
-target
+# macOS
 .DS_Store
-*.iml
-scripts/build.out
-*.swp
-.classpath
-.factorypath
-.project
 
-# vscode
-.vscode
-.devcontainer
+# IDE
+.idea/
+*.iml
+.vscode/
+.comate/
+
+# Gradle/Android build outputs
+.gradle/
+**/build/
+**/captures/
+**/.externalNativeBuild/
+**/.cxx/
+**/outputs/
+*.log
+**/build_*/
+
+# Artifacts
+**/*.apk
+**/*.aab
+
+# Local config
+local.properties
+key.properties
+
+# Keystores (do not commit any signing keys)
+**/debug.keystore
+**/*.jks
+**/*.keystore
+
+# Benchmark and temporary files
+**/benchmark/*.json
+**/benchmark/*.csv
+
+# Maven
+target/
+android-example/.classpath.txt
+tls_config.properties
+tls-android-*-sources.jar
+tls-android-*.jar
+**/.attach_pid*
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# IntelliJ extra
+*.ipr
+*.iws
+
+# Temp files
+*.tmp
+*.swp
+*.swo
+*.bak
+*.trace
+
+# Reports and lint outputs
+**/reports/
+**/lint-results*.html
+**/lint-results*.xml
+
+# Local env
+.env
+.trae
+
+# Maven Central publish work dirs and artifacts
+tls-android-modules/maven-central-publish/.work-*/
+tls-android-modules/maven-central-publish/dist/
+
+# Accidental extracted APK/AAR contents
+tls-android-modules/classes*.dex
+tls-android-modules/resources.arsc
+tls-android-modules/AndroidManifest.xml
+tls-android-modules/META-INF/
+tls-android-modules/okhttp3/
+tls-android-modules/res/
+
+# Local publish/sign artifacts
+**/*.asc
+**/*.md5
+**/*.sha1
+**/*.sha256
+**/*.sha512
+**/cospec/
+**/docs/
+repos/
+ve-tls-c-sdk/
+**/develop_docs/**
