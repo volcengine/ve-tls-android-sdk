@@ -13,6 +13,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout C SDK
+        uses: actions/checkout@v4
+        with:
+          repository: volcengine/ve-tls-c-sdk
+          ref: persistent
+          path: ve-tls-c-sdk
+
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
@@ -25,13 +32,17 @@ jobs:
           api-level: 34
           build-tools: '34.0.0'
 
+      - name: Install Android native toolchain
+        run: |
+          sdkmanager "ndk;25.2.9519653" "cmake;3.22.1"
+
       - name: Cache Gradle
         uses: gradle/gradle-build-action@v2
 
       - name: Build AARs
         working-directory: tls-android-modules
         run: |
-          ./gradlew :logger-spi:assemble :producer-native-stub:assembleRelease :producer-native:assembleRelease --stacktrace
+          ./gradlew :logger-spi:assemble :producer-native-stub:assembleRelease :producer-native:assembleRelease -PVE_TLS_C_SDK_DIR="$GITHUB_WORKSPACE/ve-tls-c-sdk" --stacktrace
 
       - name: Run Integration Tests
         working-directory: tls-android-modules
