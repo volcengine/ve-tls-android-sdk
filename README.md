@@ -6,6 +6,13 @@
 
 如果仓库中仍保留历史模块目录或发布脚本，仅作为存量代码与迁移参考，不代表这些模块会进入后续 Android SDK 发布物。后续 Android 侧发布、文档和客户支持口径都以 `tls-android-producer` 写入能力为准。
 
+## 版本线策略
+
+- `2.1.x` 及后续版本是 producer-native 主线，只发布并推荐使用 `io.github.volcengine-tls:tls-android-producer`。
+- `2.0.x` 是历史 Android SDK 维护线，仅用于 core、full、老 producer 的必要 bugfix、安全修复和构建兼容修复。
+- 新接入不要使用本仓库历史 full/core 模块；如果需要全量 TLS API，请使用 Java SDK。
+- 历史模块如继续保留在仓库中，只用于存量迁移参考或内部兼容验证，不进入 `2.1.x` 发布口径。
+
 ## 适用场景
 
 - Android App 或 Android SDK 只需要写入日志到 TLS。

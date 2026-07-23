@@ -1,5 +1,6 @@
 ## 2.1.1
 - 发布坐标继续使用 `io.github.volcengine-tls:tls-android-producer`，不新增独立 native 坐标。
+- `2.1.x` 起作为 producer-native 主线；core/full/老 producer 后续仅沿 `2.0.x` legacy 维护线修复必要问题。
 - Producer 写入路径基于 native producer，新增断点续传、退避重试、批量聚合、压缩与 Android 桥接优化。
 - Android 请求 User-Agent 统一为 `volc-tls-android/producer/v2.1.1`，便于服务端识别 Android SDK 流量。
 - 文档口径转向 Android Producer 写入能力；管控面、读侧和其他全量 TLS API 由 Java SDK 承接。
