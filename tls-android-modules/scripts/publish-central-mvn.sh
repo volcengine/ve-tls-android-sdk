@@ -64,4 +64,8 @@ if [ -n "${PGP_PASSPHRASE:-}" ]; then
   MAVEN_ARGS+=("-Dgpg.passphrase=${PGP_PASSPHRASE}" "-DgpgArguments=--pinentry-mode,loopback")
 fi
 
-mvn -q -s ~/.m2/settings.xml -f "$PUBLISH_DIR/pom.xml" -pl producer -DskipTests=true -Drevision="$VERSION" "${MAVEN_ARGS[@]}" deploy
+if [ ${#MAVEN_ARGS[@]} -gt 0 ]; then
+  mvn -q -s ~/.m2/settings.xml -f "$PUBLISH_DIR/pom.xml" -pl producer -DskipTests=true -Drevision="$VERSION" "${MAVEN_ARGS[@]}" deploy
+else
+  mvn -q -s ~/.m2/settings.xml -f "$PUBLISH_DIR/pom.xml" -pl producer -DskipTests=true -Drevision="$VERSION" deploy
+fi
