@@ -52,7 +52,7 @@ cd tls-android-modules
 
 ### 必要前置
 - 在 https://central.sonatype.com/ 认领并验证 groupId（例如 com.volcengine）
-- 使用 JDK 17；本仓库已固定 org.gradle.java.home 指向 JDK 17
+- 使用 JDK 17；GitHub Actions 由 `actions/setup-java` 提供 JDK 17。仓库不固定 JDK 路径
 
 ## 使用 Maven CLI 发布（不改代码）
 - 生成 AAR：
