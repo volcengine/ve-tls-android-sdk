@@ -109,7 +109,7 @@ APK 增量主要来自 native 库和少量 Java wrapper：
 
 ## 环境要求
 
-- Android API 14 及以上。
+- Android API 19 及以上。
 - Android 工程需声明 `INTERNET` 权限。
 - 如果开启断点续传，持久化文件路径必须位于应用可写目录。
 
