@@ -12,8 +12,6 @@ import com.volcengine.util.TlsLoggerFactory;
 
 import java.util.concurrent.BlockingQueue;
 
-import static com.volcengine.model.tls.Const.HTTP_STATUS_OK;
-
 public class SendBatchTask implements Runnable {
     private static final TlsLogger LOG = TlsLoggerFactory.getLogger(SendBatchTask.class);
     private final ProducerConfig producerConfig;
@@ -93,7 +91,7 @@ public class SendBatchTask implements Runnable {
     }
 
     private void handleSuccess(PutLogsResponse putLogsResponse) {
-        Attempt success = new Attempt(true, putLogsResponse.getRequestId(), null, null, HTTP_STATUS_OK);
+        Attempt success = new Attempt(true, putLogsResponse.getRequestId(), null, null, putLogsResponse.getHttpCode());
         batchLog.addAttempt(success);
         batchLog.setRetryBackoffMs(0);
         successQueue.add(batchLog);

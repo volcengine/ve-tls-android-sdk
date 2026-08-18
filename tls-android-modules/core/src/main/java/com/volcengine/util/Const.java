@@ -1,10 +1,9 @@
 package com.volcengine.util;
 
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 
 public class Const {
-    public static final Charset UTF_8 = StandardCharsets.UTF_8;
+    public static final Charset UTF_8 = Charset.forName("UTF-8");
     public static final String TIME_FORMAT_V4 = "yyyyMMdd'T'HHmmss'Z'";
     public static final String CONNECTION_TIMEOUT = "ConnectionTimeout";
     public static final String SOCKET_TIMEOUT = "SocketTimeout";

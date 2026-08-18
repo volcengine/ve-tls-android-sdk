@@ -9,6 +9,7 @@ import com.volcengine.model.tls.exception.LogException;
 import com.volcengine.model.tls.pb.PutLogRequest;
 import com.volcengine.model.tls.request.*;
 import com.volcengine.model.tls.response.PutLogsResponse;
+import com.volcengine.error.SdkError;
 import com.volcengine.util.Const;
 
 import java.util.ArrayList;
@@ -98,7 +99,7 @@ public class MinimalTLSLogClientImpl implements TLSLogClient {
         byte[] rawBody = request.getLogGroupList().toByteArray();
         RawResponse rawResponse = httpRequest.proto(PUT_LOGS, params, headers, rawBody, compressType);
         int httpCode = rawResponse.getHttpCode();
-        if (httpCode >= 300) {
+        if (rawResponse.getCode() != SdkError.SUCCESS.getNumber() || httpCode < 200 || httpCode >= 300) {
             String reqId = rawResponse.getFirstHeader(X_TLS_REQUESTID);
             String msg = rawResponse.getException() == null ? "" : String.valueOf(rawResponse.getException().getMessage());
             byte[] data = rawResponse.getData();
@@ -112,7 +113,12 @@ public class MinimalTLSLogClientImpl implements TLSLogClient {
             }
             throw new LogException(httpCode, "HTTPError", msg, reqId);
         }
-        return new PutLogsResponse(rawResponse.getHeaders());
+        String reqId = rawResponse.getFirstHeader(X_TLS_REQUESTID);
+        if (reqId == null || reqId.trim().isEmpty()) {
+            throw new LogException(httpCode, "ResponseValidationError",
+                    "PutLogs response missing X-Tls-Requestid", null);
+        }
+        return new PutLogsResponse(rawResponse.getHeaders(), httpCode);
     }
 
     private byte[] tryDecodeErrorBody(byte[] bytes) {
@@ -139,7 +145,7 @@ public class MinimalTLSLogClientImpl implements TLSLogClient {
 
     private String extractJsonString(byte[] bytes, String key) {
         if (bytes == null || bytes.length == 0 || key == null || key.isEmpty()) { return null; }
-        byte[] k = ('"' + key + '"').getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] k = ('"' + key + '"').getBytes(Const.UTF_8);
         int idx = indexOf(bytes, k, 0);
         if (idx < 0) { return null; }
         int colon = indexOf(bytes, new byte[]{':'}, idx + k.length);

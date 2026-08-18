@@ -19,6 +19,7 @@ public class OkHttpClientFactory {
                     .connectTimeout(ClientConfiguration.DEFAULT_CONNECTION_TIMEOUT, TimeUnit.MILLISECONDS)
                     .readTimeout(ClientConfiguration.DEFAULT_SOCKET_TIMEOUT, TimeUnit.MILLISECONDS)
                     .protocols(Arrays.asList(Protocol.HTTP_2, Protocol.HTTP_1_1));
+            AndroidTlsCompat.configure(builder);
             String hostname = System.getProperty("volc.proxy.hostname");
             if (StringUtils.isNotBlank(hostname)) {
                 int port = 80;

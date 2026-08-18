@@ -1,5 +1,7 @@
 package com.volcengine.service;
 
+import android.util.Base64;
+
 import com.volcengine.auth.ISignerV4;
 import com.volcengine.auth.impl.SignerV4Impl;
 import com.volcengine.error.SdkError;
@@ -19,7 +21,6 @@ import com.volcengine.util.TlsLoggerFactory;
 import okhttp3.*;
 
 import java.net.Proxy;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import static com.volcengine.model.tls.Const.LZ4;
@@ -143,7 +144,7 @@ public abstract class BaseServiceImpl implements IBaseService {
         if (bytes == null || bytes.length == 0) { return ""; }
         int limit = Math.min(bytes.length, 4096);
         byte[] head = Arrays.copyOf(bytes, limit);
-        String s = new String(head, StandardCharsets.UTF_8);
+        String s = new String(head, Const.UTF_8);
         int printable = 0;
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
@@ -152,7 +153,7 @@ public abstract class BaseServiceImpl implements IBaseService {
         if (s.length() > 0 && ((double) printable / (double) s.length()) >= 0.85) {
             return bytes.length > limit ? (s + "\n...(truncated)") : s;
         }
-        String b64 = Base64.getEncoder().encodeToString(head);
+        String b64 = Base64.encodeToString(head, Base64.NO_WRAP);
         return "base64:" + b64 + (bytes.length > limit ? "...(truncated)" : "");
     }
 
@@ -276,9 +277,13 @@ public abstract class BaseServiceImpl implements IBaseService {
     public ISignerV4 getISigner() { return ISigner; }
 
     @Override
-    public void setSocketTimeout(int socketTimeout) { OkHttpClientFactory.setSocketTimeout(this.httpClient.newBuilder(), socketTimeout); }
+    public void setSocketTimeout(int socketTimeout) {
+        this.httpClient = OkHttpClientFactory.setSocketTimeout(this.httpClient.newBuilder(), socketTimeout);
+    }
     @Override
-    public void setConnectionTimeout(int connectionTimeout) { OkHttpClientFactory.setConnectionTimeout(this.httpClient.newBuilder(), connectionTimeout); }
+    public void setConnectionTimeout(int connectionTimeout) {
+        this.httpClient = OkHttpClientFactory.setConnectionTimeout(this.httpClient.newBuilder(), connectionTimeout);
+    }
 
     @Override
     public RawResponse proto(String api, List<NameValuePair> params, Map<String, String> header, byte[] body, String compressType) {

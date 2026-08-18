@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 
@@ -169,7 +169,17 @@ public class TLSLogClientImpl implements TLSLogClient {
         // 2、check sum and sendRequest
         RawResponse rawResponse = doProtoRetryRequest(PUT_LOGS, params, headers, request.getLogGroupList().toByteArray(), compressType);
         // 3、parse response
-        return new PutLogsResponse(rawResponse.getHeaders());
+        int httpCode = rawResponse.getHttpCode();
+        if (httpCode < 200 || httpCode >= 300) {
+            throw new LogException(httpCode, "ResponseValidationError",
+                    "PutLogs response has invalid HTTP status: " + httpCode, null);
+        }
+        String requestId = rawResponse.getFirstHeader(X_TLS_REQUESTID);
+        if (requestId == null || requestId.trim().isEmpty()) {
+            throw new LogException(httpCode, "ResponseValidationError",
+                    "PutLogs response missing X-Tls-Requestid", null);
+        }
+        return new PutLogsResponse(rawResponse.getHeaders(), httpCode);
     }
 
     @Override
@@ -1400,7 +1410,7 @@ public class TLSLogClientImpl implements TLSLogClient {
             byte[] decoded = tryDecodeErrorBody(data);
             if (decoded != null && decoded.length > 0) {
                 int limit = Math.min(decoded.length, 4096);
-                String json = new String(decoded, 0, limit, StandardCharsets.UTF_8);
+                String json = new String(decoded, 0, limit, Charset.forName("UTF-8"));
                 try {
                     JSONObject o = JSON.parseObject(json);
                     if (o != null) {

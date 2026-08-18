@@ -34,7 +34,9 @@ public class SignerV4Impl implements ISignerV4 {
         signRequest.setXSecurityToken(credentials.getSessionToken());
         if (StringUtils.isNotEmpty(credentials.getSessionToken())) { requestSignMap.put(Const.XSecurityToken, credentials.getSessionToken()); }
         if (requestParam.getIsSignUrl()) {
-            requestParam.getQueryList().forEach(nv -> requestSignMap.put(nv.getName(), nv.getValue()));
+            for (NameValuePair nv : requestParam.getQueryList()) {
+                requestSignMap.put(nv.getName(), nv.getValue());
+            }
             requestSignMap.put(Const.XDate, formatDate);
             requestSignMap.put(Const.XNotSignBody, "");
             requestSignMap.put(Const.XCredential, credentials.getAccessKeyID() + "/" + meta.getCredentialScope());
@@ -50,7 +52,9 @@ public class SignerV4Impl implements ISignerV4 {
             if (requestSignMap.get(Const.ContentType) == null) { signRequest.setContentType(Const.ContentTypeValue); } else { signRequest.setContentType(requestSignMap.get(Const.ContentType)); }
             requestSignMap.put(Const.XDate, formatDate);
             requestSignMap.put(Const.Host, requestParam.getHost());
-            requestSignMap.putIfAbsent(Const.ContentType, Const.ContentTypeValue);
+            if (!requestSignMap.containsKey(Const.ContentType)) {
+                requestSignMap.put(Const.ContentType, Const.ContentTypeValue);
+            }
             bodyHash = HashUtils.hashSHA256(requestParam.getBody() == null ? DefaultBodyHashCode : requestParam.getBody());
             requestSignMap.put(Const.XContentSha256, bodyHash);
             signRequest.setHost(requestParam.getHost());

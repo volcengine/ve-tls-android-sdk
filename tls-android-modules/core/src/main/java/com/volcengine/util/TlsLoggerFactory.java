@@ -20,7 +20,13 @@ public final class TlsLoggerFactory {
     public static TlsLogger getLogger(String name) {
         if (name == null || name.isEmpty()) { name = "unknown"; }
         final String key = name;
-        return CACHE.computeIfAbsent(key, k -> create(k));
+        TlsLogger logger = CACHE.get(key);
+        if (logger != null) {
+            return logger;
+        }
+        logger = create(key);
+        TlsLogger existing = CACHE.putIfAbsent(key, logger);
+        return existing == null ? logger : existing;
     }
 
     public static void setProvider(TlsLoggerProvider provider) {
