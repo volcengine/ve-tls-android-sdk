@@ -25,7 +25,17 @@ import java.util.Set;
 public class VolcengineInterceptor implements Interceptor {
     public ISignerV4 signer;
     public com.volcengine.model.Credentials credentials;
-    public VolcengineInterceptor(ISignerV4 signer, com.volcengine.model.Credentials credentials) { this.signer = signer; this.credentials = credentials; }
+    private final String userAgent;
+
+    public VolcengineInterceptor(ISignerV4 signer, com.volcengine.model.Credentials credentials) {
+        this(signer, credentials, SDKVersion.getAGENT());
+    }
+
+    public VolcengineInterceptor(ISignerV4 signer, com.volcengine.model.Credentials credentials, String userAgent) {
+        this.signer = signer;
+        this.credentials = credentials;
+        this.userAgent = userAgent == null || userAgent.isEmpty() ? SDKVersion.getAGENT() : userAgent;
+    }
     @Override public Response intercept(Chain chain) throws IOException {
         Request req = chain.request();
         RequestParam param = new RequestParam();
@@ -47,7 +57,7 @@ public class VolcengineInterceptor implements Interceptor {
         newReq.header(Const.ContentType, signRequest.getContentType());
         newReq.addHeader(Const.XContentSha256, signRequest.getXContentSha256());
         newReq.addHeader(Const.Authorization, signRequest.getAuthorization());
-        newReq.addHeader(Const.USERAGENT, SDKVersion.getAGENT());
+        newReq.addHeader(Const.USERAGENT, userAgent);
         return chain.proceed(newReq.build());
     }
     private List<Header> convertHeader(Headers headers) { List<Header> list = new ArrayList<>(); for (String name : headers.names()) { for (String value : headers.values(name)) { list.add(new Header(name, value)); } } return list; }

@@ -19,9 +19,17 @@ public class SDKVersion {
                 if (m != null && !m.isEmpty()) { MODULE = m; }
             }
         } catch (IOException e) { }
-        AGENT = "volc-tls-android/" + MODULE + "/v" + VERSION;
+        AGENT = buildAgent(MODULE);
     }
     public static String getVERSION() { return VERSION; }
     public static String getAGENT() { return AGENT; }
+    public static String getAGENT(String module) {
+        if (module == null || module.isEmpty()) { return AGENT; }
+        return buildAgent(module);
+    }
     public static String getMODULE() { return MODULE; }
+
+    private static String buildAgent(String module) {
+        return "volc-tls-android/" + module + "/v" + VERSION;
+    }
 }

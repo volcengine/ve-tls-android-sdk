@@ -389,7 +389,7 @@ public class TLSLogClientImpl implements TLSLogClient {
             headers.put(HEADER_API_VERSION, this.config.getApiVersion());
         }
         if (!headers.containsKey("User-Agent")) {
-            headers.put("User-Agent", com.volcengine.util.SDKVersion.getAGENT());
+            headers.put("User-Agent", com.volcengine.util.SDKVersion.getAGENT("full"));
         }
         Map<String, ApiInfo> apiInfoList = this.httpRequest.getApiInfoList();
         ApiInfo apiInfo = apiInfoList.get(path);

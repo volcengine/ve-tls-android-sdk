@@ -43,7 +43,7 @@ dependencies {
 }
 
 group = 'io.github.volcengine-tls'
-def baseVersion = (findProperty('POM_VERSION') ?: '2.0.3').toString()
+def baseVersion = (findProperty('POM_VERSION') ?: '2.0.4').toString()
 def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
 version = baseVersion + versionSuffix
 

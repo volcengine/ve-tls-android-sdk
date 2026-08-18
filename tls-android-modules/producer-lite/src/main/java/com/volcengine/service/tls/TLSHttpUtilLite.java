@@ -4,6 +4,7 @@ import com.volcengine.model.ApiInfo;
 import com.volcengine.model.NameValuePair;
 import com.volcengine.model.ServiceInfo;
 import com.volcengine.service.BaseServiceImpl;
+import com.volcengine.util.SDKVersion;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,7 +14,9 @@ import static com.volcengine.model.tls.Const.PUT_LOGS;
 import com.volcengine.util.Const;
 
 public class TLSHttpUtilLite extends BaseServiceImpl {
-    public TLSHttpUtilLite(ServiceInfo info, Map<String, ApiInfo> apiInfoList) { super(info, apiInfoList); }
+    public TLSHttpUtilLite(ServiceInfo info, Map<String, ApiInfo> apiInfoList) {
+        super(info, apiInfoList, SDKVersion.getAGENT("producer"));
+    }
 
     public static final Map<String, ApiInfo> API_INFO_LIST = new HashMap<String, ApiInfo>() {
         {

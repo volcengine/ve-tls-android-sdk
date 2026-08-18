@@ -13,6 +13,7 @@ import com.volcengine.model.ServiceInfo;
 import com.volcengine.model.response.RawResponse;
 import com.volcengine.util.Const;
 import com.volcengine.util.EncodeUtil;
+import com.volcengine.util.SDKVersion;
 import com.volcengine.util.TlsLogger;
 import com.volcengine.util.TlsLoggerFactory;
 import okhttp3.*;
@@ -40,10 +41,14 @@ public abstract class BaseServiceImpl implements IBaseService {
     private BaseServiceImpl() {}
 
     public BaseServiceImpl(ServiceInfo info, Proxy proxy, Map<String, ApiInfo> apiInfoList) {
+        this(info, proxy, apiInfoList, SDKVersion.getAGENT());
+    }
+
+    protected BaseServiceImpl(ServiceInfo info, Proxy proxy, Map<String, ApiInfo> apiInfoList, String userAgent) {
         this.serviceInfo = info;
         this.apiInfoList = apiInfoList;
         this.ISigner = new SignerV4Impl();
-        VolcengineInterceptor volcengineInterceptor = new VolcengineInterceptor(this.ISigner, serviceInfo.getCredentials());
+        VolcengineInterceptor volcengineInterceptor = new VolcengineInterceptor(this.ISigner, serviceInfo.getCredentials(), userAgent);
 
         DynamicTimeoutInterceptor.DynamicTimeoutConfig defaultTimeout = new DynamicTimeoutInterceptor.DynamicTimeoutConfig(info.getConnectionTimeout(), info.getSocketTimeout());
         Map<String, DynamicTimeoutInterceptor.DynamicTimeoutConfig> apiTimeoutMap = new HashMap<String, DynamicTimeoutInterceptor.DynamicTimeoutConfig>();
@@ -69,6 +74,10 @@ public abstract class BaseServiceImpl implements IBaseService {
 
     public BaseServiceImpl(ServiceInfo info, Map<String, ApiInfo> apiInfoList) {
         this(info, null, apiInfoList);
+    }
+
+    protected BaseServiceImpl(ServiceInfo info, Map<String, ApiInfo> apiInfoList, String userAgent) {
+        this(info, null, apiInfoList, userAgent);
     }
 
     @Override

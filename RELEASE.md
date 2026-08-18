@@ -1,5 +1,5 @@
 ## 发布说明
-- 版本策略：SemVer（主.次.修订），当前主版本为 2.0.3（相较 1.1.5 为重大变更）
+- 版本策略：SemVer（主.次.修订），当前主版本为 2.0.4（相较 1.1.5 为重大变更）
 - 最低支持：Android 4.4（API 19）
 - 构建产物：core/full/producer-lite AAR
 - Maven 坐标：推荐使用 `io.github.volcengine-tls`（GitHub 命名空间验证更直接）
@@ -16,9 +16,9 @@
   tls-android-modules/scripts/publish-local.sh
   ```
 - 校验工件：
-  - ~/.m2/repository/io/github/volcengine-tls/tls-android-core/2.0.3/
-  - ~/.m2/repository/io/github/volcengine-tls/tls-android-producer/2.0.3/
-  - ~/.m2/repository/io/github/volcengine-tls/tls-android-full/2.0.3/
+  - ~/.m2/repository/io/github/volcengine-tls/tls-android-core/2.0.4/
+  - ~/.m2/repository/io/github/volcengine-tls/tls-android-producer/2.0.4/
+  - ~/.m2/repository/io/github/volcengine-tls/tls-android-full/2.0.4/
 - 在消费工程临时启用 mavenLocal() 验证依赖解析与使用
 
 ## Gradle 发布配置模板
@@ -88,6 +88,6 @@ cd tls-android-modules
 - 发布工程与产物绑定：
   - 聚合 POM：tls-android-modules/maven-central-publish/pom.xml（不发布到中央仓库）
   - 发布坐标：
-    - io.github.volcengine-tls:tls-android-core:2.0.3
-    - io.github.volcengine-tls:tls-android-producer:2.0.3
-    - io.github.volcengine-tls:tls-android-full:2.0.3
+    - io.github.volcengine-tls:tls-android-core:2.0.4
+    - io.github.volcengine-tls:tls-android-producer:2.0.4
+    - io.github.volcengine-tls:tls-android-full:2.0.4

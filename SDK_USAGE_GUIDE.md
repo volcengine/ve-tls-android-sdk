@@ -5,9 +5,9 @@
 ## 你需要先知道的两件事
 
 - SDK 依赖坐标（Maven Central）
-  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.3`
-  - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.3`
-  - 如果你的 App 必须支持 `minSdk=16`：使用 `2.0.3-api16`（仅提供兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）
+  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.4`
+  - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.4`
+  - 如果你的 App 必须支持 `minSdk=16`：使用 `2.0.4-api16`（仅提供兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）
 - 必要参数（后面会用到）
   - `endpoint`：TLS 接入域名，形如 `https://tls-cn-xxx.volces.com`
   - `region`：地域标识，例如 `cn-xxx`
@@ -133,7 +133,7 @@ dependencyResolutionManagement {
 ```groovy
 dependencies {
   // 轻量发送（推荐）
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.3'
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
   // 仅当使用 lz4 压缩时引入
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
@@ -401,7 +401,7 @@ dependencies {
 
 ```groovy
 dependencies {
-  implementation 'io.github.volcengine-tls:tls-android-full:2.0.3'
+  implementation 'io.github.volcengine-tls:tls-android-full:2.0.4'
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
 ```

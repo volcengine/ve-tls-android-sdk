@@ -44,9 +44,9 @@ Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access 
 ```groovy
 dependencies {
   // 轻量发送（推荐）
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.3'
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
   // 如需完整能力（管理+发送）
-  // implementation 'io.github.volcengine-tls:tls-android-full:2.0.3'
+  // implementation 'io.github.volcengine-tls:tls-android-full:2.0.4'
   // 仅当使用 lz4 压缩时引入
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
@@ -55,7 +55,7 @@ dependencies {
 说明：
 - `tls-android-producer` / `tls-android-full` 会自动拉取 `tls-android-core`，无需手动声明 core。
 - 从 2.0.1 起已发布 Gradle Module Metadata（`.module`），Gradle/AGP 可直接解析到 AAR 变体，无需 `@aar`。
-- 如果你的 App 必须支持 `minSdk=16`：请使用 `2.0.3-api16`（兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）。
+- 如果你的 App 必须支持 `minSdk=16`：请使用 `2.0.4-api16`（兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）。
 
 ### 方式 B：源码方式接入（仓库开发/二次开发）
 在工程的 `settings.gradle` 中包含需要的模块：
@@ -136,9 +136,9 @@ client.destroy();
   ```groovy
   dependencies {
     // 轻量发送（推荐）
-    implementation 'io.github.volcengine-tls:tls-android-producer:2.0.3'
+    implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
     // 如需完整能力（管理+发送）
-    // implementation 'io.github.volcengine-tls:tls-android-full:2.0.3'
+    // implementation 'io.github.volcengine-tls:tls-android-full:2.0.4'
     // 使用 lz4 压缩时引入，否则可省略
     implementation 'net.jpountz.lz4:lz4:1.3.0'
   }
@@ -297,7 +297,7 @@ client.destroy();
 - 在服务端查询对应 `topicId` 的最新日志，确认字段（time/timeNs/contents/group tags）与期望一致
 
 ## 本次更新与迁移指南（1.1.5 → 2.0.x）
-- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer:2.0.3`（轻量发送）或 `io.github.volcengine-tls:tls-android-full:2.0.3`（完整能力）。
+- 依赖升级：使用 `io.github.volcengine-tls:tls-android-producer:2.0.4`（轻量发送）或 `io.github.volcengine-tls:tls-android-full:2.0.4`（完整能力）。
 - 写日志统一路径：高频接口统一走 Map→LogItem→AdaptorUtil→PutLogRequest.LogGroup，避免分叉路径。
   - 入口：LogProducerClient 的 `sendLog(Map)` 与带 `time/timeNs` 的重载
   - 转换：统一在 AdaptorUtil 中完成时间归一、内容填充与 group tags 拼接

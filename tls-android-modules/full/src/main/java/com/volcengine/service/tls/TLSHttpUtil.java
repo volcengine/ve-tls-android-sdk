@@ -5,6 +5,7 @@ import com.volcengine.model.ApiInfo;
 import com.volcengine.model.ServiceInfo;
 import com.volcengine.service.BaseServiceImpl;
 import com.volcengine.model.NameValuePair;
+import com.volcengine.util.SDKVersion;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,7 +24,7 @@ public class TLSHttpUtil extends BaseServiceImpl {
     private static final TlsLogger LOG = TlsLoggerFactory.getLogger(TLSHttpUtil.class);
 
     public TLSHttpUtil(ServiceInfo info, Map<String, ApiInfo> apiInfoList) {
-        super(info, apiInfoList);
+        super(info, apiInfoList, SDKVersion.getAGENT("full"));
     }
 
     @Override

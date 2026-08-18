@@ -115,7 +115,7 @@ public class ProducerImpl implements Producer {
         successHandler.start();
         failHandler.start();
         mover.start();
-        LOG.info(String.format("producer %s started, agent=%s, %s", name, SDKVersion.getAGENT(), safeConfigSummary(producerConfig)));
+        LOG.info(String.format("producer %s started, agent=%s, %s", name, SDKVersion.getAGENT("producer"), safeConfigSummary(producerConfig)));
     }
 
     @Override
