@@ -4,11 +4,14 @@ plugins {
   id 'signing'
 }
 
+def api16Variant = (findProperty('API16_VARIANT') ?: 'false').toBoolean()
+def defaultMinSdk = api16Variant ? 16 : 21
+
 android {
   namespace 'com.volcengine.tls.android.full'
   compileSdk 34
   defaultConfig {
-    minSdk ((findProperty('MIN_SDK_OVERRIDE') ?: 19) as int)
+    minSdk ((findProperty('MIN_SDK_OVERRIDE') ?: defaultMinSdk) as int)
     targetSdk 34
     consumerProguardFiles 'consumer-rules.pro'
   }
@@ -44,7 +47,7 @@ dependencies {
 
 group = 'io.github.volcengine-tls'
 def baseVersion = (findProperty('POM_VERSION') ?: '2.0.4').toString()
-def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
+def versionSuffix = (findProperty('VERSION_SUFFIX') ?: (api16Variant ? '-api16' : '')).toString()
 version = baseVersion + versionSuffix
 
 afterEvaluate {

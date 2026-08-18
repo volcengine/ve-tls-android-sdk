@@ -2,8 +2,6 @@ package com.volcengine.http;
 
 import android.os.Build;
 
-import org.conscrypt.Conscrypt;
-
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
@@ -25,6 +23,7 @@ import okhttp3.OkHttpClient;
 /** Enables the TLS 1.2/SNI behavior missing from Android 4.x platform JSSE. */
 final class AndroidTlsCompat {
     private static final int MODERN_PROVIDER_API = 21;
+    private static final String CONSCRYPT_CLASS_NAME = "org.conscrypt.Conscrypt";
     private static final String[] TLS_PROTOCOLS = new String[] {
             "TLSv1.3", "TLSv1.2", "TLSv1.1", "TLSv1"
     };
@@ -76,10 +75,17 @@ final class AndroidTlsCompat {
         synchronized (AndroidTlsCompat.class) {
             current = legacyProvider;
             if (current == null) {
-                if (!Conscrypt.isAvailable()) {
-                    throw new IllegalStateException("bundled Conscrypt native library is unavailable");
+                try {
+                    Class<?> conscrypt = Class.forName(CONSCRYPT_CLASS_NAME);
+                    Method isAvailable = conscrypt.getMethod("isAvailable");
+                    if (!Boolean.TRUE.equals(isAvailable.invoke(null))) {
+                        throw new IllegalStateException("bundled Conscrypt native library is unavailable");
+                    }
+                    current = (Provider) conscrypt.getMethod("newProvider").invoke(null);
+                } catch (Exception | LinkageError e) {
+                    throw new IllegalStateException(
+                            "API16-20 requires the tls-android-producer *-api16 artifact", e);
                 }
-                current = Conscrypt.newProvider();
                 legacyProvider = current;
             }
             return current;
@@ -167,8 +173,7 @@ final class AndroidTlsCompat {
             if (host == null || host.length() == 0) {
                 return;
             }
-            if (Conscrypt.isConscrypt(sslSocket)) {
-                Conscrypt.setHostname(sslSocket, host);
+            if (configureConscryptServerName(sslSocket, host)) {
                 return;
             }
             try {
@@ -177,6 +182,21 @@ final class AndroidTlsCompat {
                 setHostname.invoke(sslSocket, host);
             } catch (Exception ignored) {
                 // Some platform implementations configure SNI without exposing a setter.
+            }
+        }
+
+        private static boolean configureConscryptServerName(SSLSocket sslSocket, String host) {
+            try {
+                Class<?> conscrypt = Class.forName(CONSCRYPT_CLASS_NAME);
+                Method isConscrypt = conscrypt.getMethod("isConscrypt", SSLSocket.class);
+                if (!Boolean.TRUE.equals(isConscrypt.invoke(null, sslSocket))) {
+                    return false;
+                }
+                Method setHostname = conscrypt.getMethod("setHostname", SSLSocket.class, String.class);
+                setHostname.invoke(null, sslSocket, host);
+                return true;
+            } catch (Exception | LinkageError ignored) {
+                return false;
             }
         }
 

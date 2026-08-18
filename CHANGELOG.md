@@ -1,3 +1,9 @@
+## 2.0.4
+- 普通版面向 API21+，不再传递 Conscrypt 依赖，减小应用包体积
+- 新增 `2.0.4-api16` 兼容版本，面向 API16+ 并通过 Conscrypt 修复旧系统 TLS 握手
+- 发布脚本支持普通版/API16 版的 AAR、POM 和 Gradle Module Metadata
+- API16 版本支持通过 AAB 或 ABI 拆分降低单设备下载体积
+
 ## 2.0.0
 - 统一日志映射到 core.AdaptorUtil，producer-lite 与 full 保持一致
 - 新增 TimeNs 支持与开关；支持用户自填时间与纳秒，归一化至毫秒

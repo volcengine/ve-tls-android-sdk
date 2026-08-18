@@ -10,9 +10,8 @@
 - 关键用例：
 
 ## 风险与兼容性
-- minSdk=19 保持不变
+- 普通版 minSdk=21；API16 兼容版通过 `API16_VARIANT=true` 构建，minSdk=16
 - 依赖更新说明：
 
 ## 文档更新
 - README / CHANGELOG 是否已更新
-

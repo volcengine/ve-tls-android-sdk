@@ -7,7 +7,9 @@
 - SDK 依赖坐标（Maven Central）
   - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.0.4`
   - 需要完整管理能力（创建 Project/Topic/Index、检索等）：`io.github.volcengine-tls:tls-android-full:2.0.4`
-  - 如果你的 App 必须支持 `minSdk=16`：使用 `2.0.4-api16`（仅提供兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）
+  - API16-20：使用 `2.0.4-api16`，该版本通过 Conscrypt 提供旧系统 TLS 兼容能力
+  - API21+：使用 `2.0.4`，不携带 Conscrypt，包体积更小
+  - 完整 Client API 也遵循同一规则：API16-20 使用 `tls-android-full:2.0.4-api16`
 - 必要参数（后面会用到）
   - `endpoint`：TLS 接入域名，形如 `https://tls-cn-xxx.volces.com`
   - `region`：地域标识，例如 `cn-xxx`
@@ -109,8 +111,9 @@ adb push tls_config.properties /sdcard/Android/data/com.volcengine.tls.android.d
 
 ### 1. 创建 Android 工程
 
-使用 Android Studio 新建应用工程即可，建议：
-- `minSdk >= 19`
+使用 Android Studio 新建应用工程即可，版本选择如下：
+- API21+ 应用使用 `2.0.4`，设置 `minSdk >= 21`
+- 需要兼容 API16-20 时使用 `2.0.4-api16`，设置 `minSdk >= 16`
 - `compileSdk/targetSdk` 使用你当前项目的版本（示例工程使用 34）
 
 ### 2. 配置 Maven Central
@@ -132,8 +135,10 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-  // 轻量发送（推荐）
+  // API21+ 应用使用此版本
   implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
+  // API16-20 应用改用此版本，不要同时声明两个版本
+  // implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4-api16'
   // 仅当使用 lz4 压缩时引入
   implementation 'net.jpountz.lz4:lz4:1.3.0'
 }
@@ -144,6 +149,31 @@ dependencies {
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 ```
+
+### AAB/ABI 拆分说明
+
+如果一个应用需要同时兼容 API16+，应统一依赖 `2.0.4-api16`，再构建 AAB：
+
+```bash
+./gradlew bundleRelease
+```
+
+Google Play 会自动按设备 ABI 拆分 Conscrypt native 库。AAB 不需要配置 `splits.abi`；如果是直接分发 APK，再使用 `splits.abi` 并设置 `universalApk false`：
+
+```groovy
+android {
+  splits {
+    abi {
+      enable true
+      reset()
+      include 'arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'
+      universalApk false
+    }
+  }
+}
+```
+
+ABI 拆分不会按 API level 自动替换依赖。如果要让 API21+ 设备完全不携带 Conscrypt，需要单独构建 API21+ 应用变体并依赖 `2.0.4`。
 
 ### 4. 配置管理（避免把 AK/SK 写死在代码里）
 

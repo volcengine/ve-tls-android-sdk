@@ -1,6 +1,7 @@
 ## 发布说明
 - 版本策略：SemVer（主.次.修订），当前主版本为 2.0.4（相较 1.1.5 为重大变更）
-- 最低支持：Android 4.4（API 19）
+- `2.0.4`：API21+，不携带 Conscrypt
+- `2.0.4-api16`：API16+，携带 Conscrypt 2.5.3，用于兼容 API16-20
 - 构建产物：core/full/producer-lite AAR
 - Maven 坐标：推荐使用 `io.github.volcengine-tls`（GitHub 命名空间验证更直接）
 - 工作流：GitHub Actions 自动构建与测试（.github/workflows/android-ci.yml）
@@ -19,6 +20,7 @@
   - ~/.m2/repository/io/github/volcengine-tls/tls-android-core/2.0.4/
   - ~/.m2/repository/io/github/volcengine-tls/tls-android-producer/2.0.4/
   - ~/.m2/repository/io/github/volcengine-tls/tls-android-full/2.0.4/
+- API16 版本校验对应的 `2.0.4-api16/` 目录
 - 在消费工程临时启用 mavenLocal() 验证依赖解析与使用
 
 ## Gradle 发布配置模板
@@ -57,6 +59,11 @@ cd tls-android-modules
   ```bash
   tls-android-modules/gradlew -p tls-android-modules :core:assembleRelease :producer:assembleRelease :full:assembleRelease
   ```
+- 生成 API16 兼容版本：
+  ```bash
+  cd tls-android-modules
+  ./gradlew -PAPI16_VARIANT=true :core:assembleRelease :producer:assembleRelease :full:assembleRelease
+  ```
 - 准备 POM 与 sources.jar：已提供模板于 tls-android-modules/maven-publish/
 - 一键发布脚本：
   ```bash
@@ -91,3 +98,12 @@ cd tls-android-modules
     - io.github.volcengine-tls:tls-android-core:2.0.4
     - io.github.volcengine-tls:tls-android-producer:2.0.4
     - io.github.volcengine-tls:tls-android-full:2.0.4
+
+API16 版本发布时执行：
+
+```bash
+cd tls-android-modules
+API16_VARIANT=1 DRY_RUN=1 bash scripts/publish-central-mvn.sh
+```
+
+确认产物和 POM 无误后，再去掉 `DRY_RUN=1` 发布。该命令生成并发布 `core`、`producer`、`full` 的 `2.0.4-api16` 坐标，并只在 API16 版本的 core POM 中声明 Conscrypt。

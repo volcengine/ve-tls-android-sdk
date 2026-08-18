@@ -4,11 +4,14 @@ plugins {
   id 'signing'
 }
 
-  android {
+def api16Variant = (findProperty('API16_VARIANT') ?: 'false').toBoolean()
+def defaultMinSdk = api16Variant ? 16 : 21
+
+android {
   namespace 'com.volcengine.tls.android.core'
   compileSdk 34
   defaultConfig {
-    minSdk ((findProperty('MIN_SDK_OVERRIDE') ?: 19) as int)
+    minSdk ((findProperty('MIN_SDK_OVERRIDE') ?: defaultMinSdk) as int)
     targetSdk 34
     consumerProguardFiles 'consumer-rules.pro'
   }
@@ -22,10 +25,10 @@ plugins {
     sourceCompatibility JavaVersion.VERSION_1_8
     targetCompatibility JavaVersion.VERSION_1_8
   }
-    sourceSets {
-      main {
-      }
+  sourceSets {
+    main {
     }
+  }
   publishing {
     singleVariant("release") {
       withSourcesJar()
@@ -35,23 +38,32 @@ plugins {
 
 
 
-  dependencies {
-    api 'com.squareup.okhttp3:okhttp:3.12.13'
-    api 'com.squareup.okio:okio:1.17.5'
-    api 'com.google.protobuf:protobuf-javalite:3.23.2'
+dependencies {
+  api 'com.squareup.okhttp3:okhttp:3.12.13'
+  api 'com.squareup.okio:okio:1.17.5'
+  api 'com.google.protobuf:protobuf-javalite:3.23.2'
+  if (api16Variant) {
     api 'org.conscrypt:conscrypt-android:2.5.3'
-    compileOnly 'net.jpountz.lz4:lz4:1.3.0'
-    compileOnly 'com.alibaba:fastjson:1.2.83'
-    compileOnly 'org.projectlombok:lombok:1.18.20'
-    annotationProcessor 'org.projectlombok:lombok:1.18.20'
-    // after migration, core is self-contained; no dependency on :full
-    testImplementation 'junit:junit:4.13.2'
   }
+  compileOnly 'net.jpountz.lz4:lz4:1.3.0'
+  compileOnly 'com.alibaba:fastjson:1.2.83'
+  compileOnly 'org.projectlombok:lombok:1.18.20'
+  annotationProcessor 'org.projectlombok:lombok:1.18.20'
+  // after migration, core is self-contained; no dependency on :full
+  testImplementation 'junit:junit:4.13.2'
+}
 
 group = 'io.github.volcengine-tls'
 def baseVersion = (findProperty('POM_VERSION') ?: '2.0.4').toString()
-def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
+def versionSuffix = (findProperty('VERSION_SUFFIX') ?: (api16Variant ? '-api16' : '')).toString()
 version = baseVersion + versionSuffix
+
+// Keep the runtime User-Agent version aligned with the published artifact.
+tasks.matching { it.name.endsWith('JavaRes') }.configureEach {
+  filesMatching('com/volcengine/version') {
+    filter { String line -> line.startsWith('version=') ? "version=${project.version}" : line }
+  }
+}
 
 afterEvaluate {
   publishing {

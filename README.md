@@ -37,14 +37,29 @@ Access Key（AK/SK）是访问火山引擎服务的安全凭证，包含 Access 
   - 依赖 `io.github.volcengine-tls:tls-android-full`（携带完整 Client API），自动依赖 `tls-android-core`
   - 体积较大，适合工具类或后管应用
 
+## Android 版本与依赖选择
+
+2.0.4 提供两种互斥构建版本，应用只应选择其中一个：
+
+| 应用最低 API | Producer 依赖 | TLS Provider | 说明 |
+| --- | --- | --- | --- |
+| API 21 及以上 | `io.github.volcengine-tls:tls-android-producer:2.0.4` | 系统 TLS | 默认版本，包体积更小 |
+| API 16 及以上 | `io.github.volcengine-tls:tls-android-producer:2.0.4-api16` | Conscrypt 2.5.3 | 用于兼容 API16-20 的旧系统 TLS |
+
+`2.0.4-api16` 也可以运行在 API21 及以上设备，但会额外携带 Conscrypt，不建议在只支持 API21+ 的应用中使用。不要在同一个构建变体中同时声明两个版本。
+
+如果使用完整 Client API，版本选择规则相同：API21+ 使用 `tls-android-full:2.0.4`，API16-20 使用 `tls-android-full:2.0.4-api16`。
+
 ## 获取与安装
 ### 方式 A：从 Maven Central 使用（推荐）
 在应用项目的仓库中确保包含 `mavenCentral()`，然后直接添加依赖：
 
 ```groovy
 dependencies {
-  // 轻量发送（推荐）
+  // 轻量发送（推荐，minSdk >= 21）
   implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
+  // minSdk 16 时改用此版本，不要与上面同时使用
+  // implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4-api16'
   // 如需完整能力（管理+发送）
   // implementation 'io.github.volcengine-tls:tls-android-full:2.0.4'
   // 仅当使用 lz4 压缩时引入
@@ -55,7 +70,32 @@ dependencies {
 说明：
 - `tls-android-producer` / `tls-android-full` 会自动拉取 `tls-android-core`，无需手动声明 core。
 - 从 2.0.1 起已发布 Gradle Module Metadata（`.module`），Gradle/AGP 可直接解析到 AAR 变体，无需 `@aar`。
-- 如果你的 App 必须支持 `minSdk=16`：请使用 `2.0.4-api16`（兼容构建版本，低版本系统的 HTTPS/TLS 兼容性需自行验证）。
+- API21+ 使用 `2.0.4`；API16-20 使用 `2.0.4-api16`。API16 版本已内置 Conscrypt，不需要额外声明 Conscrypt 依赖。
+
+### AAB 与 ABI 拆分
+
+如果一个应用需要同时支持 API16+，应统一使用 `2.0.4-api16`，然后构建 AAB：
+
+```bash
+./gradlew bundleRelease
+```
+
+Google Play 会自动按 ABI 生成设备匹配的安装包。AAB 不需要额外配置 `splits.abi`；直接分发 APK 时才建议开启 ABI 拆分并关闭 universal APK：
+
+```groovy
+android {
+  splits {
+    abi {
+      enable true
+      reset()
+      include 'arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'
+      universalApk false
+    }
+  }
+}
+```
+
+ABI 拆分只减少设备下载的 native 库，不会根据 Android API 自动在 `2.0.4` 与 `2.0.4-api16` 之间切换。若要让 API21+ 完全不带 Conscrypt，必须构建独立的 API21+ 应用变体并使用 `2.0.4`。
 
 ### 方式 B：源码方式接入（仓库开发/二次开发）
 在工程的 `settings.gradle` 中包含需要的模块：
@@ -135,8 +175,10 @@ client.destroy();
 - 第一步：添加依赖与权限
   ```groovy
   dependencies {
-    // 轻量发送（推荐）
+    // 轻量发送（推荐，minSdk >= 21）
     implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4'
+    // minSdk 16 时改用 2.0.4-api16，不要同时引入
+    // implementation 'io.github.volcengine-tls:tls-android-producer:2.0.4-api16'
     // 如需完整能力（管理+发送）
     // implementation 'io.github.volcengine-tls:tls-android-full:2.0.4'
     // 使用 lz4 压缩时引入，否则可省略
@@ -310,7 +352,7 @@ client.destroy();
   - 用户自定义毫秒时间与纳秒时间均支持（`sendLog(kv, timeMillis)` / `sendLog(kv, timeMillis, timeNs)`）
   - 未设置 `timeNs` 且启用 `enableTimeNs=true` 时，发送侧自动补充纳秒值
 - 性能优化：Map→LogItem 转换移除中间合并用的 HashMap，保留覆盖语义，减少 CPU 与 GC 开销。
-- 最低支持版本：Android 4.4（API 19）。
+- `2.0.4` 最低支持 API21；`2.0.4-api16` 最低支持 API16。
 
 ## 日志映射与字段
 统一由公共工具完成：[core/AdaptorUtil.java](https://github.com/volcengine/ve-tls-android-sdk/blob/master-2.0/tls-android-modules/core/src/main/java/com/volcengine/model/tls/util/AdaptorUtil.java)
@@ -360,7 +402,7 @@ client.destroy();
 
 ## 集成测试
 - 环境变量要求：endPoint、region、ak、sk（token 可选），部分用例需 topicId。
-- 最低支持 Android 版本：4.4（API 19）。SDK 库模块已统一设置 minSdk=19。
+- 普通版最低支持 Android API21；API16-20 请使用 `2.0.4-api16`。
 - 运行方式：
   ```bash
   cd tls-android-modules
@@ -372,7 +414,7 @@ client.destroy();
 - Gradle 配置（应用/库）：
   ```gradle
   android {
-    defaultConfig { minSdk 19 }
+    defaultConfig { minSdk 21 }
   }
   dependencies {
     implementation project(':producer')
