@@ -1,109 +1,46 @@
-## 发布说明
-- 版本策略：SemVer（主.次.修订），当前主版本为 2.0.4（相较 1.1.5 为重大变更）
-- `2.0.4`：API21+，不携带 Conscrypt
-- `2.0.4-api16`：API16+，携带 Conscrypt 2.5.3，用于兼容 API16-20
-- 构建产物：core/full/producer-lite AAR
-- Maven 坐标：推荐使用 `io.github.volcengine-tls`（GitHub 命名空间验证更直接）
-- 工作流：GitHub Actions 自动构建与测试（.github/workflows/android-ci.yml）
-- 发布步骤：
-  1. 更新 CHANGELOG 与版本号（如需要）
-  2. 推送 Tag
-  3. 触发 CI 完成构建与测试
-  4. 创建 GitHub Release 并附上说明
+## GitHub Release
 
-## 本地发布（验证）
-- 执行本地仓库发布：
-  ```bash
-  tls-android-modules/scripts/publish-local.sh
-  ```
-- 校验工件：
-  - ~/.m2/repository/io/github/volcengine-tls/tls-android-core/2.0.4/
-  - ~/.m2/repository/io/github/volcengine-tls/tls-android-producer/2.0.4/
-  - ~/.m2/repository/io/github/volcengine-tls/tls-android-full/2.0.4/
-- API16 版本校验对应的 `2.0.4-api16/` 目录
-- 在消费工程临时启用 mavenLocal() 验证依赖解析与使用
+- 发布入口：GitHub Actions 的 `Maven Central Publish` workflow
+- 发布源：workflow 的 `ref` 输入指定的 Git 分支、tag 或 commit
+- 普通版本：`2.0.4`，面向 API21+，不携带 Conscrypt
+- API16 兼容版本：`2.0.4-api16`，面向 API16+，携带 Conscrypt 2.5.3
+- 构建与测试：`.github/workflows/android-ci.yml`
+- 发布 workflow：`.github/workflows/maven-publish.yml`
 
-## Gradle 发布配置模板
-- 凭据与签名（任选其一方式）写入本机配置文件：
-  - 路径：~/.gradle/gradle.properties
+## GitHub Actions Secrets
 
-### 模板 A：内存签名（适合 CI 与本机）
-```
-ossrhUsername=YOUR_OSSRH_USERNAME
-ossrhPassword=YOUR_OSSRH_PASSWORD
-signingKey=YOUR_ASCII_ARMORED_PRIVATE_KEY
-signingPassword=YOUR_PGP_PASSPHRASE
-```
+在 GitHub 仓库的 **Settings -> Secrets and variables -> Actions** 中配置：
 
-### 模板 B：GPG 代理签名（无需导出私钥）
-```
-ossrhUsername=YOUR_OSSRH_USERNAME
-ossrhPassword=YOUR_OSSRH_PASSWORD
-signing.gnupg.executable=gpg
-signing.gnupg.keyName=YOUR_KEY_ID_OR_FINGERPRINT
-signing.gnupg.passphrase=YOUR_PGP_PASSPHRASE
-```
+- `CENTRAL_USERNAME`：Maven Central Portal token 用户名
+- `CENTRAL_TOKEN`：Maven Central Portal token 密码
+- `GPG_PRIVATE_KEY`：ASCII armored 格式的签名私钥
+- `GPG_PASSPHRASE`：签名私钥口令
 
-### 一键发布到 Sonatype 并自动关闭/发布
-```
-cd tls-android-modules
-./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository
-```
+Secret 只由 GitHub Actions 使用，不写入仓库文件、workflow 日志或发布产物。
 
-### 必要前置
-- 在 https://central.sonatype.com/ 认领并验证 groupId（例如 com.volcengine）
-- 使用 JDK 17；GitHub Actions 由 `actions/setup-java` 提供 JDK 17。仓库不固定 JDK 路径
+## 发布 2.0.4
 
-## 使用 Maven CLI 发布（不改代码）
-- 生成 AAR：
-  ```bash
-  tls-android-modules/gradlew -p tls-android-modules :core:assembleRelease :producer:assembleRelease :full:assembleRelease
-  ```
-- 生成 API16 兼容版本：
-  ```bash
-  cd tls-android-modules
-  ./gradlew -PAPI16_VARIANT=true :core:assembleRelease :producer:assembleRelease :full:assembleRelease
-  ```
-- 准备 POM 与 sources.jar：已提供模板于 tls-android-modules/maven-publish/
-- 一键发布脚本：
-  ```bash
-  # DRY_RUN=1 仅构建与打 sources.jar，不上传
-  cd tls-android-modules
-  DRY_RUN=1 bash scripts/publish-mvn.sh
-  
-  # 正式发布到 Sonatype（需 ~/.m2/settings.xml 配置 serverId/用户名/密码，且本机 GPG 可用）
-  bash scripts/publish-mvn.sh
-  ```
-- 说明：脚本使用 gpg:sign-and-deploy-file 逐个上传 core/producer/full，并调用 nexus-staging:release 自动 Close/Release。
+1. 确认发布源的 GitHub Actions CI 已通过。
+2. 打开 GitHub 仓库的 **Actions -> Maven Central Publish -> Run workflow**。
+3. 填写以下输入：
+   - `version`：`2.0.4`
+   - `ref`：已通过 CI 的发布源，例如 `fix/2.0.3-version-resource-conflict`
+   - `api16_variant`：`false`
+4. workflow 会重新构建、运行 core 测试、签名并发布 `core`、`producer`、`full` 三个 Maven 坐标。
+5. 在 Maven Central Portal 确认 deployment 完成后，再创建对应的 GitHub Release 和 tag `v2.0.4`。
 
-## 使用 Maven Central Publishing 插件发布（推荐新流程）
-- 适用场景：参考 Java SDK 的 Central Publishing 插件流程，通过 Central 的 staging API 发布并自动发布到 Maven Central。
-- 前置要求：
-  - Central Portal 已完成 groupId（例如 com.volcengine）认领与验证
-  - ~/.m2/settings.xml 配置 `central` 的 Token 用户名/密码
-  - 本机 GPG 可用（建议开启 loopback），且知道私钥口令（passphrase）
-- 本地验证（不上传）：
-  ```bash
-  cd tls-android-modules
-  DRY_RUN=1 bash scripts/publish-central-mvn.sh
-  ```
-- 正式发布（自动 publish）：
-  ```bash
-  cd tls-android-modules
-  PGP_PASSPHRASE='YOUR_PGP_PASSPHRASE' bash scripts/publish-central-mvn.sh
-  ```
-- 发布工程与产物绑定：
-  - 聚合 POM：tls-android-modules/maven-central-publish/pom.xml（不发布到中央仓库）
-  - 发布坐标：
-    - io.github.volcengine-tls:tls-android-core:2.0.4
-    - io.github.volcengine-tls:tls-android-producer:2.0.4
-    - io.github.volcengine-tls:tls-android-full:2.0.4
+## 发布 API16 版本
 
-API16 版本发布时执行：
+使用同一个已验证的 `ref`，重新运行 workflow：
 
-```bash
-cd tls-android-modules
-API16_VARIANT=1 DRY_RUN=1 bash scripts/publish-central-mvn.sh
-```
+- `version`：`2.0.4`
+- `api16_variant`：`true`
 
-确认产物和 POM 无误后，再去掉 `DRY_RUN=1` 发布。该命令生成并发布 `core`、`producer`、`full` 的 `2.0.4-api16` 坐标，并只在 API16 版本的 core POM 中声明 Conscrypt。
+workflow 发布的坐标会自动使用 `2.0.4-api16` 后缀，并只在 API16 版本的 core POM 中声明 Conscrypt。普通版和 API16 版必须分别运行，不能在同一次 workflow 中混合发布。
+
+## 发布前检查
+
+- `ref` 中的 `tls-android-modules/gradle.properties` 基础版本应与 workflow 的 `version` 一致。
+- 普通版构建参数为 `API16_VARIANT=false`，API16 版构建参数为 `API16_VARIANT=true`。
+- 同一个 Maven 版本只发布一次；如果 deployment 已提交，不要重复运行相同版本。
+- GitHub Actions 失败时，以 workflow 日志为准，不依据未上传到 GitHub 的外部构建结果判断发布成功。

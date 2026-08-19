@@ -1,0 +1,82 @@
+name: Maven Central Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Maven base version, for example 2.0.4
+        required: true
+        type: string
+        default: 2.0.4
+      ref:
+        description: Git ref containing the release source
+        required: true
+        type: string
+        default: fix/2.0.3-version-resource-conflict
+      api16_variant:
+        description: Publish the API16 compatibility coordinates with -api16 suffix
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish ${{ inputs.version }}${{ inputs.api16_variant && '-api16' || '' }}
+    runs-on: ubuntu-latest
+    env:
+      CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+      CENTRAL_TOKEN: ${{ secrets.CENTRAL_TOKEN }}
+      PGP_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+    steps:
+      - name: Checkout release ref
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Java and Maven Central credentials
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+        with:
+          distribution: temurin
+          java-version: '17'
+          server-id: central
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_TOKEN
+
+      - name: Validate publishing secrets
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$CENTRAL_USERNAME"
+          test -n "$CENTRAL_TOKEN"
+          test -n "$PGP_PASSPHRASE"
+          test -n "$GPG_PRIVATE_KEY"
+          printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Build and test release variant
+        working-directory: tls-android-modules
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.api16_variant }}" = "true" ]; then
+            api16_variant=1
+          else
+            api16_variant=0
+          fi
+          ./gradlew -PAPI16_VARIANT="$api16_variant" \
+            :core:test \
+            :core:assembleRelease \
+            :producer:assembleRelease \
+            :full:assembleRelease \
+            --stacktrace --no-daemon
+
+      - name: Publish to Maven Central
+        working-directory: tls-android-modules
+        env:
+          BASE_VERSION: ${{ inputs.version }}
+          API16_VARIANT: ${{ inputs.api16_variant && '1' || '0' }}
+        run: |
+          set -euo pipefail
+          bash scripts/publish-central-mvn.sh
