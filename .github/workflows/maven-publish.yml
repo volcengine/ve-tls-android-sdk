@@ -1,30 +1,16 @@
 name: Maven Central Publish
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: Maven base version, for example 2.0.4
-        required: true
-        type: string
-        default: 2.0.4
-      ref:
-        description: Git ref containing the release source
-        required: true
-        type: string
-        default: fix/2.0.3-version-resource-conflict
-      api16_variant:
-        description: Publish the API16 compatibility coordinates with -api16 suffix
-        required: true
-        type: boolean
-        default: false
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: read
 
 jobs:
   publish:
-    name: Publish ${{ inputs.version }}${{ inputs.api16_variant && '-api16' || '' }}
+    name: Publish Maven Central
     runs-on: ubuntu-latest
     env:
       CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
@@ -34,7 +20,7 @@ jobs:
       - name: Checkout release ref
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.ref }}
 
       - name: Setup Java and Maven Central credentials
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
@@ -44,6 +30,27 @@ jobs:
           server-id: central
           server-username: CENTRAL_USERNAME
           server-password: CENTRAL_TOKEN
+
+      - name: Resolve release coordinates
+        id: release
+        run: |
+          set -euo pipefail
+          published_version="${GITHUB_REF_NAME#v}"
+          if [[ "$published_version" == *-api16 ]]; then
+            base_version="${published_version%-api16}"
+            api16_variant=1
+          else
+            base_version="$published_version"
+            api16_variant=0
+          fi
+          if [[ ! "$base_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Unsupported Maven version: $base_version" >&2
+            exit 1
+          fi
+          echo "base_version=$base_version" >> "$GITHUB_OUTPUT"
+          echo "published_version=$published_version" >> "$GITHUB_OUTPUT"
+          echo "api16_variant=$api16_variant" >> "$GITHUB_OUTPUT"
+          echo "Publishing $published_version from $GITHUB_SHA"
 
       - name: Validate publishing secrets
         env:
@@ -60,12 +67,7 @@ jobs:
         working-directory: tls-android-modules
         run: |
           set -euo pipefail
-          if [ "${{ inputs.api16_variant }}" = "true" ]; then
-            api16_variant=1
-          else
-            api16_variant=0
-          fi
-          ./gradlew -PAPI16_VARIANT="$api16_variant" \
+          ./gradlew -PAPI16_VARIANT="${{ steps.release.outputs.api16_variant }}" \
             :core:test \
             :core:assembleRelease \
             :producer:assembleRelease \
@@ -75,8 +77,8 @@ jobs:
       - name: Publish to Maven Central
         working-directory: tls-android-modules
         env:
-          BASE_VERSION: ${{ inputs.version }}
-          API16_VARIANT: ${{ inputs.api16_variant && '1' || '0' }}
+          BASE_VERSION: ${{ steps.release.outputs.base_version }}
+          API16_VARIANT: ${{ steps.release.outputs.api16_variant }}
         run: |
           set -euo pipefail
           bash scripts/publish-central-mvn.sh
