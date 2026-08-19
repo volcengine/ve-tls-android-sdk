@@ -4,15 +4,16 @@ plugins {
   id 'signing'
 }
 
-def minSdkValue = ((findProperty('MIN_SDK_OVERRIDE') ?: 19) as int)
-def legacyPublication = minSdkValue < 19
+def minSdkValue = ((findProperty('MIN_SDK_OVERRIDE') ?: 16) as int)
+def legacyPublication = minSdkValue < 16
 def publicationArtifactId = legacyPublication ? "tls-android-producer-legacy${minSdkValue}" : 'tls-android-producer'
 def publicationName = publicationArtifactId
 def publicationDescription = legacyPublication
         ? "Unsupported best-effort legacy minSdk ${minSdkValue} build of the VOLC Engine TLS Producer SDK for Android, for designated customer delivery only"
         : 'VOLC Engine TLS Producer SDK for Android'
 def veTlsCSdkDir = findProperty('VE_TLS_C_SDK_DIR') ?: System.getenv('VE_TLS_C_SDK_DIR')
-def baseVersion = (findProperty('POM_VERSION') ?: '2.1.1').toString()
+def ndkVersionValue = (findProperty('NDK_VERSION_OVERRIDE') ?: '21.4.7075529').toString()
+def baseVersion = (findProperty('POM_VERSION') ?: '2.1.2').toString()
 def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
 
 group = 'io.github.volcengine-tls'
@@ -64,7 +65,7 @@ android {
       withSourcesJar()
     }
   }
-  ndkVersion "25.2.9519653"
+  ndkVersion ndkVersionValue
 }
 
 dependencies {

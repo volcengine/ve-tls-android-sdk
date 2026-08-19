@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.18)
 project(tls_producer_native C CXX)
 
+get_filename_component(VE_TLS_NDK_TOOLCHAIN_BIN "${CMAKE_AR}" DIRECTORY)
+if (EXISTS "${VE_TLS_NDK_TOOLCHAIN_BIN}/llvm-ar" AND EXISTS "${VE_TLS_NDK_TOOLCHAIN_BIN}/llvm-ranlib")
+  set(CMAKE_AR "${VE_TLS_NDK_TOOLCHAIN_BIN}/llvm-ar" CACHE FILEPATH "" FORCE)
+  set(CMAKE_RANLIB "${VE_TLS_NDK_TOOLCHAIN_BIN}/llvm-ranlib" CACHE FILEPATH "" FORCE)
+endif()
+
 if (NOT DEFINED VE_TLS_C_SDK_DIR OR "${VE_TLS_C_SDK_DIR}" STREQUAL "")
   set(VE_TLS_C_SDK_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../../../../ve-tls-c-sdk")
 endif()

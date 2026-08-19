@@ -1,3 +1,9 @@
+## 2.1.2
+- Producer-native 默认最低支持调整为 Android 4.1（API 16）。
+- API16 兼容路径继续使用系统 `HttpsURLConnection`/JSSE；服务端需开放 API16 可协商的 CBC TLS 套件，发布物不引入 Conscrypt。
+- 移除 producer-native Java 公开路径中的 API19-only `java.util.Objects` 调用，并固定 API16 构建使用 NDK 21.4。
+- Android 请求 User-Agent 更新为 `volc-tls-android/producer/v2.1.2`。
+
 ## 2.1.1
 - 发布坐标继续使用 `io.github.volcengine-tls:tls-android-producer`，不新增独立 native 坐标。
 - `2.1.x` 起作为 producer-native 主线；core/full/老 producer 后续仅沿 `2.0.x` legacy 维护线修复必要问题。

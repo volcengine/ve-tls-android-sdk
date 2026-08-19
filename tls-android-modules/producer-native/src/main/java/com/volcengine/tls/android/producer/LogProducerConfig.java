@@ -4,7 +4,6 @@ import android.content.Context;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public final class LogProducerConfig {
     public enum CompressType {
@@ -221,7 +220,10 @@ public final class LogProducerConfig {
 
     public LogProducerConfig setCompressType(CompressType compressType) {
         ensureMutable();
-        this.compressType = Objects.requireNonNull(compressType);
+        if (compressType == null) {
+            throw new NullPointerException("compressType == null");
+        }
+        this.compressType = compressType;
         return this;
     }
 
