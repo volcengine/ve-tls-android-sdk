@@ -95,6 +95,43 @@ public class LogProducerConfigTest {
     }
 
     @Test
+    public void persistentDurability_defaultsToBufferedWal() {
+        LogProducerConfig config = new LogProducerConfig();
+
+        assertEquals(LogProducerConfig.PersistentDurability.BUFFERED_WAL,
+                config.getPersistentDurability());
+        assertFalse(config.isPersistentForceFlush());
+    }
+
+    @SuppressWarnings("deprecation")
+    @Test
+    public void legacyForceFlush_mapsToSyncWalAndBackToBuffered() {
+        LogProducerConfig config = new LogProducerConfig().setPersistentForceFlush(true);
+
+        assertTrue(config.isPersistentForceFlush());
+        assertEquals(LogProducerConfig.PersistentDurability.SYNC_WAL,
+                config.getPersistentDurability());
+
+        config.setPersistentForceFlush(false);
+        assertEquals(LogProducerConfig.PersistentDurability.BUFFERED_WAL,
+                config.getPersistentDurability());
+    }
+
+    @SuppressWarnings("deprecation")
+    @Test
+    public void explicitBufferedWal_conflictsWithLegacyForceFlush() {
+        LogProducerConfig explicitFirst = new LogProducerConfig()
+                .setPersistentDurability(LogProducerConfig.PersistentDurability.BUFFERED_WAL);
+        assertThrows(IllegalArgumentException.class,
+                () -> explicitFirst.setPersistentForceFlush(true));
+
+        LogProducerConfig legacyFirst = new LogProducerConfig().setPersistentForceFlush(true);
+        assertThrows(IllegalArgumentException.class,
+                () -> legacyFirst.setPersistentDurability(
+                        LogProducerConfig.PersistentDurability.BUFFERED_WAL));
+    }
+
+    @Test
     public void freeze_rejectsFurtherMutation() {
         LogProducerConfig config = new LogProducerConfig();
 

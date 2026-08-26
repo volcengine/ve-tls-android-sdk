@@ -284,7 +284,8 @@ client.resetSecurityToken(newAccessKeyId, newAccessKeySecret, newSecurityToken);
 | `setEnableTimeNs(boolean)` | `false` | 是否启用纳秒时间字段；需配合带 `timeNs` 的 `addLog` 使用 | 只有需要高精度时间时开启 |
 | `setPersistent(boolean)` | `false` | 是否开启断点续传 | 高可靠场景开启 |
 | `setPersistentFilePath(String)` | `null` | 持久化文件路径；必须位于应用可写目录 | persistent 开启时必填 |
-| `setPersistentForceFlush(boolean)` | `false` | 每次写入后是否强制刷盘 | 只有极高可靠场景开启 |
+| `setPersistentDurability(PersistentDurability)` | `BUFFERED_WAL` | buffered 在 rotation、flush、close 时刷盘；sync 每次 append 刷盘 | 只有明确需要更强落盘边界时使用 `SYNC_WAL` |
+| `setPersistentForceFlush(boolean)` | `false` | 兼容 API；`true` 映射为 `SYNC_WAL` | 新接入使用 `setPersistentDurability` |
 | `setPersistentMaxFileCount(int)` | `0` | 持久化文件滚动个数；`0` 由 native 默认策略处理 | 常用 `8` ~ `10` |
 | `setPersistentMaxFileSize(int)` | `0` | 单个持久化文件大小，单位 byte；`0` 由 native 默认策略处理 | 常用 `1 MB` ~ `10 MB` |
 | `setPersistentMaxLogCount(int)` | `0` | 本地最多缓存日志条数；`0` 由 native 默认策略处理 | 生产高可靠场景常用 `65536` |
@@ -305,14 +306,15 @@ config.setPersistentFilePath(context.getFilesDir() + "/tls-producer/log.dat");
 config.setPersistentMaxFileCount(10);
 config.setPersistentMaxFileSize(1024 * 1024);
 config.setPersistentMaxLogCount(65536);
-config.setPersistentForceFlush(false);
+config.setPersistentDurability(LogProducerConfig.PersistentDurability.BUFFERED_WAL);
 ```
 
 注意：
 
 - 开启 persistent 后，发送线程数会被 Android binding 收敛为 `1`，避免本地恢复、发送确认和顺序语义变复杂。
 - 多进程场景下不要复用同一个持久化路径；当前 Java 接入不会自动为不同进程拆分路径，业务必须显式规划不同 client 的文件路径。
-- `setPersistentForceFlush(true)` 可靠性更高，但会增加 IO 成本；只有强可靠场景建议开启。
+- `SYNC_WAL` 每条 append 都执行文件同步，会显著增加 IO 成本；默认使用 `BUFFERED_WAL`。
+- 旧 `setPersistentForceFlush(true)` 等价于 `SYNC_WAL`；显式 `BUFFERED_WAL` 与旧开关 `true` 冲突时配置会被拒绝。
 - 如果切换 endpoint/region/topicId，建议同步切换 `persistentFilePath`，避免旧目标的 backlog 被恢复后发送到新目标。
 
 ## 回调函数配合使用

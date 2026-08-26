@@ -841,6 +841,7 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     jint send_thread_count,
     jboolean persistent,
     jstring persistent_file_path,
+    jint persistent_durability,
     jboolean persistent_force_flush,
     jint persistent_max_file_count,
     jint persistent_max_file_size,
@@ -920,6 +921,7 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     config_view.max_persistent_file_size = persistent_max_file_size;
     config_view.max_persistent_file_count = persistent_max_file_count;
     config_view.force_flush_disk = persistent_force_flush ? 1 : 0;
+    config_view.persistent_durability = persistent_durability;
     config_view.destroy_wait_ms = destroy_wait_ms;
     config_view.destroy_flusher_wait_ms = destroy_flusher_wait_ms;
     config_view.destroy_sender_wait_ms = destroy_sender_wait_ms;

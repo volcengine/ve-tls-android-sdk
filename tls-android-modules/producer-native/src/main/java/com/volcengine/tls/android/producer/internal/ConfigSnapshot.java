@@ -27,6 +27,7 @@ public final class ConfigSnapshot {
     private final boolean persistent;
     private final String persistentFilePath;
     private final boolean persistentForceFlush;
+    private final LogProducerConfig.PersistentDurability persistentDurability;
     private final int persistentMaxFileCount;
     private final int persistentMaxFileSize;
     private final int persistentMaxLogCount;
@@ -66,6 +67,7 @@ public final class ConfigSnapshot {
             this.persistent = false;
             this.persistentFilePath = null;
             this.persistentForceFlush = false;
+            this.persistentDurability = LogProducerConfig.PersistentDurability.BUFFERED_WAL;
             this.persistentMaxFileCount = 0;
             this.persistentMaxFileSize = 0;
             this.persistentMaxLogCount = 0;
@@ -106,6 +108,7 @@ public final class ConfigSnapshot {
                 ? ProcessUtil.rewritePersistentPath(sourceConfig.getPersistentFilePath(), processName)
                 : sourceConfig.getPersistentFilePath();
         this.persistentForceFlush = sourceConfig.isPersistentForceFlush();
+        this.persistentDurability = sourceConfig.getPersistentDurability();
         this.persistentMaxFileCount = sourceConfig.getPersistentMaxFileCount();
         this.persistentMaxFileSize = sourceConfig.getPersistentMaxFileSize();
         this.persistentMaxLogCount = sourceConfig.getPersistentMaxLogCount();
@@ -244,6 +247,10 @@ public final class ConfigSnapshot {
 
     public boolean isPersistentForceFlush() {
         return persistentForceFlush;
+    }
+
+    public LogProducerConfig.PersistentDurability getPersistentDurability() {
+        return persistentDurability;
     }
 
     public int getPersistentMaxFileCount() {

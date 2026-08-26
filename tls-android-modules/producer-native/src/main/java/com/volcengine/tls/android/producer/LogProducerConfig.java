@@ -11,6 +11,11 @@ public final class LogProducerConfig {
         LZ4
     }
 
+    public enum PersistentDurability {
+        BUFFERED_WAL,
+        SYNC_WAL
+    }
+
     private static final int RETRY_MAX_ATTEMPTS_MIN = 0;
     private static final int RETRY_MAX_ATTEMPTS_MAX = 50;
     private static final int RETRY_TOTAL_TIMEOUT_MS_DEFAULT = 90 * 1000;
@@ -43,6 +48,8 @@ public final class LogProducerConfig {
     private boolean persistent;
     private String persistentFilePath;
     private boolean persistentForceFlush;
+    private PersistentDurability persistentDurability = PersistentDurability.BUFFERED_WAL;
+    private boolean persistentDurabilityConfigured;
     private int persistentMaxFileCount;
     private int persistentMaxFileSize;
     private int persistentMaxLogCount;
@@ -384,9 +391,47 @@ public final class LogProducerConfig {
         return persistentForceFlush;
     }
 
+    /**
+     * Compatibility API. {@code true} maps to {@link PersistentDurability#SYNC_WAL};
+     * {@code false} maps to {@link PersistentDurability#BUFFERED_WAL} unless durability was
+     * explicitly configured with {@link #setPersistentDurability(PersistentDurability)}.
+     */
+    @Deprecated
     public LogProducerConfig setPersistentForceFlush(boolean persistentForceFlush) {
         ensureMutable();
+        if (persistentForceFlush && persistentDurabilityConfigured
+                && persistentDurability == PersistentDurability.BUFFERED_WAL) {
+            throw new IllegalArgumentException(
+                    "persistentForceFlush=true conflicts with BUFFERED_WAL durability");
+        }
         this.persistentForceFlush = persistentForceFlush;
+        if (!persistentDurabilityConfigured) {
+            this.persistentDurability = persistentForceFlush
+                    ? PersistentDurability.SYNC_WAL
+                    : PersistentDurability.BUFFERED_WAL;
+        }
+        return this;
+    }
+
+    public PersistentDurability getPersistentDurability() {
+        return persistentDurability;
+    }
+
+    /**
+     * Controls when an accepted persistent record becomes durable outside the process.
+     * Buffered WAL syncs on rotation, flush, and close; sync WAL syncs every append.
+     */
+    public LogProducerConfig setPersistentDurability(PersistentDurability persistentDurability) {
+        ensureMutable();
+        if (persistentDurability == null) {
+            throw new IllegalArgumentException("persistentDurability == null");
+        }
+        if (persistentForceFlush && persistentDurability == PersistentDurability.BUFFERED_WAL) {
+            throw new IllegalArgumentException(
+                    "BUFFERED_WAL durability conflicts with persistentForceFlush=true");
+        }
+        this.persistentDurability = persistentDurability;
+        this.persistentDurabilityConfigured = true;
         return this;
     }
 

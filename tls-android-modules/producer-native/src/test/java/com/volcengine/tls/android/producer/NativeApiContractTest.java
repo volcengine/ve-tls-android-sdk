@@ -42,6 +42,7 @@ public class NativeApiContractTest {
                 int.class,
                 boolean.class,
                 String.class,
+                int.class,
                 boolean.class,
                 int.class,
                 int.class,
@@ -104,6 +105,14 @@ public class NativeApiContractTest {
         compressTypeMapper.setAccessible(true);
         assertEquals(1, ((Integer) compressTypeMapper.invoke(null, LogProducerConfig.CompressType.NONE)).intValue());
         assertEquals(2, ((Integer) compressTypeMapper.invoke(null, LogProducerConfig.CompressType.LZ4)).intValue());
+
+        Method durabilityMapper = bridgeClass.getDeclaredMethod(
+                "toNativePersistentDurability", LogProducerConfig.PersistentDurability.class);
+        durabilityMapper.setAccessible(true);
+        assertEquals(1, ((Integer) durabilityMapper.invoke(
+                null, LogProducerConfig.PersistentDurability.BUFFERED_WAL)).intValue());
+        assertEquals(2, ((Integer) durabilityMapper.invoke(
+                null, LogProducerConfig.PersistentDurability.SYNC_WAL)).intValue());
     }
 
     @Test

@@ -432,6 +432,8 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
     static final int COMPRESS_TYPE_UNSPECIFIED = 0;
     static final int COMPRESS_TYPE_NONE = 1;
     static final int COMPRESS_TYPE_LZ4 = 2;
+    static final int PERSISTENT_DURABILITY_BUFFERED_WAL = 1;
+    static final int PERSISTENT_DURABILITY_SYNC_WAL = 2;
     private final NativeLibraryVerifier nativeLibraryVerifier;
     private final CreateInvoker createInvoker;
     private final CallbackDispatcherFactory callbackDispatcherFactory;
@@ -666,6 +668,7 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
                 config.getSendThreadCount(),
                 config.isPersistent(),
                 config.getPersistentFilePath(),
+                toNativePersistentDurability(config.getPersistentDurability()),
                 config.isPersistentForceFlush(),
                 config.getPersistentMaxFileCount(),
                 config.getPersistentMaxFileSize(),
@@ -702,6 +705,22 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
                 return COMPRESS_TYPE_LZ4;
             default:
                 throw new IllegalArgumentException("unsupported compress type: " + compressType);
+        }
+    }
+
+    static int toNativePersistentDurability(
+            LogProducerConfig.PersistentDurability durability) {
+        if (durability == null) {
+            throw new IllegalArgumentException("persistent durability == null");
+        }
+        switch (durability) {
+            case BUFFERED_WAL:
+                return PERSISTENT_DURABILITY_BUFFERED_WAL;
+            case SYNC_WAL:
+                return PERSISTENT_DURABILITY_SYNC_WAL;
+            default:
+                throw new IllegalArgumentException(
+                        "unsupported persistent durability: " + durability);
         }
     }
 
@@ -768,6 +787,7 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
             int sendThreadCount,
             boolean persistent,
             String persistentFilePath,
+            int persistentDurability,
             boolean persistentForceFlush,
             int persistentMaxFileCount,
             int persistentMaxFileSize,

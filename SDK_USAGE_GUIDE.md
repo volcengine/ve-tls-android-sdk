@@ -243,7 +243,8 @@ LogProducerClient client = new LogProducerClient(cfg);
 | `setRetryMaxIntervalMs` | 单次等待间隔上限 | 整数，单位毫秒 | 默认 `10000`；范围 `[1000, 60000]`，且必须 `>= retryInitialIntervalMs` |
 | `setPersistent` | 是否开启 persistent/recover | 布尔值 | 默认 `false`；开启后为 **at-least-once** 语义，不承诺 exactly-once |
 | `setPersistentFilePath` | persistent 文件目录 | 字符串 | 默认空；开启 `persistent` 时必填；不同 target 建议使用不同目录 |
-| `setPersistentForceFlush` | 是否每次 `addLog` 都强制刷盘 | 布尔值 | 默认 `false` |
+| `setPersistentDurability` | WAL 落盘模式 | `BUFFERED_WAL` / `SYNC_WAL` | 默认 `BUFFERED_WAL` |
+| `setPersistentForceFlush` | 旧版强制刷盘兼容开关 | 布尔值 | `true` 映射为 `SYNC_WAL` |
 | `setPersistentMaxFileCount` | persistent 文件滚动个数上限 | 整数 | 默认 `0`；开启 `persistent` 时建议显式配置，不要依赖 `0` |
 | `setPersistentMaxFileSize` | 单个 persistent 文件大小上限 | 整数，单位字节 | 默认 `0`；开启 `persistent` 时建议显式配置，不要依赖 `0` |
 | `setPersistentMaxLogCount` | 本地最多缓存日志条数 | 整数 | 默认 `0`；开启 `persistent` 时建议显式配置，不要依赖 `0` |
