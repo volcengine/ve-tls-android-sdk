@@ -4,8 +4,8 @@ plugins {
   id 'signing'
 }
 
-def minSdkValue = ((findProperty('MIN_SDK_OVERRIDE') ?: 16) as int)
-def legacyPublication = minSdkValue < 16
+def minSdkValue = ((findProperty('MIN_SDK_OVERRIDE') ?: 19) as int)
+def legacyPublication = minSdkValue < 19
 def publicationArtifactId = legacyPublication ? "tls-android-producer-legacy${minSdkValue}" : 'tls-android-producer'
 def publicationName = publicationArtifactId
 def publicationDescription = legacyPublication

@@ -87,7 +87,7 @@ public final class ProducerLifecycleInstrumentedTest extends TestCase {
                     long.class);
             dispatch.setAccessible(true);
             dispatch.invoke(dispatcher, 0, 200, "request-id", null, null, 0, 0, 1L, 1L);
-        } catch (ReflectiveOperationException e) {
+        } catch (Exception e) {
             throw new AssertionError(e);
         }
     }
