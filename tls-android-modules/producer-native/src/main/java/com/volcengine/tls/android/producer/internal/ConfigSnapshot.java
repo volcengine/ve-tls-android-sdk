@@ -31,6 +31,14 @@ public final class ConfigSnapshot {
     private final int persistentMaxFileCount;
     private final int persistentMaxFileSize;
     private final int persistentMaxLogCount;
+    private final int persistentMaxBytes;
+    private final int persistentMaxRecords;
+    private final int persistentMaxSegments;
+    private final int persistentHighWatermarkPct;
+    private final int persistentLowWatermarkPct;
+    private final LogProducerConfig.PersistentOverflowPolicy persistentOverflowPolicy;
+    private final int persistentSampleEveryN;
+    private final int persistentBlockTimeoutMs;
     private final int connectTimeoutMs;
     private final int requestTimeoutMs;
     private final int destroyWaitMs;
@@ -71,6 +79,14 @@ public final class ConfigSnapshot {
             this.persistentMaxFileCount = 0;
             this.persistentMaxFileSize = 0;
             this.persistentMaxLogCount = 0;
+            this.persistentMaxBytes = 0;
+            this.persistentMaxRecords = 0;
+            this.persistentMaxSegments = 0;
+            this.persistentHighWatermarkPct = 85;
+            this.persistentLowWatermarkPct = 70;
+            this.persistentOverflowPolicy = LogProducerConfig.PersistentOverflowPolicy.REJECT_NEW;
+            this.persistentSampleEveryN = 10;
+            this.persistentBlockTimeoutMs = 1000;
             this.connectTimeoutMs = 0;
             this.requestTimeoutMs = 0;
             this.destroyWaitMs = 0;
@@ -112,6 +128,14 @@ public final class ConfigSnapshot {
         this.persistentMaxFileCount = sourceConfig.getPersistentMaxFileCount();
         this.persistentMaxFileSize = sourceConfig.getPersistentMaxFileSize();
         this.persistentMaxLogCount = sourceConfig.getPersistentMaxLogCount();
+        this.persistentMaxBytes = sourceConfig.getPersistentMaxBytes();
+        this.persistentMaxRecords = sourceConfig.getPersistentMaxRecords();
+        this.persistentMaxSegments = sourceConfig.getPersistentMaxSegments();
+        this.persistentHighWatermarkPct = sourceConfig.getPersistentHighWatermarkPct();
+        this.persistentLowWatermarkPct = sourceConfig.getPersistentLowWatermarkPct();
+        this.persistentOverflowPolicy = sourceConfig.getPersistentOverflowPolicy();
+        this.persistentSampleEveryN = sourceConfig.getPersistentSampleEveryN();
+        this.persistentBlockTimeoutMs = sourceConfig.getPersistentBlockTimeoutMs();
         this.connectTimeoutMs = sourceConfig.getConnectTimeoutMs();
         this.requestTimeoutMs = sourceConfig.getRequestTimeoutMs();
         this.destroyWaitMs = sourceConfig.isDestroyWaitSplitConfigured() ? 0 : sourceConfig.getDestroyWaitMs();
@@ -265,6 +289,38 @@ public final class ConfigSnapshot {
         return persistentMaxLogCount;
     }
 
+    public int getPersistentMaxBytes() {
+        return persistentMaxBytes;
+    }
+
+    public int getPersistentMaxRecords() {
+        return persistentMaxRecords;
+    }
+
+    public int getPersistentMaxSegments() {
+        return persistentMaxSegments;
+    }
+
+    public int getPersistentHighWatermarkPct() {
+        return persistentHighWatermarkPct;
+    }
+
+    public int getPersistentLowWatermarkPct() {
+        return persistentLowWatermarkPct;
+    }
+
+    public LogProducerConfig.PersistentOverflowPolicy getPersistentOverflowPolicy() {
+        return persistentOverflowPolicy;
+    }
+
+    public int getPersistentSampleEveryN() {
+        return persistentSampleEveryN;
+    }
+
+    public int getPersistentBlockTimeoutMs() {
+        return persistentBlockTimeoutMs;
+    }
+
     public int getConnectTimeoutMs() {
         return connectTimeoutMs;
     }
@@ -294,14 +350,55 @@ public final class ConfigSnapshot {
         if (retryMaxIntervalMs < retryInitialIntervalMs) {
             throw new IllegalArgumentException("retryMaxIntervalMs must be >= retryInitialIntervalMs");
         }
-        if (persistent && isBlank(persistentFilePath)) {
-            throw new IllegalArgumentException("persistent mode requires persistentFilePath");
+        if (persistentMaxBytes < 0) {
+            throw new IllegalArgumentException("persistentMaxBytes must be >= 0");
+        }
+        if (persistentMaxRecords < 0) {
+            throw new IllegalArgumentException("persistentMaxRecords must be >= 0");
+        }
+        if (persistentMaxSegments < 0) {
+            throw new IllegalArgumentException("persistentMaxSegments must be >= 0");
+        }
+        requireWatermark("persistentHighWatermarkPct", persistentHighWatermarkPct);
+        requireWatermark("persistentLowWatermarkPct", persistentLowWatermarkPct);
+        if (persistentOverflowPolicy == null) {
+            throw new IllegalArgumentException("persistentOverflowPolicy == null");
+        }
+        if (persistentSampleEveryN <= 0) {
+            throw new IllegalArgumentException("persistentSampleEveryN must be > 0");
+        }
+        if (persistentBlockTimeoutMs <= 0) {
+            throw new IllegalArgumentException("persistentBlockTimeoutMs must be > 0");
+        }
+        if (persistent) {
+            if (isBlank(persistentFilePath)) {
+                throw new IllegalArgumentException("persistent mode requires persistentFilePath");
+            }
+            if (persistentMaxFileCount <= 0) {
+                throw new IllegalArgumentException("persistentMaxFileCount must be > 0 in persistent mode");
+            }
+            if (persistentMaxFileSize <= 0) {
+                throw new IllegalArgumentException("persistentMaxFileSize must be > 0 in persistent mode");
+            }
+            if (persistentMaxLogCount <= 0) {
+                throw new IllegalArgumentException("persistentMaxLogCount must be > 0 in persistent mode");
+            }
+            if (persistentLowWatermarkPct >= persistentHighWatermarkPct) {
+                throw new IllegalArgumentException(
+                        "persistentLowWatermarkPct must be < persistentHighWatermarkPct in persistent mode");
+            }
         }
     }
 
     private static void requireNonBlank(String value, String message) {
         if (isBlank(value)) {
             throw new IllegalArgumentException(message);
+        }
+    }
+
+    private static void requireWatermark(String name, int value) {
+        if (value < 1 || value > 100) {
+            throw new IllegalArgumentException(name + " must be in [1, 100]");
         }
     }
 

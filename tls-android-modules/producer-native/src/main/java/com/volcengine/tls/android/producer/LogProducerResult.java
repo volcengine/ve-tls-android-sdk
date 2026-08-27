@@ -35,8 +35,28 @@ public final class LogProducerResult {
     private final int transportCode;
     private final long logBytes;
     private final long compressedBytes;
+    private final boolean retryable;
+    private final long startId;
+    private final long endId;
 
     public LogProducerResult(Code code, String requestId, String errorCode, String errorMessage, int httpCode, int transportKind, int transportCode, long logBytes, long compressedBytes) {
+        this(code, requestId, errorCode, errorMessage, httpCode, transportKind,
+                transportCode, logBytes, compressedBytes, false, 0, 0);
+    }
+
+    public LogProducerResult(
+            Code code,
+            String requestId,
+            String errorCode,
+            String errorMessage,
+            int httpCode,
+            int transportKind,
+            int transportCode,
+            long logBytes,
+            long compressedBytes,
+            boolean retryable,
+            long startId,
+            long endId) {
         this.code = code;
         this.requestId = requestId;
         this.errorCode = errorCode;
@@ -46,6 +66,9 @@ public final class LogProducerResult {
         this.transportCode = transportCode;
         this.logBytes = logBytes;
         this.compressedBytes = compressedBytes;
+        this.retryable = retryable;
+        this.startId = startId;
+        this.endId = endId;
     }
 
     public Code getCode() {
@@ -82,6 +105,22 @@ public final class LogProducerResult {
 
     public long getCompressedBytes() {
         return compressedBytes;
+    }
+
+    public boolean isRetryable() {
+        return retryable;
+    }
+
+    public long getStartId() {
+        return startId;
+    }
+
+    public long getEndId() {
+        return endId;
+    }
+
+    public boolean hasLogIdRange() {
+        return startId > 0 && endId >= startId;
     }
 
     public boolean isSuccess() {

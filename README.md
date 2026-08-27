@@ -135,6 +135,8 @@ dependencies {
 include ':producer-native'
 ```
 
+源码构建会校验 `producer-native/ve-tls-c-sdk.version` 中固定的 C core full SHA，并拒绝 HEAD 不匹配或 tracked tree 有修改的 C checkout。发布后的 AAR 可通过 `BuildConfig.VE_TLS_C_SDK_COMMIT` 反查实际编入的 C core commit。
+
 ## 混淆配置
 
 SDK AAR 已内置 consumer rules；如果宿主工程有更严格的 R8/ProGuard 配置，按下面规则补齐，不要直接 keep 整个 `com.volcengine.*`。
@@ -286,9 +288,17 @@ client.resetSecurityToken(newAccessKeyId, newAccessKeySecret, newSecurityToken);
 | `setPersistentFilePath(String)` | `null` | 持久化文件路径；必须位于应用可写目录 | persistent 开启时必填 |
 | `setPersistentDurability(PersistentDurability)` | `BUFFERED_WAL` | buffered 在 rotation、flush、close 时刷盘；sync 每次 append 刷盘 | 只有明确需要更强落盘边界时使用 `SYNC_WAL` |
 | `setPersistentForceFlush(boolean)` | `false` | 兼容 API；`true` 映射为 `SYNC_WAL` | 新接入使用 `setPersistentDurability` |
-| `setPersistentMaxFileCount(int)` | `0` | 持久化文件滚动个数；`0` 由 native 默认策略处理 | 常用 `8` ~ `10` |
-| `setPersistentMaxFileSize(int)` | `0` | 单个持久化文件大小，单位 byte；`0` 由 native 默认策略处理 | 常用 `1 MB` ~ `10 MB` |
-| `setPersistentMaxLogCount(int)` | `0` | 本地最多缓存日志条数；`0` 由 native 默认策略处理 | 生产高可靠场景常用 `65536` |
+| `setPersistentMaxFileCount(int)` | `0` | segment 文件数量上限；persistent 开启时必须显式设置为 `> 0` | 常用 `8` ~ `10` |
+| `setPersistentMaxFileSize(int)` | `0` | 单个 segment 大小，单位 byte；persistent 开启时必须显式设置为 `> 0` | 常用 `1 MB` ~ `10 MB` |
+| `setPersistentMaxLogCount(int)` | `0` | 单个 segment 日志数量上限；persistent 开启时必须显式设置为 `> 0` | 生产场景常用 `65536` |
+| `setPersistentMaxBytes(int)` | `0` | persistent 总字节上限；`0` 按 file size × file count 推导 | 需要独立总量上限时设置 |
+| `setPersistentMaxRecords(int)` | `0` | persistent 总记录上限；`0` 沿用 `persistentMaxLogCount` | 需要独立总量上限时设置 |
+| `setPersistentMaxSegments(int)` | `0` | persistent 总 segment 上限；`0` 沿用 `persistentMaxFileCount` | 需要独立总量上限时设置 |
+| `setPersistentHighWatermarkPct(int)` | `85` | bytes、records、segments 任一维度达到该百分比后触发回收 | 一般保持默认 |
+| `setPersistentLowWatermarkPct(int)` | `70` | 触发回收后尽量降到该百分比；必须小于 high watermark | 一般保持默认 |
+| `setPersistentOverflowPolicy(PersistentOverflowPolicy)` | `REJECT_NEW` | 容量无法回收到安全线时的行为 | 默认拒绝新日志，不静默丢历史数据 |
+| `setPersistentSampleEveryN(int)` | `10` | `DROP_NEWEST_SAMPLE` 下每 N 条采样保留策略参数 | 仅采样策略使用 |
+| `setPersistentBlockTimeoutMs(int)` | `1000` | `BLOCK` 策略的最长等待时间，单位 ms | 仅阻塞策略使用 |
 | `setConnectTimeoutMs(int)` | `0` | 连接超时，单位 ms；`0` 使用 native 默认值 | 弱网场景按业务调整 |
 | `setRequestTimeoutMs(int)` | `0` | 请求超时，单位 ms；`0` 使用 native 默认值 | 弱网场景按业务调整 |
 | `setDestroyWaitMs(int)` | `0` | destroy 总等待预算，单位 ms | 简单场景使用 |
@@ -307,14 +317,16 @@ config.setPersistentMaxFileCount(10);
 config.setPersistentMaxFileSize(1024 * 1024);
 config.setPersistentMaxLogCount(65536);
 config.setPersistentDurability(LogProducerConfig.PersistentDurability.BUFFERED_WAL);
+config.setPersistentOverflowPolicy(LogProducerConfig.PersistentOverflowPolicy.REJECT_NEW);
 ```
 
 注意：
 
 - 开启 persistent 后，发送线程数会被 Android binding 收敛为 `1`，避免本地恢复、发送确认和顺序语义变复杂。
-- 多进程场景下不要复用同一个持久化路径；当前 Java 接入不会自动为不同进程拆分路径，业务必须显式规划不同 client 的文件路径。
+- 多进程场景会在非主进程路径后自动追加清洗后的进程名；同一进程内的多个 client 仍不能复用同一个持久化路径。
 - `SYNC_WAL` 每条 append 都执行文件同步，会显著增加 IO 成本；默认使用 `BUFFERED_WAL`。
 - 旧 `setPersistentForceFlush(true)` 等价于 `SYNC_WAL`；显式 `BUFFERED_WAL` 与旧开关 `true` 冲突时配置会被拒绝。
+- `DROP_OLDEST_UNACKED` 会删除尚未确认的历史日志，`DROP_NEWEST_SAMPLE` 会按采样规则丢弃新日志；两者都会破坏完整的 at-least-once 保证，只有业务明确接受数据损失时才能启用。
 - 如果切换 endpoint/region/topicId，建议同步切换 `persistentFilePath`，避免旧目标的 backlog 被恢复后发送到新目标。
 
 ## 回调函数配合使用
@@ -346,7 +358,9 @@ try {
 - callback 中不要执行耗时任务、网络请求或阻塞等待；需要复杂处理时转交给业务自己的线程池。
 - 关键日志建议同时处理 `addLog` 异常和 callback 失败；只看 callback 会漏掉入队失败。
 - 非关键日志可以不传 callback，以降低对象持有和回调调度成本。
+- `LogProducerResult` 同时暴露 `isRetryable()`、`getStartId()` 和 `getEndId()`，用于识别最终一次失败是否仍可重试，并关联本次批量发送覆盖的日志 ID 范围。
 - `LogProducerResult.getFailureSummary()` 会汇总失败类型、HTTP 状态码、错误码、错误信息和 requestId，适合直接接入业务日志。
+- 当前 C callback 的 `raw_buffer` 没有长度合同且所有生产调用点均传空，checkpoint durable 状态也不属于该 callback；Android API 暂不伪造这两个字段，待 C core 冻结相应 ABI 后再对齐。
 
 ## 写入接口说明
 

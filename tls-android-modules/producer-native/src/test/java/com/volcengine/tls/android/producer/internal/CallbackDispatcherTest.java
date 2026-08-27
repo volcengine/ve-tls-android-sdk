@@ -25,7 +25,7 @@ public class CallbackDispatcherTest {
             callbackThread.set(Thread.currentThread());
         }, true, null);
 
-        dispatcher.dispatch(0, 200, "req", null, null, 0, 0, 1L, 1L);
+        dispatcher.dispatch(0, 200, "req", null, null, 0, 0, false, 1L, 1L, 1L, 1L);
 
         assertEquals(1, callbackCount.get());
         assertSame(callerThread, callbackThread.get());
@@ -50,7 +50,8 @@ public class CallbackDispatcherTest {
                     throw new RejectedExecutionException("reject");
                 });
 
-        String stderr = captureStderr(() -> dispatcher.dispatch(0, 200, "req", null, null, 0, 0, 1L, 1L));
+        String stderr = captureStderr(() -> dispatcher.dispatch(
+                0, 200, "req", null, null, 0, 0, false, 1L, 1L, 1L, 1L));
 
         assertEquals(0, callbackCount.get());
         assertTrue(stderr.contains("main-thread callback dispatch rejected"));

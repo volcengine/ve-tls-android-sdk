@@ -103,6 +103,110 @@ public class LogProducerConfigTest {
         assertFalse(config.isPersistentForceFlush());
     }
 
+    @Test
+    public void persistentOverflowPolicy_exposesAllContractValues() {
+        assertArrayEquals(
+                new LogProducerConfig.PersistentOverflowPolicy[] {
+                        LogProducerConfig.PersistentOverflowPolicy.REJECT_NEW,
+                        LogProducerConfig.PersistentOverflowPolicy.BLOCK,
+                        LogProducerConfig.PersistentOverflowPolicy.DROP_OLDEST_UNACKED,
+                        LogProducerConfig.PersistentOverflowPolicy.DROP_NEWEST_SAMPLE
+                },
+                LogProducerConfig.PersistentOverflowPolicy.values());
+    }
+
+    @Test
+    public void persistentCapacity_defaultsMatchContract() {
+        LogProducerConfig config = new LogProducerConfig();
+
+        assertEquals(0, config.getPersistentMaxBytes());
+        assertEquals(0, config.getPersistentMaxRecords());
+        assertEquals(0, config.getPersistentMaxSegments());
+        assertEquals(85, config.getPersistentHighWatermarkPct());
+        assertEquals(70, config.getPersistentLowWatermarkPct());
+        assertEquals(LogProducerConfig.PersistentOverflowPolicy.REJECT_NEW,
+                config.getPersistentOverflowPolicy());
+        assertEquals(10, config.getPersistentSampleEveryN());
+        assertEquals(1000, config.getPersistentBlockTimeoutMs());
+    }
+
+    @Test
+    public void persistentCapacity_settersAreFluentAndExposeValues() {
+        LogProducerConfig config = new LogProducerConfig();
+
+        assertSame(config, config
+                .setPersistentMaxBytes(1024)
+                .setPersistentMaxRecords(200)
+                .setPersistentMaxSegments(4)
+                .setPersistentHighWatermarkPct(90)
+                .setPersistentLowWatermarkPct(60)
+                .setPersistentOverflowPolicy(LogProducerConfig.PersistentOverflowPolicy.BLOCK)
+                .setPersistentSampleEveryN(7)
+                .setPersistentBlockTimeoutMs(2500));
+        assertEquals(1024, config.getPersistentMaxBytes());
+        assertEquals(200, config.getPersistentMaxRecords());
+        assertEquals(4, config.getPersistentMaxSegments());
+        assertEquals(90, config.getPersistentHighWatermarkPct());
+        assertEquals(60, config.getPersistentLowWatermarkPct());
+        assertEquals(LogProducerConfig.PersistentOverflowPolicy.BLOCK,
+                config.getPersistentOverflowPolicy());
+        assertEquals(7, config.getPersistentSampleEveryN());
+        assertEquals(2500, config.getPersistentBlockTimeoutMs());
+    }
+
+    @Test
+    public void persistentCapacity_settersRejectInvalidValues() {
+        LogProducerConfig config = new LogProducerConfig();
+
+        assertThrows(IllegalArgumentException.class, () -> config.setPersistentMaxBytes(-1));
+        assertThrows(IllegalArgumentException.class, () -> config.setPersistentMaxRecords(-1));
+        assertThrows(IllegalArgumentException.class, () -> config.setPersistentMaxSegments(-1));
+        assertThrows(IllegalArgumentException.class, () -> config.setPersistentHighWatermarkPct(0));
+        assertThrows(IllegalArgumentException.class, () -> config.setPersistentHighWatermarkPct(101));
+        assertThrows(IllegalArgumentException.class, () -> config.setPersistentLowWatermarkPct(0));
+        assertThrows(IllegalArgumentException.class, () -> config.setPersistentLowWatermarkPct(101));
+        assertThrows(IllegalArgumentException.class, () -> config.setPersistentOverflowPolicy(null));
+        assertThrows(IllegalArgumentException.class, () -> config.setPersistentSampleEveryN(0));
+        assertThrows(IllegalArgumentException.class, () -> config.setPersistentBlockTimeoutMs(0));
+    }
+
+    @Test
+    public void persistentCreate_requiresLowWatermarkBelowHighWatermark() {
+        LogProducerConfig config = persistentCreateConfig()
+                .setPersistentHighWatermarkPct(70)
+                .setPersistentLowWatermarkPct(70);
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> config.validateForCreate("demo"));
+        assertTrue(error.getMessage().contains("persistentLowWatermarkPct"));
+        assertTrue(error.getMessage().contains("persistentHighWatermarkPct"));
+    }
+
+    @Test
+    public void persistentCreate_requiresPositiveLegacyLimits() {
+        LogProducerConfig missingFileCount = persistentCreateConfig()
+                .setPersistentMaxFileCount(0);
+        IllegalArgumentException fileCountError = assertThrows(
+                IllegalArgumentException.class,
+                () -> missingFileCount.validateForCreate("demo"));
+        assertTrue(fileCountError.getMessage().contains("persistentMaxFileCount"));
+
+        LogProducerConfig missingFileSize = persistentCreateConfig()
+                .setPersistentMaxFileSize(0);
+        IllegalArgumentException fileSizeError = assertThrows(
+                IllegalArgumentException.class,
+                () -> missingFileSize.validateForCreate("demo"));
+        assertTrue(fileSizeError.getMessage().contains("persistentMaxFileSize"));
+
+        LogProducerConfig missingLogCount = persistentCreateConfig()
+                .setPersistentMaxLogCount(0);
+        IllegalArgumentException logCountError = assertThrows(
+                IllegalArgumentException.class,
+                () -> missingLogCount.validateForCreate("demo"));
+        assertTrue(logCountError.getMessage().contains("persistentMaxLogCount"));
+    }
+
     @SuppressWarnings("deprecation")
     @Test
     public void legacyForceFlush_mapsToSyncWalAndBackToBuffered() {
@@ -180,5 +284,17 @@ public class LogProducerConfigTest {
                 .setPersistent(true);
 
         assertNull(config.getPersistentFilePath());
+    }
+
+    private static LogProducerConfig persistentCreateConfig() {
+        return new LogProducerConfig()
+                .setEndpoint("endpoint")
+                .setRegion("region")
+                .setTopicId("topic")
+                .setPersistent(true)
+                .setPersistentFilePath("/tmp/producer")
+                .setPersistentMaxFileCount(4)
+                .setPersistentMaxFileSize(1024)
+                .setPersistentMaxLogCount(100);
     }
 }

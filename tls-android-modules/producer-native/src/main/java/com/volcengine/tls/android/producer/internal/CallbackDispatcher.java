@@ -39,8 +39,11 @@ final class CallbackDispatcher {
             String errorMessage,
             int transportKind,
             int transportCode,
+            boolean retryable,
             long logBytes,
-            long compressedBytes) {
+            long compressedBytes,
+            long startId,
+            long endId) {
         if (callback == null) {
             return;
         }
@@ -53,8 +56,11 @@ final class CallbackDispatcher {
                 errorMessage,
                 transportKind,
                 transportCode,
+                retryable,
                 logBytes,
-                compressedBytes);
+                compressedBytes,
+                startId,
+                endId);
 
         if (callbackFromSenderThread) {
             callback.onCompletion(result);
