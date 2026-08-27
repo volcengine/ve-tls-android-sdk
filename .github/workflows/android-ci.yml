@@ -13,11 +13,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Read pinned C SDK commit
+        id: c_sdk_version
+        shell: bash
+        run: |
+          commit="$(tr -d '\r\n' < tls-android-modules/producer-native/ve-tls-c-sdk.version)"
+          if [[ ! "$commit" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Invalid pinned C SDK commit: $commit"
+            exit 1
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
       - name: Checkout C SDK
         uses: actions/checkout@v4
         with:
           repository: volcengine/ve-tls-c-sdk
-          ref: persistent
+          ref: ${{ steps.c_sdk_version.outputs.commit }}
           path: ve-tls-c-sdk
 
       - name: Setup Java
