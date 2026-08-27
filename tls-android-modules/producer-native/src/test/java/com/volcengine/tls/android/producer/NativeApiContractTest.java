@@ -42,7 +42,16 @@ public class NativeApiContractTest {
                 int.class,
                 boolean.class,
                 String.class,
+                int.class,
                 boolean.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class,
                 int.class,
                 int.class,
                 int.class,
@@ -104,6 +113,26 @@ public class NativeApiContractTest {
         compressTypeMapper.setAccessible(true);
         assertEquals(1, ((Integer) compressTypeMapper.invoke(null, LogProducerConfig.CompressType.NONE)).intValue());
         assertEquals(2, ((Integer) compressTypeMapper.invoke(null, LogProducerConfig.CompressType.LZ4)).intValue());
+
+        Method durabilityMapper = bridgeClass.getDeclaredMethod(
+                "toNativePersistentDurability", LogProducerConfig.PersistentDurability.class);
+        durabilityMapper.setAccessible(true);
+        assertEquals(1, ((Integer) durabilityMapper.invoke(
+                null, LogProducerConfig.PersistentDurability.BUFFERED_WAL)).intValue());
+        assertEquals(2, ((Integer) durabilityMapper.invoke(
+                null, LogProducerConfig.PersistentDurability.SYNC_WAL)).intValue());
+
+        Method overflowPolicyMapper = bridgeClass.getDeclaredMethod(
+                "toNativePersistentOverflowPolicy", LogProducerConfig.PersistentOverflowPolicy.class);
+        overflowPolicyMapper.setAccessible(true);
+        assertEquals(0, ((Integer) overflowPolicyMapper.invoke(
+                null, LogProducerConfig.PersistentOverflowPolicy.REJECT_NEW)).intValue());
+        assertEquals(1, ((Integer) overflowPolicyMapper.invoke(
+                null, LogProducerConfig.PersistentOverflowPolicy.BLOCK)).intValue());
+        assertEquals(2, ((Integer) overflowPolicyMapper.invoke(
+                null, LogProducerConfig.PersistentOverflowPolicy.DROP_OLDEST_UNACKED)).intValue());
+        assertEquals(3, ((Integer) overflowPolicyMapper.invoke(
+                null, LogProducerConfig.PersistentOverflowPolicy.DROP_NEWEST_SAMPLE)).intValue());
     }
 
     @Test

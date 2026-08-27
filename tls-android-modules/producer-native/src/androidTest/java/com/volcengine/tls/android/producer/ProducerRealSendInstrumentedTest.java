@@ -61,6 +61,8 @@ public final class ProducerRealSendInstrumentedTest extends TestCase {
             assertTrue("producer callback timed out", completion.await(20, TimeUnit.SECONDS));
             assertNotNull("producer callback result missing", resultRef.get());
             assertTrue("producer callback failed: " + resultRef.get().getFailureSummary(), resultRef.get().isSuccess());
+            assertFalse("successful callback must not be retryable", resultRef.get().isRetryable());
+            assertTrue("successful callback must expose its log id range", resultRef.get().hasLogIdRange());
         } finally {
             client.destroyLogProducer();
             client.awaitDestroy(5000);

@@ -1,3 +1,9 @@
+## 2.1.2
+- Producer-native 主发布物最低支持 Android 4.4（API 19）。
+- API 19-20 使用系统 `HttpsURLConnection`/JSSE；服务端需开放低版本系统可协商的 CBC TLS 套件，发布物不引入 Conscrypt。
+- 保留 API 16-18 的指定客户 best-effort 定制构建入口；该产物不使用主发布坐标，也不纳入兼容性和稳定性承诺。
+- Android 请求 User-Agent 更新为 `volc-tls-android/producer/v2.1.2`。
+
 ## 2.1.1
 - 发布坐标继续使用 `io.github.volcengine-tls:tls-android-producer`，不新增独立 native 坐标。
 - `2.1.x` 起作为 producer-native 主线；core/full/老 producer 后续仅沿 `2.0.x` legacy 维护线修复必要问题。

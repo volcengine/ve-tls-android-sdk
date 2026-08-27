@@ -50,8 +50,10 @@ public final class ProducerLifecycleInstrumentedTest extends TestCase {
     public void testCallbackDispatcherPostsToMainLooper() throws Exception {
         CountDownLatch callbackCompleted = new CountDownLatch(1);
         Thread[] callbackThread = new Thread[1];
+        LogProducerResult[] callbackResult = new LogProducerResult[1];
         LogProducerCallback callback = result -> {
             callbackThread[0] = Thread.currentThread();
+            callbackResult[0] = result;
             callbackCompleted.countDown();
         };
 
@@ -63,6 +65,10 @@ public final class ProducerLifecycleInstrumentedTest extends TestCase {
         assertTrue(callbackCompleted.await(5, TimeUnit.SECONDS));
         assertNotNull(callbackThread[0]);
         assertSame(Looper.getMainLooper().getThread(), callbackThread[0]);
+        assertNotNull(callbackResult[0]);
+        assertTrue(callbackResult[0].isRetryable());
+        assertEquals(11L, callbackResult[0].getStartId());
+        assertEquals(12L, callbackResult[0].getEndId());
     }
 
     private static Object newCallbackDispatcher(LogProducerCallback callback, boolean callbackFromSenderThread) throws Exception {
@@ -83,11 +89,27 @@ public final class ProducerLifecycleInstrumentedTest extends TestCase {
                     String.class,
                     int.class,
                     int.class,
+                    boolean.class,
+                    long.class,
+                    long.class,
                     long.class,
                     long.class);
             dispatch.setAccessible(true);
-            dispatch.invoke(dispatcher, 0, 200, "request-id", null, null, 0, 0, 1L, 1L);
-        } catch (ReflectiveOperationException e) {
+            dispatch.invoke(
+                    dispatcher,
+                    2,
+                    500,
+                    "request-id",
+                    "ServerBusy",
+                    "retry later",
+                    0,
+                    0,
+                    true,
+                    1L,
+                    1L,
+                    11L,
+                    12L);
+        } catch (Exception e) {
             throw new AssertionError(e);
         }
     }

@@ -3,6 +3,8 @@ package com.volcengine.tls.android.producer;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class LogProducerResultTest {
 
@@ -83,5 +85,42 @@ public class LogProducerResultTest {
                 "kind=VALIDATION code=INVALID message=bad config",
                 invalid.getFailureSummary()
         );
+    }
+
+    @Test
+    public void result_exposesRetryAndLogIdRange() {
+        LogProducerResult result = new LogProducerResult(
+                LogProducerResult.Code.NETWORK_ERROR,
+                "rid",
+                "Timeout",
+                "retry later",
+                0,
+                7,
+                110,
+                128,
+                64,
+                true,
+                41,
+                44
+        );
+
+        assertTrue(result.isRetryable());
+        assertTrue(result.hasLogIdRange());
+        assertEquals(41, result.getStartId());
+        assertEquals(44, result.getEndId());
+
+        LogProducerResult legacy = new LogProducerResult(
+                LogProducerResult.Code.OK,
+                "rid",
+                null,
+                null,
+                200,
+                0,
+                0,
+                10,
+                8
+        );
+        assertFalse(legacy.isRetryable());
+        assertFalse(legacy.hasLogIdRange());
     }
 }

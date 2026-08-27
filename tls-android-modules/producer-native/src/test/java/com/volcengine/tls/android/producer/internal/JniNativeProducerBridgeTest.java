@@ -59,13 +59,58 @@ public class JniNativeProducerBridgeTest {
         assertEquals(90_000, args.getConfig().getRetryTotalTimeoutMs());
         assertEquals(500, args.getConfig().getRetryInitialIntervalMs());
         assertEquals(10_000, args.getConfig().getRetryMaxIntervalMs());
-        assertEquals("volc-tls-android/producer/v2.1.1", args.getConfig().getUserAgent());
+        assertEquals("volc-tls-android/producer/v2.1.2", args.getConfig().getUserAgent());
         assertFalse(args.isDestroyWaitSplitEnabled());
         assertEquals(2, args.getLogTagCount());
         assertArrayEquals(new String[] {"env", "env"}, args.getLogTagKeys());
         assertArrayEquals(new String[] {"prod", "canary"}, args.getLogTagValues());
         assertSame(dispatcher, args.getCallbackDispatcher());
         assertFalse(callbackFromSenderThread.get());
+    }
+
+    @Test
+    public void create_preservesPersistentCapacityConfigurationInSnapshot() {
+        AtomicReference<JniNativeProducerBridge.CreateArgs> capturedArgs = new AtomicReference<>();
+        JniNativeProducerBridge bridge = new JniNativeProducerBridge(
+                () -> {
+                },
+                args -> {
+                    capturedArgs.set(args);
+                    return 42L;
+                },
+                (callback, callbackFromSenderThread) -> null);
+        ConfigSnapshot config = new ConfigSnapshot(
+                new LogProducerConfig()
+                        .setEndpoint("endpoint")
+                        .setRegion("region")
+                        .setTopicId("topic")
+                        .setPersistent(true)
+                        .setPersistentFilePath("/tmp/producer")
+                        .setPersistentMaxFileCount(4)
+                        .setPersistentMaxFileSize(1024)
+                        .setPersistentMaxLogCount(100)
+                        .setPersistentMaxBytes(8192)
+                        .setPersistentMaxRecords(200)
+                        .setPersistentMaxSegments(8)
+                        .setPersistentHighWatermarkPct(90)
+                        .setPersistentLowWatermarkPct(60)
+                        .setPersistentOverflowPolicy(LogProducerConfig.PersistentOverflowPolicy.BLOCK)
+                        .setPersistentSampleEveryN(7)
+                        .setPersistentBlockTimeoutMs(2500),
+                "demo");
+
+        bridge.create(config, null);
+
+        ConfigSnapshot capturedConfig = capturedArgs.get().getConfig();
+        assertEquals(8192, capturedConfig.getPersistentMaxBytes());
+        assertEquals(200, capturedConfig.getPersistentMaxRecords());
+        assertEquals(8, capturedConfig.getPersistentMaxSegments());
+        assertEquals(90, capturedConfig.getPersistentHighWatermarkPct());
+        assertEquals(60, capturedConfig.getPersistentLowWatermarkPct());
+        assertEquals(LogProducerConfig.PersistentOverflowPolicy.BLOCK,
+                capturedConfig.getPersistentOverflowPolicy());
+        assertEquals(7, capturedConfig.getPersistentSampleEveryN());
+        assertEquals(2500, capturedConfig.getPersistentBlockTimeoutMs());
     }
 
     @Test

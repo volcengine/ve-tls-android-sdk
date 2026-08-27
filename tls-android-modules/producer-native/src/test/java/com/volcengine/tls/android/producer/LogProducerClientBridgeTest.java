@@ -55,7 +55,10 @@ public class LogProducerClientBridgeTest {
                 .setProjectId("project-id")
                 .setTopicId("topic-id")
                 .setPersistent(true)
-                .setPersistentFilePath("/data/user/0/demo/files/tls/producer");
+                .setPersistentFilePath("/data/user/0/demo/files/tls/producer")
+                .setPersistentMaxFileCount(4)
+                .setPersistentMaxFileSize(1024)
+                .setPersistentMaxLogCount(1024);
 
         FakeBridge bridge = new FakeBridge();
         LogProducerClient client = LogProducerClient.forTest(config, bridge, "demo");
@@ -74,6 +77,9 @@ public class LogProducerClientBridgeTest {
                 .setTopicId("topic-id")
                 .setPersistent(true)
                 .setPersistentFilePath("/data/user/0/demo/files/tls/producer")
+                .setPersistentMaxFileCount(4)
+                .setPersistentMaxFileSize(1024)
+                .setPersistentMaxLogCount(1024)
                 .setSendThreadCount(8);
 
         FakeBridge bridge = new FakeBridge();

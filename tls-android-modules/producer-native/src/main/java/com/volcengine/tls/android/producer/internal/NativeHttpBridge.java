@@ -249,7 +249,6 @@ public final class NativeHttpBridge {
         }
     }
 
-    @FunctionalInterface
     public interface ConnectionFactory {
         HttpURLConnection open(URL url) throws IOException;
 
@@ -261,12 +260,10 @@ public final class NativeHttpBridge {
         }
     }
 
-    @FunctionalInterface
     public interface SocketFactorySupplier {
         SSLSocketFactory get();
     }
 
-    @FunctionalInterface
     public interface WarningReporter {
         void report(String message);
     }

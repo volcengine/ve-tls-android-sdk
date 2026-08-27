@@ -611,7 +611,7 @@ CallbackState * create_callback_state(JNIEnv * env, jobject dispatcher) {
     state->dispatch = env->GetMethodID(
         state->dispatcher_class,
         "dispatch",
-        "(IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IIJJ)V");
+        "(IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IIZJJJJ)V");
     if (state->dispatch == nullptr) {
         destroy_callback_state(state);
         return nullptr;
@@ -631,8 +631,6 @@ void bridge_on_send_done_v2(
     int64_t end_id
 ) {
     (void)raw_buffer;
-    (void)start_id;
-    (void)end_id;
 
     auto * state = static_cast<CallbackState *>(user_param);
     if (state == nullptr) {
@@ -671,8 +669,11 @@ void bridge_on_send_done_v2(
                     error_message,
                     static_cast<jint>(error == nullptr ? 0 : error->transport_kind),
                     static_cast<jint>(error == nullptr ? 0 : error->transport_code),
+                    static_cast<jboolean>(error != nullptr && error->retryable != 0),
                     static_cast<jlong>(log_bytes),
-                    static_cast<jlong>(compressed_bytes));
+                    static_cast<jlong>(compressed_bytes),
+                    static_cast<jlong>(start_id),
+                    static_cast<jlong>(end_id));
                 if (env->ExceptionCheck()) {
                     env->ExceptionClear();
                 }
@@ -841,10 +842,19 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     jint send_thread_count,
     jboolean persistent,
     jstring persistent_file_path,
+    jint persistent_durability,
     jboolean persistent_force_flush,
     jint persistent_max_file_count,
     jint persistent_max_file_size,
     jint persistent_max_log_count,
+    jint persistent_max_bytes,
+    jint persistent_max_records,
+    jint persistent_max_segments,
+    jint persistent_high_watermark_pct,
+    jint persistent_low_watermark_pct,
+    jint persistent_overflow_policy,
+    jint persistent_sample_every_n,
+    jint persistent_block_timeout_ms,
     jint packet_log_bytes,
     jint packet_log_count,
     jint packet_timeout_ms,
@@ -920,6 +930,15 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     config_view.max_persistent_file_size = persistent_max_file_size;
     config_view.max_persistent_file_count = persistent_max_file_count;
     config_view.force_flush_disk = persistent_force_flush ? 1 : 0;
+    config_view.persistent_durability = persistent_durability;
+    config_view.persistent_max_bytes = persistent_max_bytes;
+    config_view.persistent_max_records = persistent_max_records;
+    config_view.persistent_max_segments = persistent_max_segments;
+    config_view.persistent_high_watermark_pct = persistent_high_watermark_pct;
+    config_view.persistent_low_watermark_pct = persistent_low_watermark_pct;
+    config_view.persistent_overflow_policy = persistent_overflow_policy;
+    config_view.persistent_sample_every_n = persistent_sample_every_n;
+    config_view.persistent_block_timeout_ms = persistent_block_timeout_ms;
     config_view.destroy_wait_ms = destroy_wait_ms;
     config_view.destroy_flusher_wait_ms = destroy_flusher_wait_ms;
     config_view.destroy_sender_wait_ms = destroy_sender_wait_ms;
@@ -931,12 +950,20 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
 
     ve_tls_config config;
     ve_tls_android_runtime_options runtime = {};
-    if (ve_tls_android_binding_build_config(&config_view, &config, &runtime) != VE_TLS_OK) {
+    if (ve_tls_android_binding_build_config_versioned(
+            &config_view,
+            sizeof(config_view),
+            VE_TLS_ANDROID_CONFIG_VIEW_VERSION_CURRENT,
+            &config,
+            sizeof(config),
+            VE_TLS_CONFIG_VERSION_CURRENT,
+            &runtime) != VE_TLS_OK) {
         free_kv_storage(log_tags, runtime_tag_count);
         destroy_http_bridge_state(http_bridge_state);
         return 0;
     }
-    ve_tls_producer * producer = ve_tls_producer_create(&config);
+    ve_tls_producer * producer = ve_tls_producer_create_versioned(
+        &config, sizeof(config), VE_TLS_CONFIG_VERSION_CURRENT);
     if (producer == nullptr) {
         free_kv_storage(log_tags, runtime_tag_count);
         destroy_http_bridge_state(http_bridge_state);

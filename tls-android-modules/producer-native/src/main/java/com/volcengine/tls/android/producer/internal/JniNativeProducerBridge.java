@@ -432,6 +432,12 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
     static final int COMPRESS_TYPE_UNSPECIFIED = 0;
     static final int COMPRESS_TYPE_NONE = 1;
     static final int COMPRESS_TYPE_LZ4 = 2;
+    static final int PERSISTENT_DURABILITY_BUFFERED_WAL = 1;
+    static final int PERSISTENT_DURABILITY_SYNC_WAL = 2;
+    static final int PERSISTENT_OVERFLOW_REJECT_NEW = 0;
+    static final int PERSISTENT_OVERFLOW_BLOCK = 1;
+    static final int PERSISTENT_OVERFLOW_DROP_OLDEST_UNACKED = 2;
+    static final int PERSISTENT_OVERFLOW_DROP_NEWEST_SAMPLE = 3;
     private final NativeLibraryVerifier nativeLibraryVerifier;
     private final CreateInvoker createInvoker;
     private final CallbackDispatcherFactory callbackDispatcherFactory;
@@ -666,10 +672,19 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
                 config.getSendThreadCount(),
                 config.isPersistent(),
                 config.getPersistentFilePath(),
+                toNativePersistentDurability(config.getPersistentDurability()),
                 config.isPersistentForceFlush(),
                 config.getPersistentMaxFileCount(),
                 config.getPersistentMaxFileSize(),
                 config.getPersistentMaxLogCount(),
+                config.getPersistentMaxBytes(),
+                config.getPersistentMaxRecords(),
+                config.getPersistentMaxSegments(),
+                config.getPersistentHighWatermarkPct(),
+                config.getPersistentLowWatermarkPct(),
+                toNativePersistentOverflowPolicy(config.getPersistentOverflowPolicy()),
+                config.getPersistentSampleEveryN(),
+                config.getPersistentBlockTimeoutMs(),
                 config.getPacketLogBytes(),
                 config.getPacketLogCount(),
                 config.getPacketTimeoutMs(),
@@ -702,6 +717,42 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
                 return COMPRESS_TYPE_LZ4;
             default:
                 throw new IllegalArgumentException("unsupported compress type: " + compressType);
+        }
+    }
+
+    static int toNativePersistentDurability(
+            LogProducerConfig.PersistentDurability durability) {
+        if (durability == null) {
+            throw new IllegalArgumentException("persistent durability == null");
+        }
+        switch (durability) {
+            case BUFFERED_WAL:
+                return PERSISTENT_DURABILITY_BUFFERED_WAL;
+            case SYNC_WAL:
+                return PERSISTENT_DURABILITY_SYNC_WAL;
+            default:
+                throw new IllegalArgumentException(
+                        "unsupported persistent durability: " + durability);
+        }
+    }
+
+    static int toNativePersistentOverflowPolicy(
+            LogProducerConfig.PersistentOverflowPolicy policy) {
+        if (policy == null) {
+            throw new IllegalArgumentException("persistent overflow policy == null");
+        }
+        switch (policy) {
+            case REJECT_NEW:
+                return PERSISTENT_OVERFLOW_REJECT_NEW;
+            case BLOCK:
+                return PERSISTENT_OVERFLOW_BLOCK;
+            case DROP_OLDEST_UNACKED:
+                return PERSISTENT_OVERFLOW_DROP_OLDEST_UNACKED;
+            case DROP_NEWEST_SAMPLE:
+                return PERSISTENT_OVERFLOW_DROP_NEWEST_SAMPLE;
+            default:
+                throw new IllegalArgumentException(
+                        "unsupported persistent overflow policy: " + policy);
         }
     }
 
@@ -768,10 +819,19 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
             int sendThreadCount,
             boolean persistent,
             String persistentFilePath,
+            int persistentDurability,
             boolean persistentForceFlush,
             int persistentMaxFileCount,
             int persistentMaxFileSize,
             int persistentMaxLogCount,
+            int persistentMaxBytes,
+            int persistentMaxRecords,
+            int persistentMaxSegments,
+            int persistentHighWatermarkPct,
+            int persistentLowWatermarkPct,
+            int persistentOverflowPolicy,
+            int persistentSampleEveryN,
+            int persistentBlockTimeoutMs,
             int packetLogBytes,
             int packetLogCount,
             int packetTimeoutMs,

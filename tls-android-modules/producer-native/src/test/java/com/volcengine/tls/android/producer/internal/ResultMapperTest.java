@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 public class ResultMapperTest {
 
@@ -66,13 +67,18 @@ public class ResultMapperTest {
                 null,
                 0,
                 0,
+                false,
                 512,
-                256
+                256,
+                21,
+                23
         );
 
         assertEquals(1, postCount.get());
         assertSame(LogProducerResult.Code.OK, delivered.get().getCode());
         assertEquals("rid-ok", delivered.get().getRequestId());
+        assertEquals(21, delivered.get().getStartId());
+        assertEquals(23, delivered.get().getEndId());
     }
 
     private static LogProducerResult mapDropError(
@@ -88,8 +94,20 @@ public class ResultMapperTest {
                 "forbidden",
                 transportKind,
                 transportCode,
+                true,
                 128,
-                64
+                64,
+                31,
+                32
         );
+    }
+
+    @Test
+    public void mapperPreservesRetryableAndLogIdRange() {
+        LogProducerResult result = mapDropError(500, 0, 0, "rid-500");
+
+        assertTrue(result.isRetryable());
+        assertEquals(31, result.getStartId());
+        assertEquals(32, result.getEndId());
     }
 }

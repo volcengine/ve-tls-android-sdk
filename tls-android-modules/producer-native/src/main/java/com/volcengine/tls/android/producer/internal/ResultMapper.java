@@ -23,8 +23,11 @@ final class ResultMapper {
             String errorMessage,
             int transportKind,
             int transportCode,
+            boolean retryable,
             long logBytes,
-            long compressedBytes) {
+            long compressedBytes,
+            long startId,
+            long endId) {
         return new LogProducerResult(
                 mapCode(nativeResult, httpCode, transportKind, transportCode),
                 requestId,
@@ -34,7 +37,10 @@ final class ResultMapper {
                 transportKind,
                 transportCode,
                 logBytes,
-                compressedBytes);
+                compressedBytes,
+                retryable,
+                startId,
+                endId);
     }
 
     private static LogProducerResult.Code mapCode(

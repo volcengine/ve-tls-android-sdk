@@ -5,9 +5,9 @@
 ## 你需要先知道的两件事
 
 - SDK 依赖坐标（Maven Central）
-  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.1.1`
+  - 只需要发送日志（推荐）：`io.github.volcengine-tls:tls-android-producer:2.1.2`
   - 需要完整管理能力（创建 Project/Topic/Index、检索等）：请使用 Java SDK，不再使用本仓库旧 Android full 模块。
-  - 如果你的 App 必须支持 `minSdk < 19`：当前主发布物不覆盖该场景；如确有存量兼容需求，应单独评估 legacy 构建。
+  - 当前主发布物支持 `minSdk >= 19`；API 19-20 使用系统 JSSE，服务端需要开放 `TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA` 等兼容套件。
 - 必要参数（后面会用到）
   - `endpoint`：TLS 接入域名，形如 `https://tls-cn-xxx.volces.com`
   - `region`：地域标识，例如 `cn-xxx`
@@ -113,6 +113,8 @@ adb push tls_config.properties /sdcard/Android/data/com.volcengine.tls.android.d
 - `minSdk >= 19`
 - `compileSdk/targetSdk` 使用你当前项目的版本（示例工程使用 34）
 
+API 19-20 使用 Android 系统提供的 `HttpsURLConnection`/JSSE，不额外引入 Conscrypt。服务端需同时保留现代套件和至少一个低版本系统可协商的 CBC 套件；推荐优先开放 `TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA`，并通过 API 19 模拟器或真机验证实际 endpoint。
+
 ### 2. 配置 Maven Central
 
 在 `settings.gradle`（或 `settings.gradle.kts`）确保仓库包含 `mavenCentral()`：
@@ -133,7 +135,7 @@ dependencyResolutionManagement {
 ```groovy
 dependencies {
   // Producer 写入模块
-  implementation 'io.github.volcengine-tls:tls-android-producer:2.1.1'
+  implementation 'io.github.volcengine-tls:tls-android-producer:2.1.2'
 }
 ```
 
@@ -241,7 +243,8 @@ LogProducerClient client = new LogProducerClient(cfg);
 | `setRetryMaxIntervalMs` | 单次等待间隔上限 | 整数，单位毫秒 | 默认 `10000`；范围 `[1000, 60000]`，且必须 `>= retryInitialIntervalMs` |
 | `setPersistent` | 是否开启 persistent/recover | 布尔值 | 默认 `false`；开启后为 **at-least-once** 语义，不承诺 exactly-once |
 | `setPersistentFilePath` | persistent 文件目录 | 字符串 | 默认空；开启 `persistent` 时必填；不同 target 建议使用不同目录 |
-| `setPersistentForceFlush` | 是否每次 `addLog` 都强制刷盘 | 布尔值 | 默认 `false` |
+| `setPersistentDurability` | WAL 落盘模式 | `BUFFERED_WAL` / `SYNC_WAL` | 默认 `BUFFERED_WAL` |
+| `setPersistentForceFlush` | 旧版强制刷盘兼容开关 | 布尔值 | `true` 映射为 `SYNC_WAL` |
 | `setPersistentMaxFileCount` | persistent 文件滚动个数上限 | 整数 | 默认 `0`；开启 `persistent` 时建议显式配置，不要依赖 `0` |
 | `setPersistentMaxFileSize` | 单个 persistent 文件大小上限 | 整数，单位字节 | 默认 `0`；开启 `persistent` 时建议显式配置，不要依赖 `0` |
 | `setPersistentMaxLogCount` | 本地最多缓存日志条数 | 整数 | 默认 `0`；开启 `persistent` 时建议显式配置，不要依赖 `0` |

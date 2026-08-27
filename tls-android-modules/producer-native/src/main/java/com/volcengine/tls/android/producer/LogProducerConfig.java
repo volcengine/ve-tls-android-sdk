@@ -4,12 +4,31 @@ import android.content.Context;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public final class LogProducerConfig {
     public enum CompressType {
         NONE,
         LZ4
+    }
+
+    public enum PersistentDurability {
+        BUFFERED_WAL,
+        SYNC_WAL
+    }
+
+    public enum PersistentOverflowPolicy {
+        REJECT_NEW,
+        BLOCK,
+        /**
+         * Drops unacknowledged records from the oldest side on overflow. This may lose data and
+         * breaks at-least-once delivery.
+         */
+        DROP_OLDEST_UNACKED,
+        /**
+         * Samples and drops new records on overflow. This may lose data and breaks at-least-once
+         * delivery.
+         */
+        DROP_NEWEST_SAMPLE
     }
 
     private static final int RETRY_MAX_ATTEMPTS_MIN = 0;
@@ -44,9 +63,19 @@ public final class LogProducerConfig {
     private boolean persistent;
     private String persistentFilePath;
     private boolean persistentForceFlush;
+    private PersistentDurability persistentDurability = PersistentDurability.BUFFERED_WAL;
+    private boolean persistentDurabilityConfigured;
     private int persistentMaxFileCount;
     private int persistentMaxFileSize;
     private int persistentMaxLogCount;
+    private int persistentMaxBytes;
+    private int persistentMaxRecords;
+    private int persistentMaxSegments;
+    private int persistentHighWatermarkPct = 85;
+    private int persistentLowWatermarkPct = 70;
+    private PersistentOverflowPolicy persistentOverflowPolicy = PersistentOverflowPolicy.REJECT_NEW;
+    private int persistentSampleEveryN = 10;
+    private int persistentBlockTimeoutMs = 1000;
     private int connectTimeoutMs;
     private int requestTimeoutMs;
     private int destroyWaitMs;
@@ -221,7 +250,10 @@ public final class LogProducerConfig {
 
     public LogProducerConfig setCompressType(CompressType compressType) {
         ensureMutable();
-        this.compressType = Objects.requireNonNull(compressType);
+        if (compressType == null) {
+            throw new NullPointerException("compressType == null");
+        }
+        this.compressType = compressType;
         return this;
     }
 
@@ -382,9 +414,47 @@ public final class LogProducerConfig {
         return persistentForceFlush;
     }
 
+    /**
+     * Compatibility API. {@code true} maps to {@link PersistentDurability#SYNC_WAL};
+     * {@code false} maps to {@link PersistentDurability#BUFFERED_WAL} unless durability was
+     * explicitly configured with {@link #setPersistentDurability(PersistentDurability)}.
+     */
+    @Deprecated
     public LogProducerConfig setPersistentForceFlush(boolean persistentForceFlush) {
         ensureMutable();
+        if (persistentForceFlush && persistentDurabilityConfigured
+                && persistentDurability == PersistentDurability.BUFFERED_WAL) {
+            throw new IllegalArgumentException(
+                    "persistentForceFlush=true conflicts with BUFFERED_WAL durability");
+        }
         this.persistentForceFlush = persistentForceFlush;
+        if (!persistentDurabilityConfigured) {
+            this.persistentDurability = persistentForceFlush
+                    ? PersistentDurability.SYNC_WAL
+                    : PersistentDurability.BUFFERED_WAL;
+        }
+        return this;
+    }
+
+    public PersistentDurability getPersistentDurability() {
+        return persistentDurability;
+    }
+
+    /**
+     * Controls when an accepted persistent record becomes durable outside the process.
+     * Buffered WAL syncs on rotation, flush, and close; sync WAL syncs every append.
+     */
+    public LogProducerConfig setPersistentDurability(PersistentDurability persistentDurability) {
+        ensureMutable();
+        if (persistentDurability == null) {
+            throw new IllegalArgumentException("persistentDurability == null");
+        }
+        if (persistentForceFlush && persistentDurability == PersistentDurability.BUFFERED_WAL) {
+            throw new IllegalArgumentException(
+                    "BUFFERED_WAL durability conflicts with persistentForceFlush=true");
+        }
+        this.persistentDurability = persistentDurability;
+        this.persistentDurabilityConfigured = true;
         return this;
     }
 
@@ -415,6 +485,106 @@ public final class LogProducerConfig {
     public LogProducerConfig setPersistentMaxLogCount(int persistentMaxLogCount) {
         ensureMutable();
         this.persistentMaxLogCount = persistentMaxLogCount;
+        return this;
+    }
+
+    public int getPersistentMaxBytes() {
+        return persistentMaxBytes;
+    }
+
+    public LogProducerConfig setPersistentMaxBytes(int persistentMaxBytes) {
+        ensureMutable();
+        if (persistentMaxBytes < 0) {
+            throw new IllegalArgumentException("persistentMaxBytes must be >= 0");
+        }
+        this.persistentMaxBytes = persistentMaxBytes;
+        return this;
+    }
+
+    public int getPersistentMaxRecords() {
+        return persistentMaxRecords;
+    }
+
+    public LogProducerConfig setPersistentMaxRecords(int persistentMaxRecords) {
+        ensureMutable();
+        if (persistentMaxRecords < 0) {
+            throw new IllegalArgumentException("persistentMaxRecords must be >= 0");
+        }
+        this.persistentMaxRecords = persistentMaxRecords;
+        return this;
+    }
+
+    public int getPersistentMaxSegments() {
+        return persistentMaxSegments;
+    }
+
+    public LogProducerConfig setPersistentMaxSegments(int persistentMaxSegments) {
+        ensureMutable();
+        if (persistentMaxSegments < 0) {
+            throw new IllegalArgumentException("persistentMaxSegments must be >= 0");
+        }
+        this.persistentMaxSegments = persistentMaxSegments;
+        return this;
+    }
+
+    public int getPersistentHighWatermarkPct() {
+        return persistentHighWatermarkPct;
+    }
+
+    public LogProducerConfig setPersistentHighWatermarkPct(int persistentHighWatermarkPct) {
+        ensureMutable();
+        requireWatermark("persistentHighWatermarkPct", persistentHighWatermarkPct);
+        this.persistentHighWatermarkPct = persistentHighWatermarkPct;
+        return this;
+    }
+
+    public int getPersistentLowWatermarkPct() {
+        return persistentLowWatermarkPct;
+    }
+
+    public LogProducerConfig setPersistentLowWatermarkPct(int persistentLowWatermarkPct) {
+        ensureMutable();
+        requireWatermark("persistentLowWatermarkPct", persistentLowWatermarkPct);
+        this.persistentLowWatermarkPct = persistentLowWatermarkPct;
+        return this;
+    }
+
+    public PersistentOverflowPolicy getPersistentOverflowPolicy() {
+        return persistentOverflowPolicy;
+    }
+
+    public LogProducerConfig setPersistentOverflowPolicy(PersistentOverflowPolicy persistentOverflowPolicy) {
+        ensureMutable();
+        if (persistentOverflowPolicy == null) {
+            throw new IllegalArgumentException("persistentOverflowPolicy == null");
+        }
+        this.persistentOverflowPolicy = persistentOverflowPolicy;
+        return this;
+    }
+
+    public int getPersistentSampleEveryN() {
+        return persistentSampleEveryN;
+    }
+
+    public LogProducerConfig setPersistentSampleEveryN(int persistentSampleEveryN) {
+        ensureMutable();
+        if (persistentSampleEveryN <= 0) {
+            throw new IllegalArgumentException("persistentSampleEveryN must be > 0");
+        }
+        this.persistentSampleEveryN = persistentSampleEveryN;
+        return this;
+    }
+
+    public int getPersistentBlockTimeoutMs() {
+        return persistentBlockTimeoutMs;
+    }
+
+    public LogProducerConfig setPersistentBlockTimeoutMs(int persistentBlockTimeoutMs) {
+        ensureMutable();
+        if (persistentBlockTimeoutMs <= 0) {
+            throw new IllegalArgumentException("persistentBlockTimeoutMs must be > 0");
+        }
+        this.persistentBlockTimeoutMs = persistentBlockTimeoutMs;
         return this;
     }
 
@@ -558,10 +728,24 @@ public final class LogProducerConfig {
         if (retryMaxIntervalMs < retryInitialIntervalMs) {
             throw new IllegalArgumentException("retryMaxIntervalMs must be >= retryInitialIntervalMs");
         }
+        validatePersistentCapacity();
         if (persistent) {
             requireNonBlank(persistentFilePath, "persistent mode requires persistentFilePath");
             if (isBlank(processName)) {
                 throw new IllegalStateException("persistent mode requires resolvable process identity");
+            }
+            if (persistentMaxFileCount <= 0) {
+                throw new IllegalArgumentException("persistentMaxFileCount must be > 0 in persistent mode");
+            }
+            if (persistentMaxFileSize <= 0) {
+                throw new IllegalArgumentException("persistentMaxFileSize must be > 0 in persistent mode");
+            }
+            if (persistentMaxLogCount <= 0) {
+                throw new IllegalArgumentException("persistentMaxLogCount must be > 0 in persistent mode");
+            }
+            if (persistentLowWatermarkPct >= persistentHighWatermarkPct) {
+                throw new IllegalArgumentException(
+                        "persistentLowWatermarkPct must be < persistentHighWatermarkPct in persistent mode");
             }
         }
     }
@@ -579,7 +763,21 @@ public final class LogProducerConfig {
                 && retryMaxIntervalMs >= retryInitialIntervalMs
                 && retryMaxAttempts >= RETRY_MAX_ATTEMPTS_MIN
                 && retryMaxAttempts <= RETRY_MAX_ATTEMPTS_MAX
-                && (!persistent || !isBlank(persistentFilePath));
+                && persistentMaxBytes >= 0
+                && persistentMaxRecords >= 0
+                && persistentMaxSegments >= 0
+                && persistentHighWatermarkPct >= 1
+                && persistentHighWatermarkPct <= 100
+                && persistentLowWatermarkPct >= 1
+                && persistentLowWatermarkPct <= 100
+                && persistentOverflowPolicy != null
+                && persistentSampleEveryN > 0
+                && persistentBlockTimeoutMs > 0
+                && (!persistent || (!isBlank(persistentFilePath)
+                && persistentMaxFileCount > 0
+                && persistentMaxFileSize > 0
+                && persistentMaxLogCount > 0
+                && persistentLowWatermarkPct < persistentHighWatermarkPct));
     }
 
     public boolean isEnabled() {
@@ -589,6 +787,35 @@ public final class LogProducerConfig {
     private static void requireNonBlank(String value, String message) {
         if (isBlank(value)) {
             throw new IllegalArgumentException(message);
+        }
+    }
+
+    private void validatePersistentCapacity() {
+        if (persistentMaxBytes < 0) {
+            throw new IllegalArgumentException("persistentMaxBytes must be >= 0");
+        }
+        if (persistentMaxRecords < 0) {
+            throw new IllegalArgumentException("persistentMaxRecords must be >= 0");
+        }
+        if (persistentMaxSegments < 0) {
+            throw new IllegalArgumentException("persistentMaxSegments must be >= 0");
+        }
+        requireWatermark("persistentHighWatermarkPct", persistentHighWatermarkPct);
+        requireWatermark("persistentLowWatermarkPct", persistentLowWatermarkPct);
+        if (persistentOverflowPolicy == null) {
+            throw new IllegalArgumentException("persistentOverflowPolicy == null");
+        }
+        if (persistentSampleEveryN <= 0) {
+            throw new IllegalArgumentException("persistentSampleEveryN must be > 0");
+        }
+        if (persistentBlockTimeoutMs <= 0) {
+            throw new IllegalArgumentException("persistentBlockTimeoutMs must be > 0");
+        }
+    }
+
+    private static void requireWatermark(String name, int value) {
+        if (value < 1 || value > 100) {
+            throw new IllegalArgumentException(name + " must be in [1, 100]");
         }
     }
 

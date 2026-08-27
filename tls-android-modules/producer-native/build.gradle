@@ -12,7 +12,16 @@ def publicationDescription = legacyPublication
         ? "Unsupported best-effort legacy minSdk ${minSdkValue} build of the VOLC Engine TLS Producer SDK for Android, for designated customer delivery only"
         : 'VOLC Engine TLS Producer SDK for Android'
 def veTlsCSdkDir = findProperty('VE_TLS_C_SDK_DIR') ?: System.getenv('VE_TLS_C_SDK_DIR')
-def baseVersion = (findProperty('POM_VERSION') ?: '2.1.1').toString()
+def veTlsCSdkCommitFile = file('ve-tls-c-sdk.version')
+if (!veTlsCSdkCommitFile.isFile()) {
+  throw new GradleException("Missing pinned ve-tls-c-sdk commit file: ${veTlsCSdkCommitFile}")
+}
+def veTlsCSdkCommit = veTlsCSdkCommitFile.getText('UTF-8').trim()
+if (!(veTlsCSdkCommit ==~ /[0-9a-f]{40}/)) {
+  throw new GradleException("Invalid pinned ve-tls-c-sdk commit: expected 40 lowercase hex characters")
+}
+def ndkVersionValue = (findProperty('NDK_VERSION_OVERRIDE') ?: '21.4.7075529').toString()
+def baseVersion = (findProperty('POM_VERSION') ?: '2.1.2').toString()
 def versionSuffix = (findProperty('VERSION_SUFFIX') ?: '').toString()
 
 group = 'io.github.volcengine-tls'
@@ -31,9 +40,11 @@ android {
     consumerProguardFiles 'consumer-rules.pro'
     buildConfigField 'String', 'SDK_VERSION', "\"${project.version}\""
     buildConfigField 'String', 'SDK_USER_AGENT', "\"volc-tls-android/producer/v${project.version}\""
+    buildConfigField 'String', 'VE_TLS_C_SDK_COMMIT', "\"${veTlsCSdkCommit}\""
     externalNativeBuild {
       cmake {
         cppFlags ''
+        arguments "-DVE_TLS_C_SDK_COMMIT=${veTlsCSdkCommit}"
         if (veTlsCSdkDir != null && veTlsCSdkDir.toString().trim().length() > 0) {
           arguments "-DVE_TLS_C_SDK_DIR=${veTlsCSdkDir}"
         }
@@ -64,7 +75,7 @@ android {
       withSourcesJar()
     }
   }
-  ndkVersion "25.2.9519653"
+  ndkVersion ndkVersionValue
 }
 
 dependencies {
