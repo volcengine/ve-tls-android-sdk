@@ -7,6 +7,6 @@ import org.junit.Test;
 public class BuildConfigProvenanceTest {
     @Test
     public void cSdkCommitIsPinned() {
-        assertEquals("75a3415a32ecf6e4ee2088b745c196234de76625", BuildConfig.VE_TLS_C_SDK_COMMIT);
+        assertEquals("bf6458281cf3071ec79b2c2305123046864b4b52", BuildConfig.VE_TLS_C_SDK_COMMIT);
     }
 }

@@ -950,12 +950,20 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
 
     ve_tls_config config;
     ve_tls_android_runtime_options runtime = {};
-    if (ve_tls_android_binding_build_config(&config_view, &config, &runtime) != VE_TLS_OK) {
+    if (ve_tls_android_binding_build_config_versioned(
+            &config_view,
+            sizeof(config_view),
+            VE_TLS_ANDROID_CONFIG_VIEW_VERSION_CURRENT,
+            &config,
+            sizeof(config),
+            VE_TLS_CONFIG_VERSION_CURRENT,
+            &runtime) != VE_TLS_OK) {
         free_kv_storage(log_tags, runtime_tag_count);
         destroy_http_bridge_state(http_bridge_state);
         return 0;
     }
-    ve_tls_producer * producer = ve_tls_producer_create(&config);
+    ve_tls_producer * producer = ve_tls_producer_create_versioned(
+        &config, sizeof(config), VE_TLS_CONFIG_VERSION_CURRENT);
     if (producer == nullptr) {
         free_kv_storage(log_tags, runtime_tag_count);
         destroy_http_bridge_state(http_bridge_state);
