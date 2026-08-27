@@ -110,6 +110,7 @@ APK 增量主要来自 native 库和少量 Java wrapper：
 ## 环境要求
 
 - Android API 19 及以上。
+- API 19-20 使用系统 `HttpsURLConnection`/JSSE；为兼容这部分系统，TLS 服务端需要开放设备可协商的 CBC 套件，建议至少保留 `TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA`，同时保留现代 GCM/ChaCha 套件。SDK 不携带 Conscrypt，也不会修改应用全局 TLS Provider。
 - Android 工程需声明 `INTERNET` 权限。
 - 如果开启断点续传，持久化文件路径必须位于应用可写目录。
 
