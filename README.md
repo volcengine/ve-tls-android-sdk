@@ -126,7 +126,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.github.volcengine-tls:tls-android-producer:2.1.1'
+    implementation 'io.github.volcengine-tls:tls-android-producer:2.1.2'
 }
 ```
 
