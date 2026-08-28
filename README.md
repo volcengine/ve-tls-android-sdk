@@ -245,7 +245,7 @@ LogProducerClient client = new LogProducerClient(config);
 当前支持在原 client 上动态更新的只有两类：
 
 - `client.updateEndpoint(endpoint, region, topicId)`：更新后续新请求的发送目标；已经进入 native 发送路径的请求可能仍使用旧目标。
-- `client.resetSecurityToken(accessKeyId, accessKeySecret, securityToken)`：更新 AK/SK/STS token，适合临时凭证轮转。
+- `client.resetSecurityToken(accessKeyId, accessKeySecret, securityToken)`：事务化更新 AK/SK/STS token；persistent 认证失败默认 retain，更新成功后同一 client 会恢复发送被保留的记录。
 
 ```java
 client.updateEndpoint(newEndpoint, newRegion, newTopicId);
