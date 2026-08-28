@@ -83,6 +83,10 @@ public final class LogProducerClient {
         }
     }
 
+    /**
+     * Transactionally updates static credentials for subsequent sends. In persistent mode,
+     * a successful update also resumes records retained after an authentication failure.
+     */
     public void resetSecurityToken(String accessKeyId, String accessKeySecret, String securityToken) {
         synchronized (lifecycleLock) {
             long handle = ensureProducerLocked();
