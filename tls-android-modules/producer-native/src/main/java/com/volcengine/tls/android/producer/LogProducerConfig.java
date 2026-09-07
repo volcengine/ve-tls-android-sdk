@@ -2,6 +2,8 @@ package com.volcengine.tls.android.producer;
 
 import android.content.Context;
 
+import com.volcengine.tls.android.producer.internal.HashKeyValidator;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -230,6 +232,7 @@ public final class LogProducerConfig {
      */
     public LogProducerConfig setHashKey(String hashKey) {
         ensureMutable();
+        HashKeyValidator.requireValid(hashKey);
         this.hashKey = hashKey;
         return this;
     }
@@ -708,6 +711,7 @@ public final class LogProducerConfig {
         requireNonBlank(endpoint, "endpoint is required");
         requireNonBlank(region, "region is required");
         requireNonBlank(topicId, "topicId is required");
+        HashKeyValidator.requireValid(hashKey);
         if (sendThreadCount <= 0) {
             throw new IllegalArgumentException("sendThreadCount must be > 0");
         }
@@ -754,6 +758,7 @@ public final class LogProducerConfig {
         return !isBlank(endpoint)
                 && !isBlank(region)
                 && !isBlank(topicId)
+                && HashKeyValidator.isValid(hashKey)
                 && sendThreadCount > 0
                 && retryTotalTimeoutMs > 0
                 && retryInitialIntervalMs >= RETRY_INITIAL_INTERVAL_MS_MIN

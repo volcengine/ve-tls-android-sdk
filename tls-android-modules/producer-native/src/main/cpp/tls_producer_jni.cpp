@@ -103,6 +103,7 @@ struct JniHttpBridgeState {
     jclass response_class;
     jmethodID request_ctor;
     jmethodID execute;
+    jmethodID is_retryable;
     jmethodID response_get_status_code;
     jmethodID response_get_body;
     jmethodID response_get_request_id;
@@ -304,27 +305,43 @@ int duplicate_log_tag_arrays(JNIEnv * env, jobjectArray keys, jobjectArray value
     return 0;
 }
 
-void set_bridge_error(JNIEnv * env, ve_tls_http_response * resp, jthrowable throwable) {
+void set_bridge_error(JNIEnv * env, JniHttpBridgeState * state,
+    ve_tls_http_response * resp, jthrowable throwable) {
     if (resp == nullptr) {
         return;
     }
     free_response_fields(resp);
     resp->transport_kind = VE_TLS_TRANSPORT_GENERIC;
     resp->transport_code = -1;
-    resp->transport_retryable = 1;
+    resp->transport_retryable = 0;
     resp->error_code = ::strdup("JavaHttpBridgeError");
     if (throwable == nullptr || env == nullptr) {
         resp->error_message = ::strdup("native http bridge failed");
         return;
     }
 
+    if (state != nullptr && state->is_retryable != nullptr) {
+        jboolean retryable = env->CallStaticBooleanMethod(
+            state->bridge_class, state->is_retryable, throwable);
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        } else {
+            resp->transport_retryable = retryable == JNI_TRUE ? 1 : 0;
+        }
+    }
+
     jclass throwable_class = env->GetObjectClass(throwable);
-    if (throwable_class == nullptr) {
+    if (throwable_class == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        if (throwable_class != nullptr) {
+            env->DeleteLocalRef(throwable_class);
+        }
         resp->error_message = ::strdup("native http bridge failed");
         return;
     }
     jmethodID to_string = env->GetMethodID(throwable_class, "toString", "()Ljava/lang/String;");
-    if (to_string == nullptr) {
+    if (to_string == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
         env->DeleteLocalRef(throwable_class);
         resp->error_message = ::strdup("native http bridge failed");
         return;
@@ -335,6 +352,11 @@ void set_bridge_error(JNIEnv * env, ve_tls_http_response * resp, jthrowable thro
         resp->error_message = ::strdup("native http bridge failed");
     } else {
         char * message_copy = duplicate_utf_string(env, message);
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+            std::free(message_copy);
+            message_copy = nullptr;
+        }
         resp->error_message = message_copy == nullptr ? ::strdup("native http bridge failed") : message_copy;
     }
     if (message != nullptr) {
@@ -448,7 +470,10 @@ JniHttpBridgeState * create_http_bridge_state(JNIEnv * env) {
         state->bridge_class,
         "execute",
         "(Lcom/volcengine/tls/android/producer/internal/NativeHttpBridge$Request;)Lcom/volcengine/tls/android/producer/internal/NativeHttpResponse;");
-    if (bridge_ctor == nullptr || state->execute == nullptr) {
+    state->is_retryable = env->GetStaticMethodID(
+        state->bridge_class, "isRetryable", "(Ljava/lang/Throwable;)Z");
+    if (bridge_ctor == nullptr || state->execute == nullptr || state->is_retryable == nullptr) {
+        env->ExceptionClear();
         destroy_http_bridge_state(state);
         return nullptr;
     }
@@ -696,7 +721,7 @@ int bridge_do_request(
     if (state == nullptr) {
         resp->transport_kind = VE_TLS_TRANSPORT_GENERIC;
         resp->transport_code = -1;
-        resp->transport_retryable = 1;
+        resp->transport_retryable = 0;
         resp->error_code = ::strdup("JavaHttpBridgeUnavailable");
         resp->error_message = ::strdup("java http bridge state is missing");
         return -1;
@@ -707,7 +732,7 @@ int bridge_do_request(
     if (env == nullptr) {
         resp->transport_kind = VE_TLS_TRANSPORT_GENERIC;
         resp->transport_code = -1;
-        resp->transport_retryable = 1;
+        resp->transport_retryable = 0;
         resp->error_code = ::strdup("JavaVmUnavailable");
         resp->error_message = ::strdup("failed to attach native sender thread to JVM");
         release_thread_env(&thread_env);
@@ -719,7 +744,7 @@ int bridge_do_request(
         if (!frame.active()) {
             resp->transport_kind = VE_TLS_TRANSPORT_GENERIC;
             resp->transport_code = -1;
-            resp->transport_retryable = 1;
+            resp->transport_retryable = 0;
             resp->error_code = ::strdup("JavaLocalFrameError");
             resp->error_message = ::strdup("failed to allocate JNI local frame");
         } else {
@@ -738,7 +763,7 @@ int bridge_do_request(
             if (env->ExceptionCheck()) {
                 jthrowable throwable = env->ExceptionOccurred();
                 env->ExceptionClear();
-                set_bridge_error(env, resp, throwable);
+                set_bridge_error(env, state, resp, throwable);
             } else {
                 jobject request = env->NewObject(
                     state->request_class,
@@ -757,17 +782,17 @@ int bridge_do_request(
                 if (request == nullptr || env->ExceptionCheck()) {
                     jthrowable throwable = env->ExceptionOccurred();
                     env->ExceptionClear();
-                    set_bridge_error(env, resp, throwable);
+                    set_bridge_error(env, state, resp, throwable);
                 } else {
                     jobject response = env->CallObjectMethod(state->bridge, state->execute, request);
                     if (env->ExceptionCheck()) {
                         jthrowable throwable = env->ExceptionOccurred();
                         env->ExceptionClear();
-                        set_bridge_error(env, resp, throwable);
+                        set_bridge_error(env, state, resp, throwable);
                     } else if (response == nullptr) {
                         resp->transport_kind = VE_TLS_TRANSPORT_GENERIC;
                         resp->transport_code = -1;
-                        resp->transport_retryable = 1;
+                        resp->transport_retryable = 0;
                         resp->error_code = ::strdup("JavaHttpBridgeEmptyResponse");
                         resp->error_message = ::strdup("java http bridge returned null response");
                     } else {
@@ -777,7 +802,7 @@ int bridge_do_request(
                         if (env->ExceptionCheck()) {
                             jthrowable throwable = env->ExceptionOccurred();
                             env->ExceptionClear();
-                            set_bridge_error(env, resp, throwable);
+                            set_bridge_error(env, state, resp, throwable);
                         } else {
                             if (response_body != nullptr) {
                                 jsize body_size = env->GetArrayLength(response_body);
@@ -786,7 +811,7 @@ int bridge_do_request(
                                     if (resp->body == nullptr) {
                                         resp->transport_kind = VE_TLS_TRANSPORT_GENERIC;
                                         resp->transport_code = -1;
-                                        resp->transport_retryable = 1;
+                                        resp->transport_retryable = 0;
                                         resp->error_code = ::strdup("JavaHttpBridgeOom");
                                         resp->error_message = ::strdup("failed to allocate native response body");
                                     } else {

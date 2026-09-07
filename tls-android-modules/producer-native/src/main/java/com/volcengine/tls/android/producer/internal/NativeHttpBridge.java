@@ -78,6 +78,11 @@ public final class NativeHttpBridge {
         }
     }
 
+    // Called through the cached JNI class reference on native sender threads.
+    public static boolean isRetryable(Throwable failure) {
+        return TransportRetryPolicy.isRetryable(failure);
+    }
+
     private HttpURLConnection openConnection(Request request) throws IOException {
         URL url = new URL(request.getUrl());
         Proxy proxy = request.getProxy();
@@ -228,7 +233,7 @@ public final class NativeHttpBridge {
             java.util.Collection<? extends Certificate> certificates = certificateFactory.generateCertificates(inputStream);
 
             if (certificates.isEmpty()) {
-                throw new IOException("no certificates found in " + caCertPath);
+                throw new CertificateException("no certificates found in " + caCertPath);
             }
 
             KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());

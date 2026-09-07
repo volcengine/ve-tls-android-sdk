@@ -8,6 +8,7 @@ import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.File;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
@@ -24,12 +25,28 @@ import javax.net.ssl.SSLSocketFactory;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class NativeHttpBridgeTest {
+
+    @Test
+    public void emptyCaBundleIsNonRetryable() throws Exception {
+        File emptyCa = File.createTempFile("tls-empty-test-ca-", ".pem");
+        try {
+            CapturingHttpsURLConnection connection = new CapturingHttpsURLConnection(new URL("https://localhost"));
+            NativeHttpBridge bridge = new NativeHttpBridge(url -> connection);
+            IOException failure = assertThrows(IOException.class, () -> bridge.execute(new NativeHttpBridge.Request(
+                    "POST", "https://localhost", null, new byte[0], 1000, 1000,
+                    1, 1, null, emptyCa.getAbsolutePath(), "test")));
+            assertFalse(NativeHttpBridge.isRetryable(failure));
+        } finally {
+            assertTrue(emptyCa.delete());
+        }
+    }
 
     @Test
     public void execute_mapsTimeoutsHeadersAndResponse_withoutPermissiveTlsSideEffects() throws Exception {

@@ -2,8 +2,6 @@ package com.volcengine.tls.android.producer;
 
 import android.content.Context;
 
-import java.util.Objects;
-
 public final class LogProducerConfig {
     public enum CompressType { NONE, LZ4 }
 
@@ -39,7 +37,13 @@ public final class LogProducerConfig {
     public String getSecurityToken() { return securityToken; }
     public LogProducerConfig setSecurityToken(String securityToken) { this.securityToken = securityToken; return this; }
     public CompressType getCompressType() { return compressType; }
-    public LogProducerConfig setCompressType(CompressType compressType) { this.compressType = Objects.requireNonNull(compressType); return this; }
+    public LogProducerConfig setCompressType(CompressType compressType) {
+        if (compressType == null) {
+            throw new NullPointerException("compressType == null");
+        }
+        this.compressType = compressType;
+        return this;
+    }
     public int getPacketLogBytes() { return packetLogBytes; }
     public LogProducerConfig setPacketLogBytes(int packetLogBytes) { this.packetLogBytes = packetLogBytes; return this; }
     public int getPacketLogCount() { return packetLogCount; }
