@@ -1,6 +1,6 @@
 # 发布指南
 
-当前标准发布版本为 **2.1.3**，主发布坐标为 `io.github.volcengine-tls:tls-android-producer`。
+当前标准发布版本为 **2.1.4**，主发布坐标为 `io.github.volcengine-tls:tls-android-producer`。
 只发布 Producer AAR，不将历史 `core`、`full`、测试 App 或客户定制包加入本次发布。
 最低 Android API 19，C Core 使用[固定版本清单](tls-android-modules/producer-native/ve-tls-c-sdk.version)。
 

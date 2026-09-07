@@ -14,6 +14,9 @@
 **/.externalNativeBuild/
 **/.cxx/
 **/outputs/
+*.class
+__pycache__/
+*.pyc
 *.log
 **/build_*/
 
@@ -86,7 +89,10 @@ tls-android-modules/res/
 **/*.sha256
 **/*.sha512
 **/cospec/
-**/docs/
+# Local audit and verification output is not release documentation.
+docs/verification/
+.codex-runs/
+.local/
 repos/
 ve-tls-c-sdk/
 **/develop_docs/**
