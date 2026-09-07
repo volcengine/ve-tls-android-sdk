@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.File;
 import java.io.InputStream;
 import java.net.URL;
+import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -32,6 +33,35 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class NativeHttpBridgeTest {
+
+    @Test
+    public void malformedUriIsTerminalBeforeOpeningConnection() {
+        NativeHttpBridge bridge = new NativeHttpBridge(url -> {
+            throw new AssertionError("malformed URI must not open a connection");
+        });
+        for (String url : new String[] {"http://[invalid", "http://localhost/invalid path"}) {
+            IOException failure = assertThrows(MalformedURLException.class,
+                    () -> bridge.execute(new NativeHttpBridge.Request(
+                            "POST", url, null, new byte[0], 1000, 1000,
+                            1, 1, null, null, "test")));
+            assertFalse(NativeHttpBridge.isRetryable(failure));
+        }
+    }
+
+    @Test
+    public void validIpv6AndEncodedUriRemainUnchanged() throws Exception {
+        String endpoint = "https://[::1]/a%20b?x=a%2Fb&y=%E4%B8%AD";
+        CapturingHttpsURLConnection connection = new CapturingHttpsURLConnection(new URL(endpoint));
+        connection.responseCode = 200;
+        AtomicReference<URL> opened = new AtomicReference<>();
+        NativeHttpBridge bridge = new NativeHttpBridge(url -> {
+            opened.set(url);
+            return connection;
+        });
+        bridge.execute(new NativeHttpBridge.Request("POST", endpoint, null, new byte[0],
+                1000, 1000, 1, 1, null, null, "test"));
+        assertEquals(endpoint, opened.get().toString());
+    }
 
     @Test
     public void emptyCaBundleIsNonRetryable() throws Exception {

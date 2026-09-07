@@ -164,7 +164,8 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
             assertTrue(completion.done.await(10, TimeUnit.SECONDS));
             assertFalse(completion.result.get().isSuccess());
             assertEquals("JavaHttpBridgeError", completion.result.get().getErrorCode());
-            assertFalse("JNI must honor terminal transport errors", completion.result.get().isRetryable());
+            assertFalse("JNI must honor terminal transport errors: "
+                    + completion.result.get().getFailureSummary(), completion.result.get().isRetryable());
         } finally {
             stop(client);
         }
