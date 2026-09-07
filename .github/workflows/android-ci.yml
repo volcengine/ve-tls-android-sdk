@@ -76,8 +76,12 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             'platforms;android-34' 'build-tools;34.0.0' 'build-tools;35.0.0' \
             'ndk;21.4.7075529' 'cmake;3.22.1' 'emulator' "$SYSTEM_IMAGE"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/tls-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
             --name tls-release --package "$SYSTEM_IMAGE" --device pixel
+          test -f "$ANDROID_AVD_HOME/tls-release.ini"
           test -e /dev/kvm
           sudo chmod a+rw /dev/kvm
 
@@ -87,6 +91,7 @@ jobs:
           EMULATOR_CORES: ${{ matrix.cores }}
           EMULATOR_MEMORY: ${{ matrix.memory }}
         run: |
+          test -f "${ANDROID_AVD_HOME:?Set explicit AVD directory}/tls-release.ini"
           "$ANDROID_HOME/emulator/emulator" -avd tls-release -port 5554 \
             -no-window -no-audio -no-snapshot -gpu "$EMULATOR_GPU" \
             -cores "$EMULATOR_CORES" -memory "$EMULATOR_MEMORY" \
