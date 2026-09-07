@@ -1,6 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Do not let bash -x expand a passphrase while normalizing the legacy input.
+PUBLISH_XTRACE=0
+case $- in
+  *x*) PUBLISH_XTRACE=1; set +x ;;
+esac
+
+if [ "${PGP_PASSPHRASE+x}" = x ] && [ "${MAVEN_GPG_PASSPHRASE+x}" = x ]; then
+  printf '%s\n' 'PGP_PASSPHRASE and MAVEN_GPG_PASSPHRASE cannot both be set' >&2
+  exit 2
+fi
+if [ "${PGP_PASSPHRASE+x}" = x ]; then
+  if [ -n "${PGP_PASSPHRASE:-}" ]; then
+    export MAVEN_GPG_PASSPHRASE="$PGP_PASSPHRASE"
+  else
+    unset MAVEN_GPG_PASSPHRASE
+  fi
+  unset PGP_PASSPHRASE
+elif [ "${MAVEN_GPG_PASSPHRASE+x}" = x ] && [ -z "${MAVEN_GPG_PASSPHRASE:-}" ]; then
+  unset MAVEN_GPG_PASSPHRASE
+fi
+
+if [ "$PUBLISH_XTRACE" -eq 1 ]; then
+  set -x
+fi
+unset PUBLISH_XTRACE
+
 DIR=$(cd "$(dirname "$0")"/.. && pwd)
 cd "$DIR"
 
@@ -10,7 +36,6 @@ BASE_VERSION=${BASE_VERSION:-$(grep -E ^POM_VERSION= gradle.properties | cut -d=
 VERSION_SUFFIX=${VERSION_SUFFIX:-}
 VERSION=${VERSION:-${BASE_VERSION}${VERSION_SUFFIX}}
 GPG_KEYID=${PGP_KEYID:-}
-GPG_PASSPHRASE=${PGP_PASSPHRASE:-}
 TARGET_DIR="$DIR/maven-publish/target"
 mkdir -p "$TARGET_DIR"
 
@@ -39,16 +64,17 @@ fi
 
 export GPG_TTY="$(tty || true)"
 
-MAVEN_GPG_ARGS=()
+MAVEN_GPG_ARGS=(
+  "-Dgpg.bestPractices=true"
+  "-Dgpg.passphraseEnvName=MAVEN_GPG_PASSPHRASE"
+  "-Dgpg.useagent=true"
+)
 if [ -n "$GPG_KEYID" ]; then
   MAVEN_GPG_ARGS+=("-Dgpg.keyname=$GPG_KEYID")
 fi
-if [ -n "$GPG_PASSPHRASE" ]; then
-  MAVEN_GPG_ARGS+=("-Dgpg.passphrase=$GPG_PASSPHRASE" "-Dgpg.useagent=true")
-fi
 
 mvn -s ~/.m2/settings.xml -q "${MAVEN_GPG_ARGS[@]}" -Dgpg.executable=gpg \
-  gpg:sign-and-deploy-file \
+  org.apache.maven.plugins:maven-gpg-plugin:3.2.8:sign-and-deploy-file \
   -Durl="$DEPLOY_URL" \
   -DrepositoryId="$SERVER_ID" \
   -DpomFile="$POM_FILE" \

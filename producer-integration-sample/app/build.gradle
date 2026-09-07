@@ -1,0 +1,63 @@
+plugins {
+  id 'com.android.application'
+}
+
+def minSdkProperty = project.findProperty('MIN_SDK_OVERRIDE') ?: '19'
+int selectedMinSdk
+try {
+  selectedMinSdk = Integer.parseInt(minSdkProperty.toString())
+} catch (NumberFormatException error) {
+  throw new GradleException('MIN_SDK_OVERRIDE must be an integer >= 16', error)
+}
+if (selectedMinSdk < 16) {
+  throw new GradleException('MIN_SDK_OVERRIDE must be >= 16')
+}
+
+def sdkVersion = project.findProperty('SDK_VERSION') ?: '2.1.3'
+def producerArtifact = selectedMinSdk < 19
+    ? "tls-android-producer-legacy${selectedMinSdk}"
+    : 'tls-android-producer'
+
+android {
+  namespace 'com.volcengine.tls.producer.sample'
+  compileSdk 34
+
+  defaultConfig {
+    applicationId 'com.volcengine.tls.producer.sample'
+    minSdk selectedMinSdk
+    targetSdk 34
+    versionCode 1
+    versionName '1.0.0'
+    buildConfigField 'String', 'TLS_ENDPOINT', '"https://tls-cn-example.volces.com"'
+    buildConfigField 'String', 'TLS_REGION', '"cn-example"'
+    buildConfigField 'String', 'TLS_AK', '"AK_EXAMPLE"'
+    buildConfigField 'String', 'TLS_SK', '"SK_EXAMPLE"'
+    buildConfigField 'String', 'TLS_TOKEN', '""'
+    buildConfigField 'String', 'TLS_TOPIC_ID', '"topic-example"'
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled true
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+    }
+    debug {
+      minifyEnabled false
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+  }
+  buildFeatures {
+    buildConfig true
+  }
+
+}
+
+dependencies {
+  implementation "io.github.volcengine-tls:${producerArtifact}:${sdkVersion}"
+  implementation 'net.jpountz.lz4:lz4:1.3.0'
+  testImplementation 'junit:junit:4.13.2'
+}

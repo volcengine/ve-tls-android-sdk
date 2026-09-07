@@ -3,8 +3,6 @@ pluginManagement {
     gradlePluginPortal()
     google()
     mavenCentral()
-    maven { url 'https://maven.aliyun.com/repository/google' }
-    maven { url 'https://maven.aliyun.com/repository/public' }
   }
 }
 
@@ -19,8 +17,6 @@ dependencyResolutionManagement {
     google()
     mavenLocal()
     mavenCentral()
-    maven { url 'https://maven.aliyun.com/repository/google' }
-    maven { url 'https://maven.aliyun.com/repository/public' }
   }
 }
 

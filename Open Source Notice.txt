@@ -2,6 +2,13 @@ Copyright 2023 Beijing Volcanoengine Technology Ltd.  All rights reserved.
 
 Third-party dependencies:  
 
+Current Android Producer native dependency:
+LZ4 1.7.1 : BSD 2-Clause License, Copyright (C) 2011-2015, Yann Collet.
+The complete notice is included in the Producer AAR's classes.jar under
+META-INF/tls-android-producer/THIRD_PARTY_NOTICES.md, and in the same path
+under tls-android-modules/producer-native/src/main/resources/ in this repository.
+The remaining entries below describe retained legacy Java modules and development dependencies.
+
 fastjson-alibaba : Apache License 2.0
 google-gson : Apache License 2.0
 Guava InternalFutureFailureAccess and InternalFutures : Apache License 2.0
