@@ -7,8 +7,8 @@ BuildConfig 占位符仅用于编译验证，不要填入真实 AK/SK 后分发 
 
 构建前请确认对应工件已发布到本机 Maven Local；本样例不会自动发布工件，也不会上传远端：
 
-- 标准 API 19：`io.github.volcengine-tls:tls-android-producer:2.1.3`
-- 定制 API 16：`io.github.volcengine-tls:tls-android-producer-legacy16:2.1.3-legacy16`
+- 标准 API 19：`io.github.volcengine-tls:tls-android-producer:2.1.4`
+- 定制 API 16：`io.github.volcengine-tls:tls-android-producer-legacy16:2.1.4-legacy16`
 
 API 16 构建必须使用 legacy 坐标，不能与标准坐标互换。`SDK_VERSION` 不会自动推断或追加 legacy
 版本后缀。
@@ -26,7 +26,7 @@ tls-android-modules/gradlew -p producer-integration-sample \
 
 ```bash
 tls-android-modules/gradlew -p producer-integration-sample \
-  -PMIN_SDK_OVERRIDE=16 -PSDK_VERSION=2.1.3-legacy16 \
+  -PMIN_SDK_OVERRIDE=16 -PSDK_VERSION=2.1.4-legacy16 \
   :app:testDebugUnitTest :app:assembleRelease --console=plain
 ```
 

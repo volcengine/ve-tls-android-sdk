@@ -13,10 +13,10 @@ dependencies {
   // Runtime deps used by core/full
   testImplementation 'com.squareup.okhttp3:okhttp:3.12.13'
   testImplementation 'com.squareup.okio:okio:1.17.5'
-  testImplementation 'com.google.protobuf:protobuf-javalite:3.23.2'
-  testImplementation 'com.alibaba:fastjson:1.2.83'
+  testImplementation 'com.google.protobuf:protobuf-javalite:3.25.8'
+  testImplementation 'com.alibaba:fastjson:1.2.84'
   testImplementation 'com.google.guava:guava:33.5.0-jre'
-  testImplementation 'net.jpountz.lz4:lz4:1.3.0'
+  testImplementation 'at.yawk.lz4:lz4-java:1.10.1'
 }
 
 tasks.named('compileTestJava') {

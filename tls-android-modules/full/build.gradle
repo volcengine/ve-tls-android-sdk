@@ -42,7 +42,7 @@ android {
 
 dependencies {
   api project(':core')
-  implementation 'com.alibaba:fastjson:1.2.83'
+  implementation 'com.alibaba:fastjson:1.2.84'
   compileOnly 'org.projectlombok:lombok:1.18.20'
   annotationProcessor 'org.projectlombok:lombok:1.18.20'
   testImplementation 'junit:junit:4.13.2'

@@ -2,59 +2,130 @@ name: Android CI
 
 on:
   push:
-    branches: [ master-2.0, sync-main ]
+    branches: [main, master, master-2.0]
   pull_request:
-    branches: [ master-2.0 ]
+    branches: [main, master, master-2.0]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
+  release-verification:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: API19
+            image: system-images;android-19;default;x86
+            page_size: '4096'
+            gpu: 'off'
+            cores: '1'
+            memory: '1024'
+          - name: API35-16KB
+            image: system-images;android-35;google_apis_ps16k;x86_64
+            page_size: '16384'
+            gpu: swiftshader_indirect
+            cores: '2'
+            memory: '2048'
+    name: Release / ${{ matrix.name }}
+    env:
+      VE_TLS_C_SDK_DIR: ${{ github.workspace }}/ve-tls-c-sdk
+      ANDROID_SERIAL: emulator-5554
+      EXPECTED_PAGE_SIZE: ${{ matrix.page_size }}
+      RUN_DEVICE_TESTS: '1'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Read pinned C SDK commit
         id: c_sdk_version
         shell: bash
         run: |
           commit="$(tr -d '\r\n' < tls-android-modules/producer-native/ve-tls-c-sdk.version)"
-          if [[ ! "$commit" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::Invalid pinned C SDK commit: $commit"
-            exit 1
-          fi
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || exit 1
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
 
       - name: Checkout C SDK
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           repository: volcengine/ve-tls-c-sdk
           ref: ${{ steps.c_sdk_version.outputs.commit }}
           path: ve-tls-c-sdk
+          persist-credentials: false
 
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Install Android toolchain
+        env:
+          SYSTEM_IMAGE: ${{ matrix.image }}
         run: |
-          ANDROID_SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          echo "ANDROID_HOME=$ANDROID_SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK" >> "$GITHUB_ENV"
-          yes | "$ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
-          "$ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager" \
-            "platforms;android-34" \
-            "build-tools;34.0.0" \
-            "ndk;25.2.9519653" \
-            "cmake;3.22.1"
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          license_status=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$license_status" -eq 0
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-34' 'build-tools;34.0.0' 'build-tools;35.0.0' \
+            'ndk;21.4.7075529' 'cmake;3.22.1' 'emulator' "$SYSTEM_IMAGE"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/tls-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
+            --name tls-release --package "$SYSTEM_IMAGE" --device pixel
+          test -f "$ANDROID_AVD_HOME/tls-release.ini"
+          test -e /dev/kvm
+          sudo chmod a+rw /dev/kvm
 
-      - name: Build AARs
-        working-directory: tls-android-modules
+      - name: Start dedicated emulator
+        env:
+          EMULATOR_GPU: ${{ matrix.gpu }}
+          EMULATOR_CORES: ${{ matrix.cores }}
+          EMULATOR_MEMORY: ${{ matrix.memory }}
         run: |
-          ./gradlew :logger-spi:assemble :producer-native-stub:assembleRelease :producer-native:assembleRelease -PVE_TLS_C_SDK_DIR="$GITHUB_WORKSPACE/ve-tls-c-sdk" --stacktrace
+          test -f "${ANDROID_AVD_HOME:?Set explicit AVD directory}/tls-release.ini"
+          "$ANDROID_HOME/emulator/emulator" -avd tls-release -port 5554 \
+            -no-window -no-audio -no-snapshot -gpu "$EMULATOR_GPU" \
+            -cores "$EMULATOR_CORES" -memory "$EMULATOR_MEMORY" \
+            > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/emulator.pid"
+          emulator_pid=$(cat "$RUNNER_TEMP/emulator.pid")
+          deadline=$((SECONDS + 300))
+          boot_completed=''
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if ! kill -0 "$emulator_pid" 2>/dev/null; then
+              status=0
+              wait "$emulator_pid" || status=$?
+              echo "::error::Emulator exited before boot (exit code $status)"
+              tail -n 200 "$RUNNER_TEMP/emulator.log"
+              exit 1
+            fi
+            boot_completed=$(timeout 10 "$ANDROID_HOME/platform-tools/adb" -s "$ANDROID_SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r\n') || boot_completed=''
+            if [ "$boot_completed" = 1 ]; then
+              break
+            fi
+            sleep 2
+          done
+          if [ "$boot_completed" != 1 ]; then
+            echo "::error::Emulator did not boot within 300 seconds"
+            tail -n 200 "$RUNNER_TEMP/emulator.log"
+            exit 1
+          fi
 
-      - name: Run Integration Tests
-        working-directory: tls-android-modules
+      - name: Run shared release checks
+        run: bash tools/ci-release.sh
+
+      - name: Stop dedicated emulator
+        if: always()
         run: |
-          ./gradlew :integration-tests:test -PVE_TLS_C_SDK_DIR="$GITHUB_WORKSPACE/ve-tls-c-sdk" --stacktrace
+          if [ -f "$RUNNER_TEMP/emulator.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/emulator.pid")" || true
+          fi
