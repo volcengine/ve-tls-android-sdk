@@ -86,6 +86,8 @@ public final class LogProducerClient {
     /**
      * Transactionally updates static credentials for subsequent sends. In persistent mode,
      * a successful update also resumes records retained after an authentication failure.
+     * Refresh STS credentials before expiry: retained authentication failures do not emit
+     * a terminal completion callback, so that callback cannot trigger credential refresh.
      */
     public void resetSecurityToken(String accessKeyId, String accessKeySecret, String securityToken) {
         synchronized (lifecycleLock) {

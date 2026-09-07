@@ -43,6 +43,9 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
                 + " profile=" + report.profile
                 + " rate_lps=" + report.targetLps
                 + " accepted=" + report.acceptedLogs
+                + " successful_logs=" + report.successfulLogs
+                + " remaining_logs=" + report.remainingLogs
+                + " invalid_success_ranges=" + report.invalidSuccessRanges
                 + " callback_ok=" + report.callbackSuccess
                 + " callback_fail=" + report.callbackFailure);
 
@@ -71,6 +74,7 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
             counters.callbackCompressedBytes.addAndGet(Math.max(0L, result.getCompressedBytes()));
             if (result.isSuccess()) {
                 counters.callbackSuccess.incrementAndGet();
+                counters.delivery.recordSuccessRange(result.getStartId(), result.getEndId());
             } else {
                 counters.callbackFailure.incrementAndGet();
                 counters.lastFailure.set(sanitize(result.getFailureSummary()));
@@ -230,9 +234,12 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
 
     private Properties loadConfig() throws IOException {
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
-        File externalDir = context.getExternalFilesDir(null);
-        assertNotNull("instrumentation external files dir missing", externalDir);
-        File configFile = new File(externalDir, "real_tls.properties");
+        File configFile = new File(context.getFilesDir(), "real_tls.properties");
+        if (!configFile.isFile()) {
+            File externalDir = context.getExternalFilesDir(null);
+            assertNotNull("instrumentation external files dir missing", externalDir);
+            configFile = new File(externalDir, "real_tls.properties");
+        }
         assertTrue("missing real_tls.properties: " + configFile.getAbsolutePath(), configFile.isFile());
 
         Properties props = new Properties();
@@ -325,6 +332,7 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
         final AtomicLong callbackFailure = new AtomicLong();
         final AtomicLong callbackLogBytes = new AtomicLong();
         final AtomicLong callbackCompressedBytes = new AtomicLong();
+        final ProducerRealBenchmarkDelivery delivery = new ProducerRealBenchmarkDelivery();
         final AtomicLong enqueueTimeNs = new AtomicLong();
         final AtomicLong enqueueMaxNs = new AtomicLong();
         final AtomicLong enqueueWallMs = new AtomicLong();
@@ -375,6 +383,9 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
         final long rejectedLogs;
         final long callbackSuccess;
         final long callbackFailure;
+        final long successfulLogs;
+        final long remainingLogs;
+        final long invalidSuccessRanges;
         final long callbackLogBytes;
         final long callbackCompressedBytes;
         final long enqueueWallMs;
@@ -422,6 +433,7 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
                 String status,
                 ProducerRealBenchmarkScenario scenario,
                 BenchmarkCounters counters,
+                ProducerRealBenchmarkDelivery.Summary delivery,
                 ProducerRealBenchmarkMath.CpuMetrics cpuMetrics,
                 ProducerRealBenchmarkMath.CpuMetrics steadyCpuMetrics,
                 long enqueueAvgUs,
@@ -456,6 +468,9 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
             this.rejectedLogs = counters.rejectedLogs.get();
             this.callbackSuccess = counters.callbackSuccess.get();
             this.callbackFailure = counters.callbackFailure.get();
+            this.successfulLogs = delivery.successfulLogs;
+            this.remainingLogs = delivery.remainingLogs;
+            this.invalidSuccessRanges = delivery.invalidSuccessRanges;
             this.callbackLogBytes = counters.callbackLogBytes.get();
             this.callbackCompressedBytes = counters.callbackCompressedBytes.get();
             this.enqueueWallMs = counters.enqueueWallMs.get();
@@ -521,12 +536,15 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
             double acceptedLps = (counters.acceptedLogs.get() * 1000.0) / enqueueWallMs;
             double callbackRawKbPerSec = counters.callbackLogBytes.get() / 1024.0 / (wallMs / 1000.0);
             double callbackCompressedKbPerSec = counters.callbackCompressedBytes.get() / 1024.0 / (wallMs / 1000.0);
-            String status = ProducerRealBenchmarkMath.status(
-                    counters.destroyCompleted.get(),
-                    counters.acceptedLogs.get(),
-                    counters.callbackSuccess.get(),
-                    counters.callbackFailure.get(),
-                    counters.rejectedLogs.get());
+            ProducerRealBenchmarkDelivery.Summary delivery = counters.delivery.snapshot(counters.acceptedLogs.get());
+            String status = ProducerRealBenchmarkDelivery.statusAfterCoverage(
+                    ProducerRealBenchmarkMath.status(
+                            counters.destroyCompleted.get(),
+                            counters.acceptedLogs.get(),
+                            counters.callbackSuccess.get(),
+                            counters.callbackFailure.get(),
+                            counters.rejectedLogs.get()),
+                    delivery);
             String persistentFilePath = scenario.persistent
                     ? scenario.persistentPath(context).getAbsolutePath()
                     : "";
@@ -534,6 +552,7 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
                     status,
                     scenario,
                     counters,
+                    delivery,
                     cpuMetrics,
                     steadyCpuMetrics,
                     enqueueAvgUs,
@@ -572,6 +591,9 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
             properties.setProperty("rejectedLogs", String.valueOf(rejectedLogs));
             properties.setProperty("callbackSuccess", String.valueOf(callbackSuccess));
             properties.setProperty("callbackFailure", String.valueOf(callbackFailure));
+            properties.setProperty("successfulLogs", String.valueOf(successfulLogs));
+            properties.setProperty("remainingLogs", String.valueOf(remainingLogs));
+            properties.setProperty("invalidSuccessRanges", String.valueOf(invalidSuccessRanges));
             properties.setProperty("callbackLogBytes", String.valueOf(callbackLogBytes));
             properties.setProperty("callbackCompressedBytes", String.valueOf(callbackCompressedBytes));
             properties.setProperty("enqueueWallMs", String.valueOf(enqueueWallMs));

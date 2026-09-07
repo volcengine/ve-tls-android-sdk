@@ -126,7 +126,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.github.volcengine-tls:tls-android-producer:2.1.2'
+    implementation 'io.github.volcengine-tls:tls-android-producer:2.1.3'
 }
 ```
 
@@ -245,7 +245,7 @@ LogProducerClient client = new LogProducerClient(config);
 当前支持在原 client 上动态更新的只有两类：
 
 - `client.updateEndpoint(endpoint, region, topicId)`：更新后续新请求的发送目标；已经进入 native 发送路径的请求可能仍使用旧目标。
-- `client.resetSecurityToken(accessKeyId, accessKeySecret, securityToken)`：事务化更新 AK/SK/STS token；persistent 认证失败默认 retain，更新成功后同一 client 会恢复发送被保留的记录。
+- `client.resetSecurityToken(accessKeyId, accessKeySecret, securityToken)`：事务化更新 AK/SK/STS token；persistent 认证失败默认 retain，更新成功后同一 client 会恢复发送被保留的记录。调用方应按 STS 过期时间提前刷新凭证，不能依赖发送失败 callback 触发刷新；retain 期间不发终态 callback。
 
 ```java
 client.updateEndpoint(newEndpoint, newRegion, newTopicId);
@@ -271,7 +271,7 @@ client.resetSecurityToken(newAccessKeyId, newAccessKeySecret, newSecurityToken);
 | `setAccessKeyId(String)` | 无 | 访问凭证 AK | 必填 |
 | `setAccessKeySecret(String)` | 无 | 访问凭证 SK | 必填 |
 | `setSecurityToken(String)` | `null` | STS 临时 token；长期 AK/SK 场景可为空 | STS 场景必填 |
-| `setHashKey(String)` | `null` | 默认 hashKey，创建后不支持动态修改 | 需要有序或路由分散时设置 |
+| `setHashKey(String)` | `null` | `null`/空串表示不指定；非空必须是 32 位小写十六进制，且不能全为 `f`；创建后不可修改 | 需要有序或路由分散时设置 |
 | `setSource(String)` | `null` | `__source__` 字段 | 需要固定来源标识时设置 |
 | `addTag(String, String)` | 空 | 写入请求附带的 tag；重复 key 按追加顺序保留 | 需要公共标签时设置 |
 | `setCompressType(CompressType)` | `LZ4` | `LZ4` 或 `NONE` | 一般保持默认 |
@@ -281,10 +281,10 @@ client.resetSecurityToken(newAccessKeyId, newAccessKeySecret, newSecurityToken);
 | `setMaxBufferLimit(int)` | `67108864` | 单 client 内存缓存上限，单位 byte | 常用 `64 MB`，低内存设备可下调 |
 | `setSendThreadCount(int)` | `1` | 发送线程数；persistent 模式下会收敛为 `1` | 默认即可 |
 | `setRetryMaxAttempts(int)` | `0` | 最大尝试次数，范围 `[0, 50]`；`0` 表示不按次数限制，仅受总超时约束 | 常用 `3` |
-| `setRetryTotalTimeoutMs(int)` | `90000` | 单条发送含重试的总预算，必须 `> 0`，单位 ms | 默认 `90s` |
+| `setRetryTotalTimeoutMs(int)` | `90000` | 单轮请求重试预算，必须 `> 0`，单位 ms；persistent 可在预算耗尽后继续下一轮 | 默认 `90s` |
 | `setRetryInitialIntervalMs(int)` | `500` | 首次退避间隔，范围 `[100, 30000]`，单位 ms | 默认 `500ms` |
 | `setRetryMaxIntervalMs(int)` | `10000` | 最大退避间隔，范围 `[1000, 60000]`，且不小于 initial interval | 默认 `10s` |
-| `setEnableTimeNs(boolean)` | `false` | 是否启用纳秒时间字段；需配合带 `timeNs` 的 `addLog` 使用 | 只有需要高精度时间时开启 |
+| `setEnableTimeNs(boolean)` | `false` | Core 纳秒字段开关；当前 Java `Log` 仅传入毫秒时间，没有独立纳秒余数参数 | 当前保持默认 |
 | `setPersistent(boolean)` | `false` | 是否开启断点续传 | 高可靠场景开启 |
 | `setPersistentFilePath(String)` | `null` | 持久化文件路径；必须位于应用可写目录 | persistent 开启时必填 |
 | `setPersistentDurability(PersistentDurability)` | `BUFFERED_WAL` | buffered 在 rotation、flush、close 时刷盘；sync 每次 append 刷盘 | 只有明确需要更强落盘边界时使用 `SYNC_WAL` |
@@ -326,6 +326,9 @@ config.setPersistentOverflowPolicy(LogProducerConfig.PersistentOverflowPolicy.RE
 - 开启 persistent 后，发送线程数会被 Android binding 收敛为 `1`，避免本地恢复、发送确认和顺序语义变复杂。
 - 多进程场景会在非主进程路径后自动追加清洗后的进程名；同一进程内的多个 client 仍不能复用同一个持久化路径。
 - `SYNC_WAL` 每条 append 都执行文件同步，会显著增加 IO 成本；默认使用 `BUFFERED_WAL`。
+- `2.1.3` 固定 C Core `v0.3.2`（`1d41ec4edb850ee7dd0b7f63c49738d6a9669c21`）。本源码版本待发布；升级保持 WAL 格式不变，已有日志在创建 client 时自动恢复。
+- 网络暂时失败或 HTTP `429/500/502/503/504` 耗尽单轮预算后，live client 自动按指数退避继续下一轮，跨轮退避最长 5 分钟。关闭时不等待跨轮退避计时器，未 ACK 的 WAL 留待下次启动恢复。
+- 证书/主机名验证失败、TLS 握手/协议错误、非法 URL 等永久错误不进入自动重试；修正问题后重新创建 client 恢复 WAL。SDK 不会关闭证书校验来恢复发送。
 - 旧 `setPersistentForceFlush(true)` 等价于 `SYNC_WAL`；显式 `BUFFERED_WAL` 与旧开关 `true` 冲突时配置会被拒绝。
 - `DROP_OLDEST_UNACKED` 会删除尚未确认的历史日志，`DROP_NEWEST_SAMPLE` 会按采样规则丢弃新日志；两者都会破坏完整的 at-least-once 保证，只有业务明确接受数据损失时才能启用。
 - 如果切换 endpoint/region/topicId，建议同步切换 `persistentFilePath`，避免旧目标的 backlog 被恢复后发送到新目标。
@@ -335,7 +338,7 @@ config.setPersistentOverflowPolicy(LogProducerConfig.PersistentOverflowPolicy.RE
 `LogProducerCallback` 表示后台发送完成后的最终结果；当前 Java API 的 `addLog` 不返回整数码，入参非法、producer 已销毁、native 入队失败等会通过异常暴露。
 
 - `client.addLog(log)` 正常返回：日志已进入 producer，本次调用没有同步失败。
-- `client.addLog(log)` 抛异常：日志未成功进入 producer，调用方应按业务策略降级或短暂重试。
+- `client.addLog(log)` 抛异常：本次接受过程未完整成功；persistent 场景如果 WAL 已写入而后续入队或同步失败，记录仍可能恢复发送，业务重试应考虑重复。
 - `LogProducerCallback.onCompletion(result)`：后台发送最终结果；如果构造 client 时不传 callback，就不会收到逐条最终状态。
 
 推荐写法：
@@ -359,6 +362,8 @@ try {
 - callback 中不要执行耗时任务、网络请求或阻塞等待；需要复杂处理时转交给业务自己的线程池。
 - 关键日志建议同时处理 `addLog` 异常和 callback 失败；只看 callback 会漏掉入队失败。
 - 非关键日志可以不传 callback，以降低对象持有和回调调度成本。
+- Persistent 的可重试失败耗尽单轮预算、认证失败 retain 都不会发终态失败 callback；恢复成功后才回调一次成功。Memory 耗尽预算仍会回调失败。
+- STS 刷新由调用方负责，在凭证到期前从业务后端获取新凭证并调用 `resetSecurityToken`。SDK 不提供自动 STS 获取或独立的认证失败通知，Core 内部失败指标目前也不透出到 Java；没有 callback 不代表没有请求错误。
 - `LogProducerResult` 同时暴露 `isRetryable()`、`getStartId()` 和 `getEndId()`，用于识别最终一次失败是否仍可重试，并关联本次批量发送覆盖的日志 ID 范围。
 - `LogProducerResult.getFailureSummary()` 会汇总失败类型、HTTP 状态码、错误码、错误信息和 requestId，适合直接接入业务日志。
 - 当前 C callback 的 `raw_buffer` 没有长度合同且所有生产调用点均传空，checkpoint durable 状态也不属于该 callback；Android API 暂不伪造这两个字段，待 C core 冻结相应 ABI 后再对齐。
@@ -383,7 +388,7 @@ try {
 
 ## 返回码与失败处理
 
-`addLog` 同步抛异常时，日志没有成功进入 producer 队列，调用方应根据业务策略处理。callback 返回失败时，表示日志进入 producer 后最终发送失败。
+`addLog` 同步抛异常时，调用方应根据业务策略处理；persistent 已写入的记录仍可能在恢复时发送。失败 callback 表示本次发送路径结束，不保证 WAL 已删除；认证 retain 和跨轮重试不通过终态 callback 报错。
 
 常见处理方式：
 

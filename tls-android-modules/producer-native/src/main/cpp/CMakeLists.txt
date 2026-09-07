@@ -19,7 +19,7 @@ if (NOT DEFINED VE_TLS_C_SDK_COMMIT OR "${VE_TLS_C_SDK_COMMIT}" STREQUAL "")
   message(FATAL_ERROR "VE_TLS_C_SDK_COMMIT must be provided by Gradle")
 endif()
 
-set(VE_TLS_C_SDK_EXPECTED_COMMIT "08f33affc2f346f92dc0734cbb92330dd272156c")
+set(VE_TLS_C_SDK_EXPECTED_COMMIT "1d41ec4edb850ee7dd0b7f63c49738d6a9669c21")
 if (NOT "${VE_TLS_C_SDK_COMMIT}" STREQUAL "${VE_TLS_C_SDK_EXPECTED_COMMIT}")
   message(FATAL_ERROR
     "VE_TLS_C_SDK_COMMIT does not match the pinned ve-tls-c-sdk commit: expected ${VE_TLS_C_SDK_EXPECTED_COMMIT}, got ${VE_TLS_C_SDK_COMMIT}"

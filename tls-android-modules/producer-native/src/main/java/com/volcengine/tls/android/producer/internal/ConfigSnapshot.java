@@ -341,6 +341,7 @@ public final class ConfigSnapshot {
         requireNonBlank(endpoint, "endpoint is required");
         requireNonBlank(region, "region is required");
         requireNonBlank(topicId, "topicId is required");
+        HashKeyValidator.requireValid(hashKey);
         if (sendThreadCount <= 0) {
             throw new IllegalArgumentException("sendThreadCount must be > 0");
         }
