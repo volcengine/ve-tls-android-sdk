@@ -13,7 +13,7 @@ if (selectedMinSdk < 16) {
   throw new GradleException('MIN_SDK_OVERRIDE must be >= 16')
 }
 
-def sdkVersion = project.findProperty('SDK_VERSION') ?: '2.1.3'
+def sdkVersion = project.findProperty('SDK_VERSION') ?: '2.1.4'
 def producerArtifact = selectedMinSdk < 19
     ? "tls-android-producer-legacy${selectedMinSdk}"
     : 'tls-android-producer'
@@ -58,6 +58,5 @@ android {
 
 dependencies {
   implementation "io.github.volcengine-tls:${producerArtifact}:${sdkVersion}"
-  implementation 'net.jpountz.lz4:lz4:1.3.0'
   testImplementation 'junit:junit:4.13.2'
 }

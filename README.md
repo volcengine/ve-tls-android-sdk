@@ -2,7 +2,7 @@
 
 面向 Android 异步日志写入的 Producer SDK。公共模块是 `tls-android-producer`，提供批量聚合、压缩、有限重试以及可选的本地 WAL 恢复；不提供 Project/Topic 管理、查询或消费 API。
 
-当前文档对应 SDK 版本为 `2.1.3`。
+当前文档对应 SDK 版本为 `2.1.4`。
 
 ## 快速开始
 
