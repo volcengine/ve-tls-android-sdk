@@ -92,8 +92,28 @@ jobs:
             -cores "$EMULATOR_CORES" -memory "$EMULATOR_MEMORY" \
             > "$RUNNER_TEMP/emulator.log" 2>&1 &
           echo "$!" > "$RUNNER_TEMP/emulator.pid"
-          timeout 300 "$ANDROID_HOME/platform-tools/adb" -s "$ANDROID_SERIAL" wait-for-device
-          timeout 300 bash -c 'until [ "$("$ANDROID_HOME/platform-tools/adb" -s "$ANDROID_SERIAL" shell getprop sys.boot_completed | tr -d "\r\n")" = 1 ]; do sleep 2; done'
+          emulator_pid=$(cat "$RUNNER_TEMP/emulator.pid")
+          deadline=$((SECONDS + 300))
+          boot_completed=''
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if ! kill -0 "$emulator_pid" 2>/dev/null; then
+              status=0
+              wait "$emulator_pid" || status=$?
+              echo "::error::Emulator exited before boot (exit code $status)"
+              tail -n 200 "$RUNNER_TEMP/emulator.log"
+              exit 1
+            fi
+            boot_completed=$(timeout 10 "$ANDROID_HOME/platform-tools/adb" -s "$ANDROID_SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r\n') || boot_completed=''
+            if [ "$boot_completed" = 1 ]; then
+              break
+            fi
+            sleep 2
+          done
+          if [ "$boot_completed" != 1 ]; then
+            echo "::error::Emulator did not boot within 300 seconds"
+            tail -n 200 "$RUNNER_TEMP/emulator.log"
+            exit 1
+          fi
 
       - name: Run shared release checks
         run: bash tools/ci-release.sh
