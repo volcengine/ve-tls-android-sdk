@@ -1,6 +1,5 @@
 ## 发布说明
-- 版本策略：SemVer（主.次.修订），当前发布版本为 2.1.2
-- 版本线：`2.1.x` 及后续版本只发布 producer-native；`2.0.x` 保留给 core/full/老 producer 的 legacy 维护。
+- 版本策略：SemVer（主.次.修订），当前待发布版本为 2.1.3
 - 最低支持：Android 4.4（API 19）
 - API 19-20 使用系统 JSSE；服务端需开放兼容的 CBC TLS 套件，发布物不携带 Conscrypt。
 - 构建产物：producer AAR
@@ -12,21 +11,13 @@
   3. 触发 CI 完成构建与测试
   4. 创建 GitHub Release 并附上说明
 
-## 发布边界
-
-- `2.1.x` 发布只允许产出 `io.github.volcengine-tls:tls-android-producer`。
-- 不要从 `2.1.x` 分支发布 `tls-android-core`、`tls-android-full` 或旧 producer artifact。
-- 如必须修复 core/full/老 producer，请从 `2.0.x` legacy 分支发对应 bugfix 版本。
-- core/full 的 Gradle publish 任务默认跳过；legacy 发布必须显式设置 `ALLOW_LEGACY_ANDROID_PUBLICATION=true`。
-- 发布前必须确认 C SDK `persistent` 分支已包含 Android 桥接依赖的 native 变更。
-
 ## 本地发布（验证）
 - 执行本地仓库发布：
   ```bash
   tls-android-modules/scripts/publish-local.sh
   ```
 - 校验工件：
-  - `~/.m2/repository/io/github/volcengine-tls/tls-android-producer/2.1.1/`
+  - `~/.m2/repository/io/github/volcengine-tls/tls-android-producer/2.1.3/`
 - 在消费工程临时启用 `mavenLocal()` 验证依赖解析与使用
 
 ## Gradle 发布配置模板
@@ -94,4 +85,4 @@ cd tls-android-modules
   PGP_PASSPHRASE=YOUR_PGP_PASSPHRASE bash scripts/publish-central-mvn.sh
   ```
 - 发布坐标：
-  - `io.github.volcengine-tls:tls-android-producer:2.1.1`
+  - `io.github.volcengine-tls:tls-android-producer:2.1.3`

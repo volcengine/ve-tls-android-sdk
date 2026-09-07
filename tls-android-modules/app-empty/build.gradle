@@ -8,7 +8,7 @@ android {
 
   defaultConfig {
     applicationId 'com.volcengine.tls.android.empty'
-    minSdk 21
+    minSdk 16
     targetSdk 34
     versionCode 1
     versionName '1.0.0'

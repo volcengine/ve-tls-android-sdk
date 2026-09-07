@@ -1,3 +1,13 @@
+## 2.1.3 (Unreleased)
+- 固定 C Core v0.3.2（1d41ec4edb850ee7dd0b7f63c49738d6a9669c21），保持最低 API 19。
+- 持久化可重试失败耗尽单轮预算后自动继续发送，关闭保留 WAL；修复 ACK、队列和内存失败路径，优化 WAL/builder 开销。
+- 显式单发送线程配置准确生效，保持 1 MiB/1024 条/3000 ms/64 MiB/LZ4 的默认资源配置。
+- Java/JNI 区分暂时网络故障与证书、TLS 协议、URL 等永久错误，并提前校验 hashKey。
+- 修复 API 19 畸形 URL 被误判为可重试 IO 的问题；低版本 Android 显式启用 TLS 1.2，保留系统证书和主机名校验。
+- 补充 API 19 运行与三档可靠性真实发送验证，benchmark 按成功日志范围核对全量发送完成。
+- Persistent 认证 retain 不回调终态失败，凭证更新后只回调成功；STS 需要调用方提前刷新。
+- 新增本地 HTTP 服务驱动的 JNI 恢复、认证更新、关闭重放和失败分类测试。
+
 ## 2.1.2
 - Producer-native 主发布物最低支持 Android 4.4（API 19）。
 - API 19-20 使用系统 `HttpsURLConnection`/JSSE；服务端需开放低版本系统可协商的 CBC TLS 套件，发布物不引入 Conscrypt。
@@ -6,7 +16,6 @@
 
 ## 2.1.1
 - 发布坐标继续使用 `io.github.volcengine-tls:tls-android-producer`，不新增独立 native 坐标。
-- `2.1.x` 起作为 producer-native 主线；core/full/老 producer 后续仅沿 `2.0.x` legacy 维护线修复必要问题。
 - Producer 写入路径基于 native producer，新增断点续传、退避重试、批量聚合、压缩与 Android 桥接优化。
 - Android 请求 User-Agent 统一为 `volc-tls-android/producer/v2.1.1`，便于服务端识别 Android SDK 流量。
 - 文档口径转向 Android Producer 写入能力；管控面、读侧和其他全量 TLS API 由 Java SDK 承接。

@@ -1,5 +1,7 @@
 package com.volcengine.tls.android.producer.internal;
 
+import android.os.Build;
+
 import com.volcengine.tls.android.producer.BuildConfig;
 
 import java.io.ByteArrayOutputStream;
@@ -10,6 +12,8 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.Proxy;
 import java.net.URL;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.SecureRandom;
@@ -35,6 +39,7 @@ public final class NativeHttpBridge {
     private final SocketFactorySupplier permissiveSocketFactorySupplier;
     private final WarningReporter warningReporter;
     private volatile SSLSocketFactory permissiveSocketFactory;
+    private final Tls12SocketFactory.Cache legacyTlsFactories = new Tls12SocketFactory.Cache();
 
     public NativeHttpBridge() {
         this(url -> (HttpURLConnection) url.openConnection());
@@ -78,8 +83,21 @@ public final class NativeHttpBridge {
         }
     }
 
+    // Called through the cached JNI class reference on native sender threads.
+    public static boolean isRetryable(Throwable failure) {
+        return TransportRetryPolicy.isRetryable(failure);
+    }
+
     private HttpURLConnection openConnection(Request request) throws IOException {
         URL url = new URL(request.getUrl());
+        try {
+            // Older Android defers malformed URI errors into generic, retryable IOExceptions.
+            url.toURI();
+        } catch (URISyntaxException e) {
+            MalformedURLException failure = new MalformedURLException("invalid request URI syntax");
+            failure.initCause(e);
+            throw failure;
+        }
         Proxy proxy = request.getProxy();
         return proxy == null ? connectionFactory.open(url) : connectionFactory.open(url, proxy);
     }
@@ -138,6 +156,11 @@ public final class NativeHttpBridge {
             httpsConnection.setSSLSocketFactory(getPermissiveSocketFactory());
         } else if (request.getCaCertPath() != null && !request.getCaCertPath().trim().isEmpty()) {
             httpsConnection.setSSLSocketFactory(createSocketFactoryFromCaCert(request.getCaCertPath()));
+        }
+
+        if (Build.VERSION.SDK_INT >= 16 && Build.VERSION.SDK_INT < 20) {
+            httpsConnection.setSSLSocketFactory(legacyTlsFactories.forApi(
+                    httpsConnection.getSSLSocketFactory(), Build.VERSION.SDK_INT));
         }
 
         if (permissiveHost) {
@@ -228,7 +251,7 @@ public final class NativeHttpBridge {
             java.util.Collection<? extends Certificate> certificates = certificateFactory.generateCertificates(inputStream);
 
             if (certificates.isEmpty()) {
-                throw new IOException("no certificates found in " + caCertPath);
+                throw new CertificateException("no certificates found in " + caCertPath);
             }
 
             KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());

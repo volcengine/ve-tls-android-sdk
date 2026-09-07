@@ -20,11 +20,6 @@
 -keepclassmembers class ** { @com.alibaba.fastjson.annotation.JSONField *; }
 -keepclassmembers class com.volcengine.model.tls.** { *; }
 
-# Suppress optional platform integrations referenced by OkHttp
--dontwarn org.conscrypt.**
--dontwarn org.openjsse.**
--dontwarn org.bouncycastle.**
-
 # Suppress optional codecs referenced by fastjson not available on Android
 -dontwarn java.awt.**
 -dontwarn javax.money.**

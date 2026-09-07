@@ -241,6 +241,7 @@ public class LogProducerConfigTest {
 
         assertSame(config, config.freeze());
         assertThrows(IllegalStateException.class, () -> config.setPersistent(true));
+        assertThrows(IllegalStateException.class, () -> config.setHashKey("bad"));
     }
 
     @Test

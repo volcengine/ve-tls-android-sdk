@@ -1,124 +1,60 @@
 # TLS Android Producer SDK
 
-本仓库后续定位为 **Android Producer 写入 SDK**：面向 Android 端日志写入场景，基于 native producer 提供异步写入、聚合发送、压缩、重试与断点续传能力。
+面向 Android 日志写入场景的轻量 Producer SDK。SDK 基于 native producer，提供异步写入、批量聚合、LZ4 压缩、退避重试、本地 WAL 持久化和进程重启后的断点续传。
 
-本仓库不再作为 Android 全量接口 SDK 维护。Project/Topic 管理、查询、索引、消费等全量接口，请使用 Java SDK；历史 core、full、OT、Trace、Crash、Network Diagnosis、OkHttp/WebView instrumentation 等模块不作为后续主要维护和客户接入口。
+> 本仓库后续只维护 `tls-android-producer` 写入能力。Project/Topic/Index 管理、查询、消费和分析等全量 TLS API 请使用 Java SDK；仓库中的历史 `core`、`full` 和其他模块不代表当前推荐接入面。
 
-如果仓库中仍保留历史模块目录或发布脚本，仅作为存量代码与迁移参考，不代表这些模块会进入后续 Android SDK 发布物。后续 Android 侧发布、文档和客户支持口径都以 `tls-android-producer` 写入能力为准。
+## 快速导航
 
-## 版本线策略
+- [能力概览](#能力概览)
+- [选择可靠性模式](#选择可靠性模式)
+- [5 分钟接入](#5-分钟接入)
+- [开启持久化和断点续传](#开启持久化和断点续传)
+- [持久化语义与边界](#持久化语义与边界)
+- [失败处理与回调](#失败处理与回调)
+- [配置参考](#配置参考)
+- [运行时更新与生命周期](#运行时更新与生命周期)
+- [常见问题](#常见问题)
 
-- `2.1.x` 及后续版本是 producer-native 主线，只发布并推荐使用 `io.github.volcengine-tls:tls-android-producer`。
-- `2.0.x` 是历史 Android SDK 维护线，仅用于 core、full、老 producer 的必要 bugfix、安全修复和构建兼容修复。
-- 新接入不要使用本仓库历史 full/core 模块；如果需要全量 TLS API，请使用 Java SDK。
-- 历史模块如继续保留在仓库中，只用于存量迁移参考或内部兼容验证，不进入 `2.1.x` 发布口径。
+## 能力概览
 
-## 适用场景
+| 能力 | 当前行为 |
+| --- | --- |
+| 异步写入 | `addLog` 把日志交给 native producer，聚合和网络发送在后台执行 |
+| 批量聚合 | 按原始日志字节数、日志条数和等待时间触发发送 |
+| 压缩 | Android 公共 API 支持 `LZ4` 和 `NONE`，默认 `LZ4` |
+| 退避重试 | 按总时间、最大尝试次数和退避间隔控制单轮重试 |
+| 内存背压 | 单 client 默认最多使用 `64 MiB` producer 内存预算，超限时同步失败 |
+| 持久化 WAL | 支持 buffered WAL 和逐条 sync WAL 两种落盘强度 |
+| 断点续传 | 使用相同目录重建 client 时自动恢复未确认记录 |
+| At-least-once | persistent 模式优先保证不漏发，崩溃和 checkpoint 边界可能产生重复 |
+| 容量治理 | 支持 bytes、records、segments 三维上限和 high/low watermark 回收 |
+| 溢出策略 | 支持拒绝、限时阻塞、丢最旧未确认记录和新日志采样 |
+| 动态更新 | 支持更新 endpoint/region/topic 和轮转 AK/SK/STS token |
+| 多进程 | 非主进程会自动使用进程隔离的子目录；同进程多个 client 仍需独立目录 |
+| 结果诊断 | 回调提供 HTTP、transport、requestId、重试属性和日志 ID 范围 |
 
-- Android App 或 Android SDK 只需要写入日志到 TLS。
-- 需要 native producer 的聚合、压缩、异步发送能力。
-- 需要断点续传，保证日志上传 At Least Once。
-- 需要在 Android 侧控制缓存、批量大小、超时、持久化文件等写入参数。
+## 选择可靠性模式
 
-不适合使用本仓库的场景：
+Android SDK 对外提供三档可靠性模式。不存在一个同时拥有最低延迟、最低 IO 和最强可靠性的配置，应按日志价值选择。
 
-- 需要创建、修改、删除 Project/Topic/Index 等管控接口。
-- 需要查询、消费、分析等全量 TLS API。
-- 需要纯 Java、非 Android 的服务端或工具链集成。
+| 模式 | 配置 | `addLog` 正常返回的主要边界 | 进程崩溃后补传 | 突然掉电保护 | 开销与建议 |
+| --- | --- | --- | --- | --- | --- |
+| 内存模式 | `setPersistent(false)` | 日志进入受限内存队列 | 不保证 | 不保证 | 开销最低，适合可丢的普通日志 |
+| Buffered WAL | persistent + `BUFFERED_WAL` | WAL record `write` 成功，可能仍在 OS page cache | 支持 | 存在未同步窗口 | 推荐的断点续传默认档 |
+| Sync WAL | persistent + `SYNC_WAL` | WAL record `write` 和文件 `fsync` 成功 | 支持 | 最强 | 每条日志同步文件，IO 和写入延迟最高，仅用于关键日志 |
 
-这些场景请使用 Java SDK，避免把 Android Producer 写入包当成全量 SDK。
+三种模式都不提供 exactly-once。persistent 模式提供的是 at-least-once：服务端可能收到重复日志，业务应使用事件 ID、请求 ID 或其他业务主键做消费侧去重。
 
-## 当前维护范围
+推荐选择：
 
-当前客户接入只应关注 Producer 写入模块。
+- 埋点、调试日志、可采样日志：内存模式。
+- 需要进程崩溃后补传，但可接受极端掉电窗口：Buffered WAL。
+- 审计、计费等必须尽量缩小掉电丢失窗口的日志：Sync WAL，并先在目标设备上评估 IO 和耗电。
 
-| 能力 | 状态 | 说明 |
-| --- | --- | --- |
-| 异步写入 | 支持 | `addLog` 写入后由 native producer 后台发送 |
-| 聚合发送 | 支持 | 按日志数、包大小、超时时间聚合 |
-| 压缩 | 支持 | 默认 LZ4，也支持按需关闭压缩；源码启用 ZLIB 后可使用 ZLIB |
-| 缓存上限 | 支持 | 超过上限后写入失败，调用方需处理返回码 |
-| 断点续传 | 支持 | 写入本地 binlog，发送成功后删除，提供 At Least Once 语义 |
-| 多客户端 | 支持 | 不同客户端必须使用不同持久化文件 |
-| 全量 TLS API | 不提供 | 请使用 Java SDK |
+## 5 分钟接入
 
-## 性能测试
-
-以下数据来自 `tls-android-producer` release 包的基线 benchmark，仅用于接入容量评估和回归对比，不承诺为不同设备、网络、日志结构下的固定 SLA。表格只保留客户接入时最常用的判断口径。
-
-测试口径：
-
-- 环境：Android API 29 arm64 模拟器，4 个可用处理器。
-- 配置：LZ4 压缩，单 producer client，按目标 LPS 持续写入并等待 drain 完成。
-- 日志规格：`约 200 B/条`、`约 700 B/条` 表示单条日志序列化前的近似大小。
-- 发送：实际进入 producer 的写入速度，四舍五入为 `条/秒`。
-- 日志量：按原始日志大小换算为 `MB/分钟`；开启 LZ4 后，实际网络上传流量通常会更低。
-- CPU：换算为单核等效占比，`100%` 表示约占满 1 个 CPU 核。
-- 内存：以进程 PSS 峰值为主，RSS 受系统共享库映射影响更大，仅适合辅助观察。
-
-| 模式 | 日志规格 | 发送 | 日志量 | 单核等效 CPU | PSS 峰值 |
-| --- | --- | ---: | ---: | ---: | ---: |
-| 内存缓存 | 约 200 B/条 | 200 条/秒 | 2.3 MB/分钟 | 2.2% | 23.5 MB |
-| 内存缓存 | 约 200 B/条 | 500 条/秒 | 5.7 MB/分钟 | 5.1% | 24.1 MB |
-| 内存缓存 | 约 700 B/条 | 200 条/秒 | 8.3 MB/分钟 | 2.0% | 24.4 MB |
-| 内存缓存 | 约 700 B/条 | 500 条/秒 | 20.8 MB/分钟 | 4.3% | 24.9 MB |
-| 断点续传 | 约 200 B/条 | 200 条/秒 | 2.2 MB/分钟 | 6.0% | 24.9 MB |
-| 断点续传 | 约 200 B/条 | 500 条/秒 | 5.7 MB/分钟 | 13.2% | 24.7 MB |
-| 断点续传 | 约 700 B/条 | 200 条/秒 | 8.3 MB/分钟 | 6.4% | 24.9 MB |
-| 断点续传 | 约 700 B/条 | 500 条/秒 | 20.8 MB/分钟 | 14.3% | 25.6 MB |
-
-业务侧做性能验收时应固定以下变量，否则不同轮次无法直接比较：
-
-- 使用 release 包，不使用 debug 包或打开额外日志。
-- 使用相同设备、Android 版本、网络、endpoint、Topic、日志字段、日志大小、压缩类型和 persistent 开关。
-- 至少记录发送条数、失败条数、`cpu_ms`、`wall_total_ms`、`available_processors`、`pss_peak_kb` 和上传流量。
-- 高可靠场景必须单独测试 persistent 模式；不要用 memory 模式数据推断断点续传成本。
-
-## SDK 包体积
-
-包体积建议看“接入 SDK 后 APK 增量”，不要只看 AAR 原始大小。AAR 是发布形态，最终 APK/AAB 会受 R8、资源裁剪、ABI split、依赖传递和签名方式影响。
-
-以下是最小接入样例的 release 包对比，口径为 `noProvider`、R8 开启、资源裁剪开启、4 个 ABI 全部打入 APK：
-
-| 项目 | 大小 | 说明 |
-| --- | ---: | --- |
-| 未接入 SDK 的空样例 APK | 45.1 KB | 用于做 APK Analyzer 的 previous APK |
-| 接入 producer 后 APK | 300.2 KB | 包含 producer Java wrapper 与 4 个 ABI 的 native 库 |
-| APK 增量 | +255.2 KB | 客户最应该关注的包体积影响 |
-| producer AAR | 267.8 KB | 发布 AAR 本身，不能直接等同于 APK 增量 |
-
-APK 增量主要来自 native 库和少量 Java wrapper：
-
-| 增量项 | APK 内压缩后大小 | 说明 |
-| --- | ---: | --- |
-| `lib/*.so` | 221.3 KB | 4 个 ABI 合计；单设备只需要其中 1 个 ABI |
-| `classes.dex` | 32.6 KB | producer Java API、回调和 JNI wrapper |
-| Manifest / META-INF 等 | 小于 2 KB | 对总包体积影响很小 |
-
-要达到最小包体积，按以下顺序收敛：
-
-1. 只接入 `tls-android-producer` 写入包，不接入 full/core 查询、消费、管控模块。
-2. 使用 release 构建，并开启 `minifyEnabled true`、`shrinkResources true`。
-3. 避免宽泛 keep 整个 `com.volcengine.*`，只保留 README 中给出的 producer 必要 keep 规则。
-4. 使用 `noProvider` 形态，不额外引入 SLF4J provider、OkHttp 或其他日志门面依赖。
-5. 默认使用 LZ4 最小 native 包；只有明确需要时再启用 ZLIB。
-6. 面向线上分发时开启 ABI split 或使用 AAB，让用户设备只下载匹配 ABI 的 native 库。
-7. 用 Android Studio APK Analyzer 的 `Compare with previous APK...` 对比“未接 SDK 空样例”和“接入 SDK 样例”，以最终 APK 增量作为发布口径。
-
-如果不启用 ABI split，APK 会同时携带 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64`；如果只面向真机发布，通常至少保留 `arm64-v8a`，再按业务兼容范围决定是否保留 `armeabi-v7a`。
-
-## 环境要求
-
-- Android API 19 及以上。
-- API 19-20 使用系统 `HttpsURLConnection`/JSSE；为兼容这部分系统，TLS 服务端需要开放设备可协商的 CBC 套件，建议至少保留 `TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA`，同时保留现代 GCM/ChaCha 套件。SDK 不携带 Conscrypt，也不会修改应用全局 TLS Provider。
-- Android 工程需声明 `INTERNET` 权限。
-- 如果开启断点续传，持久化文件路径必须位于应用可写目录。
-
-```xml
-<uses-permission android:name="android.permission.INTERNET" />
-```
-
-## Gradle 接入
+### 1. 添加依赖
 
 ```groovy
 repositories {
@@ -126,285 +62,441 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.github.volcengine-tls:tls-android-producer:2.1.2'
+    implementation 'io.github.volcengine-tls:tls-android-producer:2.1.3'
 }
 ```
 
-如果使用源码方式接入，只依赖 producer-native 写入模块即可：
+SDK 要求 Android API 19 及以上，宿主应用需要网络权限：
 
-```groovy
-include ':producer-native'
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
 ```
 
-源码构建会校验 `producer-native/ve-tls-c-sdk.version` 中固定的 C core full SHA，并拒绝 HEAD 不匹配或 tracked tree 有修改的 C checkout。发布后的 AAR 可通过 `BuildConfig.VE_TLS_C_SDK_COMMIT` 反查实际编入的 C core commit。
+API 19-20 使用系统 `HttpsURLConnection`/JSSE。服务端需要保留这些系统能够协商的 TLS 套件，例如 `TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA`，同时应继续保留现代 GCM/ChaCha 套件。SDK 不修改应用全局 TLS Provider，也不公开关闭证书校验的配置。
 
-## 混淆配置
-
-SDK AAR 已内置 consumer rules；如果宿主工程有更严格的 R8/ProGuard 配置，按下面规则补齐，不要直接 keep 整个 `com.volcengine.*`。
-
-```proguard
-# Public producer API used by application code.
--keep class com.volcengine.tls.android.producer.Log { *; }
--keep class com.volcengine.tls.android.producer.LogProducerClient { *; }
--keep class com.volcengine.tls.android.producer.LogProducerConfig { *; }
--keep class com.volcengine.tls.android.producer.LogProducerCallback { *; }
--keep class com.volcengine.tls.android.producer.LogProducerResult { *; }
--keep class com.volcengine.tls.android.producer.LogProducerResult$* { *; }
-
-# JNI entry points and Java classes looked up from native code by name.
--keep class com.volcengine.tls.android.producer.internal.JniNativeProducerBridge { *; }
--keep class com.volcengine.tls.android.producer.internal.NativeHttpBridge { *; }
--keep class com.volcengine.tls.android.producer.internal.NativeHttpBridge$Request { *; }
--keep class com.volcengine.tls.android.producer.internal.NativeHttpResponse { *; }
--keep class com.volcengine.tls.android.producer.internal.CallbackDispatcher { *; }
-
--keepclassmembers class com.volcengine.tls.android.producer.internal.JniNativeProducerBridge {
-    native <methods>;
-}
-```
-
-## 最小写入示例
+### 2. 创建 client
 
 ```java
-import com.volcengine.tls.android.producer.Log;
 import com.volcengine.tls.android.producer.LogProducerClient;
 import com.volcengine.tls.android.producer.LogProducerConfig;
 
 LogProducerConfig config = new LogProducerConfig()
         .setEndpoint("https://your-tls-endpoint")
-        .setRegion("your_region")
-        .setTopicId("your_topic_id")
-        .setAccessKeyId("your_access_key_id")
-        .setAccessKeySecret("your_access_key_secret")
-        .setSecurityToken("") // STS 场景传临时 token；长期 AK/SK 可留空
-        .setCompressType(LogProducerConfig.CompressType.LZ4);
+        .setRegion("your-region")
+        .setTopicId("your-topic-id")
+        .setAccessKeyId("your-access-key-id")
+        .setAccessKeySecret("your-access-key-secret")
+        .setSecurityToken("your-sts-token")
+        .setCompressType(LogProducerConfig.CompressType.LZ4)
+        .setDestroyFlusherWaitMs(1000)
+        .setDestroySenderWaitMs(4000);
 
 LogProducerClient client = new LogProducerClient(config, result -> {
     if (!result.isSuccess()) {
         android.util.Log.w("TLSProducer", result.getFailureSummary());
     }
 });
+```
+
+生产应用不要在 APK 中长期固化 AK/SK。优先由服务端签发短期 STS 凭证，并在过期前调用 `resetSecurityToken` 轮转。
+
+`LogProducerClient` 构造时会冻结并复制 config。构造后继续调用原 config 的 setter 会抛出 `IllegalStateException`，不会动态改变已创建 client。
+
+### 3. 写入日志
+
+```java
+import com.volcengine.tls.android.producer.Log;
 
 Log log = new Log()
         .putContent("level", "info")
+        .putContent("event_id", "your-stable-event-id")
         .putContent("message", "hello android producer")
         .setLogTime(System.currentTimeMillis());
-
-client.addLog(log);
-```
-
-应用退出或不再写入时释放 producer：
-
-```java
-client.destroyLogProducer();
-client.awaitDestroy(3000);
-```
-
-## 配置说明
-
-配置对象通过 `LogProducerConfig` 创建，再传入 `LogProducerClient`。`LogProducerClient` 会在构造时冻结 config，并在第一次写入时创建 native producer。
-
-```java
-LogProducerConfig config = new LogProducerConfig()
-        .setEndpoint(endpoint)
-        .setRegion(region)
-        .setTopicId(topicId)
-        .setAccessKeyId(accessKeyId)
-        .setAccessKeySecret(accessKeySecret)
-        .setSecurityToken(securityToken)
-        .setHashKey("default-route")
-        .setCompressType(LogProducerConfig.CompressType.LZ4)
-        .setPacketLogBytes(1024 * 1024)
-        .setPacketLogCount(1024)
-        .setPacketTimeoutMs(3000)
-        .setMaxBufferLimit(64 * 1024 * 1024)
-        .setSendThreadCount(1)
-        .setRetryMaxAttempts(3)
-        .setRetryTotalTimeoutMs(90_000)
-        .setRetryInitialIntervalMs(500)
-        .setRetryMaxIntervalMs(10_000);
-
-LogProducerClient client = new LogProducerClient(config);
-```
-
-关键配置建议：
-
-- `endpoint`、`region`、`topicId`、`accessKeyId`、`accessKeySecret` 是最小必填项；STS 场景还需要 `securityToken`。
-- `hashKey` 用于服务端路由和有序性控制；同一个 hashKey 的日志在服务端按同一路由处理，不同 hashKey 可提升并发分散度。
-- `packetLogBytes`、`packetLogCount`、`packetTimeoutMs` 共同决定批量大小和发送延迟；吞吐优先可增大批量，低延迟优先可降低 timeout。
-- `maxBufferLimit` 是单 client 内存缓存上限；写入速度长期高于发送速度时，超过上限会导致 `addLog` 抛异常。
-- `retryMaxAttempts`、`retryTotalTimeoutMs`、`retryInitialIntervalMs`、`retryMaxIntervalMs` 控制 SDK 内部退避重试；业务侧不应在主线程做无界重试。
-
-### 动态更新配置
-
-不要通过继续修改原 `LogProducerConfig` 来做动态更新。原因有两点：
-
-- `LogProducerClient` 构造时会把 config 冻结，后续再调用 `config.setXxx(...)` 会抛出 `IllegalStateException`。
-- native producer 使用的是构造时生成的 `ConfigSnapshot`；即使绕过冻结去改 Java 对象，也不会自动同步到 native 发送路径。
-
-当前支持在原 client 上动态更新的只有两类：
-
-- `client.updateEndpoint(endpoint, region, topicId)`：更新后续新请求的发送目标；已经进入 native 发送路径的请求可能仍使用旧目标。
-- `client.resetSecurityToken(accessKeyId, accessKeySecret, securityToken)`：事务化更新 AK/SK/STS token；persistent 认证失败默认 retain，更新成功后同一 client 会恢复发送被保留的记录。
-
-```java
-client.updateEndpoint(newEndpoint, newRegion, newTopicId);
-client.resetSecurityToken(newAccessKeyId, newAccessKeySecret, newSecurityToken);
-```
-
-以下参数是 create-time 参数，运行中修改不会生效；如需变更，应创建新的 config/client，完成业务切流后销毁旧 client：
-
-- 压缩类型、批量参数、缓存上限、发送线程数、重试策略。
-- persistent 开关、持久化路径、持久化容量、强制刷盘策略。
-- 默认 hashKey、source、tag、回调线程策略、连接/请求超时、destroy 等生命周期参数。
-
-如果开启 persistent 且需要切换 endpoint/region/topicId，建议同时切换到新的 `persistentFilePath` 或直接新建 client。否则旧路径中已持久化的 backlog 可能被恢复后发送到新的目标。
-
-### 全量参数说明
-
-| 方法 | 默认值 | 取值与说明 | 推荐使用方式 |
-| --- | --- | --- | --- |
-| `setEndpoint(String)` | 无 | TLS endpoint，建议传完整协议前缀，例如 `https://...` | 必填 |
-| `setRegion(String)` | 无 | TLS region | 必填 |
-| `setProjectId(String)` | `null` | Project ID，当前 producer 写入路径保留字段 | 有明确业务需要时设置 |
-| `setTopicId(String)` | 无 | 写入目标 Topic ID | 必填 |
-| `setAccessKeyId(String)` | 无 | 访问凭证 AK | 必填 |
-| `setAccessKeySecret(String)` | 无 | 访问凭证 SK | 必填 |
-| `setSecurityToken(String)` | `null` | STS 临时 token；长期 AK/SK 场景可为空 | STS 场景必填 |
-| `setHashKey(String)` | `null` | 默认 hashKey，创建后不支持动态修改 | 需要有序或路由分散时设置 |
-| `setSource(String)` | `null` | `__source__` 字段 | 需要固定来源标识时设置 |
-| `addTag(String, String)` | 空 | 写入请求附带的 tag；重复 key 按追加顺序保留 | 需要公共标签时设置 |
-| `setCompressType(CompressType)` | `LZ4` | `LZ4` 或 `NONE` | 一般保持默认 |
-| `setPacketLogBytes(int)` | `1048576` | 单个发送包的日志字节数上限，单位 byte | 常用 `256 KB` ~ `1 MB` |
-| `setPacketLogCount(int)` | `1024` | 单个发送包的日志条数上限 | 常用 `512` ~ `1024` |
-| `setPacketTimeoutMs(int)` | `3000` | 缓存日志的发送超时时间，单位 ms | 低延迟 `1000`，常规 `3000` |
-| `setMaxBufferLimit(int)` | `67108864` | 单 client 内存缓存上限，单位 byte | 常用 `64 MB`，低内存设备可下调 |
-| `setSendThreadCount(int)` | `1` | 发送线程数；persistent 模式下会收敛为 `1` | 默认即可 |
-| `setRetryMaxAttempts(int)` | `0` | 最大尝试次数，范围 `[0, 50]`；`0` 表示不按次数限制，仅受总超时约束 | 常用 `3` |
-| `setRetryTotalTimeoutMs(int)` | `90000` | 单条发送含重试的总预算，必须 `> 0`，单位 ms | 默认 `90s` |
-| `setRetryInitialIntervalMs(int)` | `500` | 首次退避间隔，范围 `[100, 30000]`，单位 ms | 默认 `500ms` |
-| `setRetryMaxIntervalMs(int)` | `10000` | 最大退避间隔，范围 `[1000, 60000]`，且不小于 initial interval | 默认 `10s` |
-| `setEnableTimeNs(boolean)` | `false` | 是否启用纳秒时间字段；需配合带 `timeNs` 的 `addLog` 使用 | 只有需要高精度时间时开启 |
-| `setPersistent(boolean)` | `false` | 是否开启断点续传 | 高可靠场景开启 |
-| `setPersistentFilePath(String)` | `null` | 持久化文件路径；必须位于应用可写目录 | persistent 开启时必填 |
-| `setPersistentDurability(PersistentDurability)` | `BUFFERED_WAL` | buffered 在 rotation、flush、close 时刷盘；sync 每次 append 刷盘 | 只有明确需要更强落盘边界时使用 `SYNC_WAL` |
-| `setPersistentForceFlush(boolean)` | `false` | 兼容 API；`true` 映射为 `SYNC_WAL` | 新接入使用 `setPersistentDurability` |
-| `setPersistentMaxFileCount(int)` | `0` | segment 文件数量上限；persistent 开启时必须显式设置为 `> 0` | 常用 `8` ~ `10` |
-| `setPersistentMaxFileSize(int)` | `0` | 单个 segment 大小，单位 byte；persistent 开启时必须显式设置为 `> 0` | 常用 `1 MB` ~ `10 MB` |
-| `setPersistentMaxLogCount(int)` | `0` | 单个 segment 日志数量上限；persistent 开启时必须显式设置为 `> 0` | 生产场景常用 `65536` |
-| `setPersistentMaxBytes(int)` | `0` | persistent 总字节上限；`0` 按 file size × file count 推导 | 需要独立总量上限时设置 |
-| `setPersistentMaxRecords(int)` | `0` | persistent 总记录上限；`0` 沿用 `persistentMaxLogCount` | 需要独立总量上限时设置 |
-| `setPersistentMaxSegments(int)` | `0` | persistent 总 segment 上限；`0` 沿用 `persistentMaxFileCount` | 需要独立总量上限时设置 |
-| `setPersistentHighWatermarkPct(int)` | `85` | bytes、records、segments 任一维度达到该百分比后触发回收 | 一般保持默认 |
-| `setPersistentLowWatermarkPct(int)` | `70` | 触发回收后尽量降到该百分比；必须小于 high watermark | 一般保持默认 |
-| `setPersistentOverflowPolicy(PersistentOverflowPolicy)` | `REJECT_NEW` | 容量无法回收到安全线时的行为 | 默认拒绝新日志，不静默丢历史数据 |
-| `setPersistentSampleEveryN(int)` | `10` | `DROP_NEWEST_SAMPLE` 下每 N 条采样保留策略参数 | 仅采样策略使用 |
-| `setPersistentBlockTimeoutMs(int)` | `1000` | `BLOCK` 策略的最长等待时间，单位 ms | 仅阻塞策略使用 |
-| `setConnectTimeoutMs(int)` | `0` | 连接超时，单位 ms；`0` 使用 native 默认值 | 弱网场景按业务调整 |
-| `setRequestTimeoutMs(int)` | `0` | 请求超时，单位 ms；`0` 使用 native 默认值 | 弱网场景按业务调整 |
-| `setDestroyWaitMs(int)` | `0` | destroy 总等待预算，单位 ms | 简单场景使用 |
-| `setDestroyFlusherWaitMs(int)` | `0` | flusher 销毁等待预算，单位 ms | 需要拆分等待时设置 |
-| `setDestroySenderWaitMs(int)` | `0` | sender 销毁等待预算，单位 ms | 需要拆分等待时设置 |
-| `setCallbackFromSenderThread(boolean)` | `false` | 是否直接从 sender 线程回调 | 回调逻辑很轻时才开启 |
-
-### 断点续传配置
-
-高可靠写入场景建议开启断点续传。持久化文件必须放在应用私有目录；多个 producer client 不要复用同一个文件。
-
-```java
-config.setPersistent(true);
-config.setPersistentFilePath(context.getFilesDir() + "/tls-producer/log.dat");
-config.setPersistentMaxFileCount(10);
-config.setPersistentMaxFileSize(1024 * 1024);
-config.setPersistentMaxLogCount(65536);
-config.setPersistentDurability(LogProducerConfig.PersistentDurability.BUFFERED_WAL);
-config.setPersistentOverflowPolicy(LogProducerConfig.PersistentOverflowPolicy.REJECT_NEW);
-```
-
-注意：
-
-- 开启 persistent 后，发送线程数会被 Android binding 收敛为 `1`，避免本地恢复、发送确认和顺序语义变复杂。
-- 多进程场景会在非主进程路径后自动追加清洗后的进程名；同一进程内的多个 client 仍不能复用同一个持久化路径。
-- `SYNC_WAL` 每条 append 都执行文件同步，会显著增加 IO 成本；默认使用 `BUFFERED_WAL`。
-- 旧 `setPersistentForceFlush(true)` 等价于 `SYNC_WAL`；显式 `BUFFERED_WAL` 与旧开关 `true` 冲突时配置会被拒绝。
-- `DROP_OLDEST_UNACKED` 会删除尚未确认的历史日志，`DROP_NEWEST_SAMPLE` 会按采样规则丢弃新日志；两者都会破坏完整的 at-least-once 保证，只有业务明确接受数据损失时才能启用。
-- 如果切换 endpoint/region/topicId，建议同步切换 `persistentFilePath`，避免旧目标的 backlog 被恢复后发送到新目标。
-
-## 回调函数配合使用
-
-`LogProducerCallback` 表示后台发送完成后的最终结果；当前 Java API 的 `addLog` 不返回整数码，入参非法、producer 已销毁、native 入队失败等会通过异常暴露。
-
-- `client.addLog(log)` 正常返回：日志已进入 producer，本次调用没有同步失败。
-- `client.addLog(log)` 抛异常：日志未成功进入 producer，调用方应按业务策略降级或短暂重试。
-- `LogProducerCallback.onCompletion(result)`：后台发送最终结果；如果构造 client 时不传 callback，就不会收到逐条最终状态。
-
-推荐写法：
-
-```java
-LogProducerClient client = new LogProducerClient(config, result -> {
-    if (!result.isSuccess()) {
-        android.util.Log.w("TLSProducer", result.getFailureSummary());
-    }
-});
 
 try {
     client.addLog(log);
 } catch (RuntimeException e) {
-    android.util.Log.w("TLSProducer", "enqueue failed", e);
+    android.util.Log.w("TLSProducer", "addLog failed", e);
 }
 ```
 
-使用建议：
+`addLog(log, 1)` 中的 `1` 只提示 producer 尽快 flush，不等于同步等待服务端成功，也不把 Buffered WAL 自动提升为 Sync WAL。
 
-- callback 中不要执行耗时任务、网络请求或阻塞等待；需要复杂处理时转交给业务自己的线程池。
-- 关键日志建议同时处理 `addLog` 异常和 callback 失败；只看 callback 会漏掉入队失败。
-- 非关键日志可以不传 callback，以降低对象持有和回调调度成本。
-- `LogProducerResult` 同时暴露 `isRetryable()`、`getStartId()` 和 `getEndId()`，用于识别最终一次失败是否仍可重试，并关联本次批量发送覆盖的日志 ID 范围。
-- `LogProducerResult.getFailureSummary()` 会汇总失败类型、HTTP 状态码、错误码、错误信息和 requestId，适合直接接入业务日志。
-- 当前 C callback 的 `raw_buffer` 没有长度合同且所有生产调用点均传空，checkpoint durable 状态也不属于该 callback；Android API 暂不伪造这两个字段，待 C core 冻结相应 ABI 后再对齐。
+### 4. 关闭 client
 
-## 写入接口说明
+先停止业务写入，再触发异步销毁，并做有界等待：
 
-常用写入接口：
+```java
+client.destroyLogProducer();
+boolean closed = client.awaitDestroy(6000);
+```
+
+`setDestroyFlusherWaitMs` 和 `setDestroySenderWaitMs` 控制 native flusher/sender 的关闭预算；`awaitDestroy` 只等待已经启动的销毁任务，不会增加 native 内部预算。也可以用 `setDestroyWaitMs` 配置一个兼容的总预算，但不要和拆分预算混用。
+
+建议在 Application 级组件中复用 client，不要跟随 Activity 重建。`destroyLogProducer` 后该 client 不能再次写入。
+
+## 开启持久化和断点续传
+
+下面是推荐的 Buffered WAL 配置。`persistentFilePath` 是目录，不是单个 `.dat` 文件。
+
+```java
+import android.content.Context;
+import android.os.Build;
+
+import java.io.File;
+
+File storageRoot = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
+        ? context.getNoBackupFilesDir()
+        : context.getFilesDir();
+File walDirectory = new File(storageRoot, "tls-producer/main");
+
+LogProducerConfig config = new LogProducerConfig()
+        .setEndpoint("https://your-tls-endpoint")
+        .setRegion("your-region")
+        .setTopicId("your-topic-id")
+        .setAccessKeyId("your-access-key-id")
+        .setAccessKeySecret("your-access-key-secret")
+        .setSecurityToken("your-sts-token")
+        .setPersistent(true)
+        .setPersistentFilePath(walDirectory.getAbsolutePath())
+        .setPersistentDurability(
+                LogProducerConfig.PersistentDurability.BUFFERED_WAL)
+        .setPersistentMaxFileCount(10)
+        .setPersistentMaxFileSize(1024 * 1024)
+        .setPersistentMaxLogCount(65536)
+        .setPersistentHighWatermarkPct(85)
+        .setPersistentLowWatermarkPct(70)
+        .setPersistentOverflowPolicy(
+                LogProducerConfig.PersistentOverflowPolicy.REJECT_NEW)
+        .setDestroyFlusherWaitMs(1000)
+        .setDestroySenderWaitMs(4000);
+
+LogProducerClient client = new LogProducerClient(config, result -> {
+    if (!result.isSuccess()) {
+        android.util.Log.w("TLSProducer", result.getFailureSummary());
+    }
+});
+```
+
+如果需要 Sync WAL，只修改 durability：
+
+```java
+config.setPersistentDurability(
+        LogProducerConfig.PersistentDurability.SYNC_WAL);
+```
+
+旧 API `setPersistentForceFlush(true)` 兼容映射为 `SYNC_WAL`，新接入应使用 `setPersistentDurability`。显式配置 `BUFFERED_WAL` 后再设置 `persistentForceFlush=true` 会因语义冲突而失败。
+
+### 断点续传如何发生
+
+1. `addLog` 先把记录追加到本地 WAL，再进入内存发送路径。
+2. 服务端请求成功后，SDK 推进连续 checkpoint，并回收可安全删除的已确认 segment。
+3. 网络失败、认证失败、重试预算耗尽或内部队列暂时失败时，已持久化记录不会被隐式确认。
+4. App 进程重启后，使用相同配置和相同持久化目录创建 client。
+5. 第一次触发 native producer 创建时，Android binding 会先自动 recover 未确认记录，再处理本次新操作。
+
+当前 Java API 是惰性创建：仅执行 `new LogProducerClient(...)` 不会立即打开 WAL 或开始补传。通常第一次 `addLog` 会触发创建和自动 recover；`updateEndpoint`、`resetSecurityToken` 也会触发创建。当前没有单独公开的 `start()`/`recover()` 方法，因此“App 启动后即使没有新日志也立即 drain backlog”不是当前 API 的保证。
+
+### 目录使用规则
+
+- 同一个逻辑 client 在重启前后必须复用同一目录，否则找不到原 backlog。
+- 同一进程的多个活跃 client 必须使用不同目录，不能把一个目录当成多写者队列。
+- 非主进程会在配置目录下追加清洗后的进程名，避免不同 Android 进程直接共用 WAL。
+- 推荐使用应用私有且不参与云备份的目录，避免 WAL 被复制到另一设备。API 19 可回退到 `filesDir`，并在备份规则中排除该目录。
+- 不要清理、移动或手工修改 `manifest`、`checkpoint`、`lease` 和 `seg-*.log` 文件。
+
+### 容量和溢出策略
+
+示例配置的主要上限是约 `10 MiB`、`65536` 条记录和 `10` 个 segment。也可以用以下 API 独立覆盖三维总上限：
+
+- `setPersistentMaxBytes`
+- `setPersistentMaxRecords`
+- `setPersistentMaxSegments`
+
+任一已配置维度达到 high watermark 会触发压力回收；SDK 尝试回收到 low watermark，或直到没有可安全回收的已确认 closed segment。active segment、未 durable ACK segment 和恢复游标所在 segment 不会被正常水位回收。
+
+| 策略 | 空间不足时的行为 | 数据语义 |
+| --- | --- | --- |
+| `REJECT_NEW` | 拒绝新日志，保留旧 WAL | 默认推荐，不静默删除已接受日志 |
+| `BLOCK` | 最多等待 `persistentBlockTimeoutMs` 后失败 | 不删除旧 WAL，但会阻塞调用线程 |
+| `DROP_OLDEST_UNACKED` | 删除最旧未确认 closed segment 腾空间 | 明确破坏完整的 at-least-once |
+| `DROP_NEWEST_SAMPLE` | 按 `persistentSampleEveryN` 采样保留新日志 | 会丢新日志，适合明确接受采样的场景 |
+
+不要在 Android 主线程使用 `BLOCK`。除非业务已经书面接受数据损失，否则保持 `REJECT_NEW`。
+
+## 持久化语义与边界
+
+### At-least-once，不是 exactly-once
+
+- 服务端成功才推进 checkpoint；失败不会被统一当成已处理。
+- callback 成功表示请求进入服务端成功路径，不表示本地 checkpoint 已经 durable 落盘。
+- checkpoint 保存失败或进程在成功回调附近崩溃时，重启可能重发已经到达服务端的日志。
+- 业务不能接受重复时，必须使用稳定的 `event_id` 或业务主键去重。
+
+### Buffered WAL 与 Sync WAL
+
+- Buffered WAL 在 segment rotation、flush 和正常 close 时同步文件。进程崩溃后通常可恢复已经写入 page cache 的记录，但突然掉电仍有未同步窗口。
+- Sync WAL 每次 append 都同步文件；只有 `write + fsync` 成功才正常返回，因此可靠性更强，但每条写入都承担同步 IO 成本。
+- Sync WAL 中如果 `write` 成功但 `fsync` 失败，`addLog` 会抛异常，磁盘上仍可能留下可恢复记录；调用方立即重试可能形成重复。
+
+### 失败后的后续重试
+
+单轮重试受 `retryMaxAttempts` 和 `retryTotalTimeoutMs` 约束。当前源码 `2.1.3`（待发布）固定 C Core `v0.3.2`，SHA 为 `1d41ec4edb850ee7dd0b7f63c49738d6a9669c21`。Persistent 的暂时网络故障或 HTTP `429/500/502/503/504` 耗尽单轮预算后，会在同一 client 内自动开启下一轮，跨轮指数退避最长 5 分钟。关闭不等待跨轮退避计时器，未 ACK 的 WAL 保留到下次创建 client 时恢复。Memory 模式仍在单轮预算耗尽后报告终态失败。
+
+证书/主机名验证失败、TLS 握手/协议错误、非法 URL 等永久错误不会自动重试；修正后重新创建 client 恢复 WAL。升级保持 WAL 格式不变，默认资源配置和 API 19 最低支持版本也不变。
+
+认证失败默认按 retain 处理，不推进 persistent checkpoint，也不发终态失败 callback。修正凭证后调用 `resetSecurityToken(...)`，同一 client 会恢复发送被保留的记录，成功后只回调一次成功。调用方必须按 STS 过期时间提前获取新凭证并调用该接口，不能依赖失败 callback 触发刷新。Android 暂无独立的认证失败通知，Core 内部失败指标也不透出到 Java；没有 callback 不代表没有请求错误。
+
+### 更新发送目标
+
+WAL backlog 不绑定写入时的 endpoint、region 或 topic。调用 `updateEndpoint` 表示接入方接受以下风险：
+
+- 已进入发送路径的请求可能仍使用旧目标。
+- 后续请求会收敛到新目标。
+- 尚未发送的旧 backlog 以及后续 recover 记录可能发送到新目标。
+
+如果业务不能接受旧 backlog 改投新目标，应为新目标创建新的 client 和新的持久化目录。SDK 当前只告警该风险，不阻止更新。
+
+## 失败处理与回调
+
+同步调用和异步回调代表两个不同阶段：
+
+| 信号 | 含义 | 建议 |
+| --- | --- | --- |
+| `addLog` 正常返回 | 当前可靠性模式的接收步骤完成，不代表服务端成功 | 等待 callback 或依赖 persistent 恢复 |
+| `addLog` 抛异常 | 参数、生命周期、内存、磁盘、WAL 或 native 入队阶段失败 | 记录本地指标，按业务等级降级；不要无界重试 |
+| callback 成功 | 对应批次进入服务端成功路径 | persistent 下仍可能因 checkpoint 边界产生重复 |
+| callback 失败 | 本次发送路径结束；persistent 的认证 retain 和跨轮重试不发终态失败 | 查看 failure kind、HTTP/transport、requestId 和 retryable；失败不保证 WAL 已删除 |
+
+persistent 模式下不能把所有 `addLog` 异常都解释为“记录一定未落盘”。append 后的内存入队失败，或 Sync WAL 的 `fsync` 失败，都可能留下后续可恢复记录。因此关键日志重试必须带稳定业务主键。
+
+```java
+LogProducerClient client = new LogProducerClient(config, result -> {
+    if (result.isSuccess()) {
+        return;
+    }
+
+    switch (result.getFailureKind()) {
+        case AUTH:
+            // Memory 认证失败可在此诊断；Persistent retain 不走此分支。
+            // STS 必须按过期时间提前刷新，不能只依赖失败 callback。
+            break;
+        case TRANSPORT:
+        case HTTP:
+        case TIMEOUT:
+            // 记录指标，由 SDK 完成本轮退避；业务侧避免立即无界重试。
+            break;
+        case PERSISTENCE:
+            // 检查目录权限、剩余空间、目录是否被重复占用。
+            break;
+        default:
+            break;
+    }
+
+    android.util.Log.w("TLSProducer", result.getFailureSummary());
+});
+```
+
+可用于诊断的字段包括：
+
+- `getFailureKind()`、`getCode()`、`isRetryable()`
+- `getHttpCode()`、`getTransportKind()`、`getTransportCode()`
+- `getErrorCode()`、`getErrorMessage()`、`getRequestId()`
+- `getLogBytes()`、`getCompressedBytes()`
+- `getStartId()`、`getEndId()`、`hasLogIdRange()`
+
+callback 默认不在 sender 线程直接执行。不要在 callback 中做耗时工作；如果开启 `setCallbackFromSenderThread(true)`，更必须保证回调常数时间、无阻塞、无重入销毁。
+
+## 配置参考
+
+### 写入目标与日志属性
+
+| 方法 | 默认值 | 说明 |
+| --- | --- | --- |
+| `setEndpoint` | 无 | TLS endpoint，必须包含正确协议和域名；必填 |
+| `setRegion` | 无 | TLS region；必填 |
+| `setProjectId` | `null` | 保留的 Project ID 字段，常规发送主要依赖 Topic |
+| `setTopicId` | 无 | 目标 Topic ID；必填 |
+| `setAccessKeyId` / `setAccessKeySecret` | `null` | AK/SK；真实发送需要有效授权 |
+| `setSecurityToken` | `null` | STS token，临时凭证场景设置 |
+| `setHashKey` | `null` | null/空串不指定；非空为 32 位小写十六进制且不能全为 f |
+| `setSource` | `null` | LogGroup 的 `__source__` |
+| `addTag` | 空 | 添加 LogGroup 级 tag |
+| `setEnableTimeNs` | `false` | Core 纳秒字段开关；Java Log 当前仅传毫秒，没有独立纳秒余数参数 |
+
+### 聚合、内存和重试
+
+| 方法 | 默认值 | 说明 |
+| --- | ---: | --- |
+| `setCompressType` | `LZ4` | `LZ4` 或 `NONE` |
+| `setPacketLogBytes` | `1048576` | 单个聚合包原始日志字节上限 |
+| `setPacketLogCount` | `1024` | 单个聚合包日志条数上限 |
+| `setPacketTimeoutMs` | `3000` | 聚合等待时间，单位 ms |
+| `setMaxBufferLimit` | `67108864` | 单 client producer 内存预算，不等于 App 总 PSS |
+| `setSendThreadCount` | `1` | sender 数；persistent 模式强制收敛为 `1` |
+| `setRetryMaxAttempts` | `0` | 范围 `[0, 50]`；`0` 表示不按次数限制，仍受总超时限制 |
+| `setRetryTotalTimeoutMs` | `90000` | 单轮发送和重试总预算，必须大于 `0` |
+| `setRetryInitialIntervalMs` | `500` | 首次退避，范围 `[100, 30000]` ms |
+| `setRetryMaxIntervalMs` | `10000` | 最大退避，范围 `[1000, 60000]` ms，且不小于 initial |
+| `setConnectTimeoutMs` | `0` | `0` 使用 native 默认 `10000` ms |
+| `setRequestTimeoutMs` | `0` | `0` 使用 native 默认 `50000` ms |
+
+默认配置基线是：单包最多 `1 MiB`、最多 `1024` 条、最多等待 `3000 ms`、`64 MiB` 内存预算、`1` 个 sender、LZ4 压缩。不要为了追求吞吐盲目增加 sender；persistent 当前固定为单 sender。
+
+### Persistent
+
+| 方法 | 默认值 | 说明 |
+| --- | ---: | --- |
+| `setPersistent` | `false` | 开启 WAL 和断点续传 |
+| `setPersistentFilePath` | `null` | WAL 目录；开启 persistent 后必填 |
+| `setPersistentDurability` | `BUFFERED_WAL` | 选择 buffered 或逐条 sync |
+| `setPersistentMaxFileCount` | `0` | segment 数量上限；开启 persistent 后必须显式大于 `0` |
+| `setPersistentMaxFileSize` | `0` | 单 segment 字节上限；开启 persistent 后必须显式大于 `0` |
+| `setPersistentMaxLogCount` | `0` | 单 segment 记录上限；开启 persistent 后必须显式大于 `0` |
+| `setPersistentMaxBytes` | `0` | 总字节上限；`0` 按 file size x file count 推导 |
+| `setPersistentMaxRecords` | `0` | 总记录上限；`0` 沿用 `persistentMaxLogCount` |
+| `setPersistentMaxSegments` | `0` | 总 segment 上限；`0` 沿用 `persistentMaxFileCount` |
+| `setPersistentHighWatermarkPct` | `85` | 任一容量维度达到该比例时触发压力回收 |
+| `setPersistentLowWatermarkPct` | `70` | 回收目标；必须小于 high watermark |
+| `setPersistentOverflowPolicy` | `REJECT_NEW` | 容量无法回收时的行为 |
+| `setPersistentSampleEveryN` | `10` | `DROP_NEWEST_SAMPLE` 的采样参数 |
+| `setPersistentBlockTimeoutMs` | `1000` | `BLOCK` 的最长等待时间 |
+
+### 生命周期与回调
+
+| 方法 | 默认值 | 说明 |
+| --- | ---: | --- |
+| `setDestroyWaitMs` | `0` | 兼容的总关闭预算；设置后会清除拆分预算 |
+| `setDestroyFlusherWaitMs` | `0` | flusher 关闭预算；设置后启用拆分关闭 |
+| `setDestroySenderWaitMs` | `0` | sender 关闭预算；设置后启用拆分关闭 |
+| `setCallbackFromSenderThread` | `false` | 是否直接在 sender 线程回调 |
+
+## 运行时更新与生命周期
+
+构造后的 config 已冻结。当前只有两类参数可以在原 client 上更新：
+
+```java
+client.resetSecurityToken(newAk, newSk, newStsToken);
+client.updateEndpoint(newEndpoint, newRegion, newTopicId);
+```
+
+- `resetSecurityToken` 用于 AK/SK/STS 轮转。
+- `updateEndpoint` 更新后续发送目标，但存在已进入发送路径的旧请求和 persistent backlog 改投风险。
+- 压缩、批量、缓存、sender、重试、persistent、目录、容量、overflow、回调线程和关闭预算都是 create-time 参数。修改它们需要新建 client。
+- 切换 client 时先停止新写入，再销毁旧 client；persistent 场景应明确旧目录由谁继续 drain。
+
+## 写入接口速查
 
 | 方法 | 说明 |
 | --- | --- |
-| `new Log().putContent(key, value)` | 添加单个日志字段，`value == null` 会转为空串 |
-| `new Log().putContents(map)` | 批量添加 KV 字段 |
-| `log.setLogTime(System.currentTimeMillis())` | 显式指定毫秒时间戳 |
-| `client.addLog(log)` | 写入一条日志，`flush=0` |
-| `client.addLog(log, 1)` | 写入一条日志并提示 producer 尽快 flush |
-| `client.updateEndpoint(endpoint, region, topicId)` | 动态更新后续请求的写入目标 |
-| `client.resetSecurityToken(ak, sk, token)` | 动态更新 AK/SK/STS token |
-| `client.destroyLogProducer()` | 异步销毁 producer |
-| `client.awaitDestroy(timeoutMs)` | 等待已触发的 destroy 完成 |
+| `new Log().putContent(key, value)` | 添加一个字段；`null` value 会转为空串 |
+| `log.putContents(map)` | 批量添加字段 |
+| `log.setLogTime(milliseconds)` | 设置日志毫秒时间戳，默认是创建 `Log` 时的当前时间 |
+| `client.addLog(log)` | 异步写入一条日志 |
+| `client.addLog(log, 1)` | 写入并提示尽快 flush，不等待服务端成功 |
+| `client.resetSecurityToken(...)` | 动态轮转凭证 |
+| `client.updateEndpoint(...)` | 动态更新发送目标 |
+| `client.destroyLogProducer()` | 异步触发 close 和 destroy |
+| `client.awaitDestroy(timeoutMs)` | 等待已启动的销毁任务 |
 
-应用退出、账号切换、配置切换前，建议调用 `destroyLogProducer()`，必要时再调用 `awaitDestroy(timeoutMs)` 做有界等待。
+## R8 / ProGuard
 
-## 返回码与失败处理
+AAR 已内置 [consumer-rules.pro](tls-android-modules/producer-native/consumer-rules.pro)，正常情况下不需要宿主额外 keep。不要宽泛 keep 整个 `com.volcengine.*`，否则会放大包体积；如果宿主还有二次字节码处理，应至少保留公共 producer API 和 JNI bridge 类。
 
-`addLog` 同步抛异常时，日志没有成功进入 producer 队列，调用方应根据业务策略处理。callback 返回失败时，表示日志进入 producer 后最终发送失败。
+## 源码构建与 C Core 版本
 
-常见处理方式：
+源码接入只需要 `producer-native` 模块：
 
-- 非关键日志：直接丢弃并记录本地计数。
-- 关键日志：业务侧短暂重试，但要避免在主线程阻塞。
-- 持续失败：降低采样率或关闭非关键日志，避免放大内存与磁盘压力。
-- persistent 模式持续失败：优先检查可写目录、剩余磁盘、持久化文件是否被多个 client 复用。
+```groovy
+include ':producer-native'
+```
 
-## 与 Java SDK 的分工
+构建会读取 `tls-android-modules/producer-native/ve-tls-c-sdk.version` 中固定的 C core full SHA，并拒绝 C checkout 的 HEAD 不匹配或 tracked tree 被修改。发布 AAR 可通过 `BuildConfig.VE_TLS_C_SDK_COMMIT` 反查实际编入的 C core commit。
+
+默认公开产物承诺 Android API 19 及以上。低于 API 19 的构建仅用于指定客户的 best-effort 定制，不属于公开兼容性和稳定性承诺。
+
+## 常见问题
+
+### App 重启后为什么没有立刻补传？
+
+client 是惰性创建。只调用构造函数不会打开 WAL；第一次 `addLog` 等操作创建 native producer 时才会自动 recover。当前没有独立公开的 `start()`/`recover()`。
+
+### 为什么 callback 失败后磁盘文件没有删除？
+
+这是预期行为。persistent 模式下，网络失败、认证失败和重试预算耗尽不会隐式 ACK 已持久化记录。删除它们会破坏断点续传语义。
+
+### 为什么 `addLog` 抛异常后重启又看到了这条日志？
+
+异常可能发生在 WAL append 之后，例如后续内存入队失败，或 Sync WAL 的 `fsync` 失败。此时记录可能仍能 recover。使用稳定业务主键处理重复，不要假设异常必然意味着磁盘中没有记录。
+
+### 为什么 persistent 配置了多个 sender，实际仍只有一个？
+
+Android binding 会把 persistent 模式收敛为单 sender，以保持恢复、连续 checkpoint 和发送顺序语义可控。
+
+### 能否让多个 client 共用一个 persistent 目录？
+
+不能。同一目录不是多写者队列。每个活跃 client 必须使用独立目录；多进程的自动子目录隔离不能替代同一进程内的 client 隔离。
+
+### 可以动态切换 Topic 吗？
+
+可以，但旧 backlog 可能改投新目标。能够接受该风险时调用 `updateEndpoint`；不能接受时新建 client 并使用新目录。
+
+### 如何处理磁盘写满？
+
+默认 `REJECT_NEW` 会保留旧 WAL 并让新写入失败。先监控本地异常和目录容量，再决定是否扩大限额或采用明确允许丢数据的 overflow policy。不要静默删除 WAL 文件。
+
+## 性能与包体积基线
+
+以下数据用于容量评估和版本回归，不是不同设备、网络或日志结构下的固定 SLA。
+
+<details>
+<summary>Android Producer 性能基线</summary>
+
+测试环境：Android API 29 arm64 模拟器，4 个可用处理器；release 包；LZ4；单 client；真实环境发送；持续写入后等待 drain。
+
+CPU 是单核等效占比，`100%` 表示约占满一个 CPU 核；内存是进程 PSS 峰值。日志量按原始日志大小估算，实际网络流量受压缩率影响。
+
+| 模式 | 日志规格 | 发送 | 原始日志量 | 单核等效 CPU | PSS 峰值 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 内存缓存 | 约 200 B/条 | 200 条/秒 | 2.3 MB/分钟 | 2.2% | 23.5 MB |
+| 内存缓存 | 约 200 B/条 | 500 条/秒 | 5.7 MB/分钟 | 5.1% | 24.1 MB |
+| 内存缓存 | 约 700 B/条 | 200 条/秒 | 8.3 MB/分钟 | 2.0% | 24.4 MB |
+| 内存缓存 | 约 700 B/条 | 500 条/秒 | 20.8 MB/分钟 | 4.3% | 24.9 MB |
+| Buffered WAL | 约 200 B/条 | 200 条/秒 | 2.2 MB/分钟 | 6.0% | 24.9 MB |
+| Buffered WAL | 约 200 B/条 | 500 条/秒 | 5.7 MB/分钟 | 13.2% | 24.7 MB |
+| Buffered WAL | 约 700 B/条 | 200 条/秒 | 8.3 MB/分钟 | 6.4% | 24.9 MB |
+| Buffered WAL | 约 700 B/条 | 500 条/秒 | 20.8 MB/分钟 | 14.3% | 25.6 MB |
+
+业务验收应固定设备、Android 版本、release/debug、网络、endpoint、Topic、日志字段、日志大小、压缩类型和 durability。Sync WAL 必须单独测试，不能用 Buffered WAL 数据推断。
+
+</details>
+
+<details>
+<summary>最小接入包体积基线</summary>
+
+口径：`noProvider`、R8 和资源裁剪开启、4 个 ABI 全部打入 release APK。
+
+| 项目 | 大小 | 说明 |
+| --- | ---: | --- |
+| 未接入 SDK 的空样例 APK | 45.1 KB | 对照包 |
+| 接入 producer 后 APK | 300.2 KB | Java wrapper 和 4 个 ABI native 库 |
+| APK 增量 | +255.2 KB | 客户接入主要关注值 |
+| producer AAR | 267.8 KB | 发布 AAR，不等同于最终 APK 增量 |
+
+增量主要包括 4 个 ABI 合计约 `221.3 KB` 的 native 库和约 `32.6 KB` 的 dex。线上建议使用 AAB 或 ABI split，让设备只下载匹配的 native 库。
+
+</details>
+
+## SDK 分工
 
 | 需求 | 推荐 SDK |
 | --- | --- |
-| Android 端写日志 | 本仓库 `tls-android-producer` |
-| Android 端断点续传写入 | 本仓库 `tls-android-producer` |
+| Android 异步写日志 | 本仓库 `tls-android-producer` |
+| Android 持久化和断点续传写入 | 本仓库 `tls-android-producer` |
 | Project/Topic/Index 管理 | Java SDK |
-| 查询、消费、分析 | Java SDK |
+| 查询、消费和分析 | Java SDK |
 | 非 Android 服务端接入 | Java SDK |
-
-后续如果没有明确的 Android 特殊适配需求，本仓库只维护 `tls-android-producer` 写入能力；管控面、读侧和其他全量 TLS API 统一由 Java SDK 承接。
 
 ## Security and privacy
 
-This project takes security seriously.
-For vulnerability reporting and supported versions, see [SECURITY.md](SECURITY.md).
+This project takes security seriously. For vulnerability reporting and supported versions, see [SECURITY.md](SECURITY.md).
