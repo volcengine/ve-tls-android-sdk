@@ -30,6 +30,7 @@ version = baseVersion + versionSuffix
 android {
   namespace 'com.volcengine.tls.android.producer'
   compileSdk 34
+  testBuildType (findProperty('TEST_BUILD_TYPE') ?: 'debug').toString()
   buildFeatures {
     buildConfig true
   }

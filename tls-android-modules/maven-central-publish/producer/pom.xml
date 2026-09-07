@@ -57,6 +57,11 @@
             </goals>
           </execution>
         </executions>
+        <configuration>
+          <bestPractices>true</bestPractices>
+          <passphraseEnvName>MAVEN_GPG_PASSPHRASE</passphraseEnvName>
+          <useAgent>true</useAgent>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
