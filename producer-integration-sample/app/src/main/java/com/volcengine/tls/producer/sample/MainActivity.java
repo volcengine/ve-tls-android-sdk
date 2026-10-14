@@ -13,7 +13,6 @@ import com.volcengine.tls.android.producer.LogProducerResult;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -156,7 +155,7 @@ public class MainActivity extends Activity {
             }
             File target = new File(dir, "verification_" + System.currentTimeMillis() + ".json");
             try (FileOutputStream out = new FileOutputStream(target)) {
-                out.write(body.getBytes(StandardCharsets.UTF_8));
+                out.write(body.getBytes("UTF-8"));
                 out.flush();
             }
             return target.getAbsolutePath();

@@ -6,13 +6,15 @@
 
 ### 支持范围
 
-- 标准 Producer SDK 最低支持 Android API 19。
+- 标准 Producer SDK 最低支持 Android 4.1（API 16）。
 - 宿主应用需要网络访问权限；Producer AAR 的 manifest 会声明 `android.permission.INTERNET`，接入后仍应检查合并结果。
 - Producer-native 公开压缩类型只有 `NONE` 和 `LZ4`，默认是 `LZ4`。
 
+API 16-20 使用 Android 系统 JSSE 的 TLS 1.2 能力；API 16-19 由 SDK 显式启用 TLS 1.2，API 20 使用平台能力。服务端必须支持与目标系统共同协商的 TLS 1.2 `ECDHE_RSA` CBC 套件，因此并非任意 HTTPS endpoint 都在支持范围内。标准主线不引入 Conscrypt，证书链和主机名校验不能关闭。
+
 ### 标准依赖
 
-本文对应 SDK 版本为 `2.1.4`。使用 Maven 仓库时，标准依赖坐标如下：
+本文目标 SDK 版本为 `2.1.5`。发布完成后，使用 Maven 仓库时，标准依赖坐标如下：
 
 ```groovy
 repositories {
@@ -20,7 +22,7 @@ repositories {
 }
 
 dependencies {
-    implementation "io.github.volcengine-tls:tls-android-producer:2.1.4"
+    implementation "io.github.volcengine-tls:tls-android-producer:2.1.5"
 }
 ```
 
@@ -38,12 +40,12 @@ dependencies {
 
 ### 安装后检查
 
-1. 确认 `minSdk` 不低于 19。
-2. 确认 endpoint 使用 HTTPS，且宿主没有通过网络安全配置放宽证书校验。
+1. 确认 `minSdk` 不低于 16。
+2. 确认 endpoint 使用 HTTPS，且宿主没有通过网络安全配置放宽证书或主机名校验。
 3. 确认运行时凭据可以在创建 client 前取得，不把 AK/SK 写入代码或文件。
 4. 按[快速开始](#快速开始)写入一条带唯一 `event_id` 的日志，再按[验证写入](#验证写入)完成服务端检查。
 
-API 19 的 TLS 行为和 endpoint 要求见[参考](reference.md#兼容性)与[使用指南](usage.md#网络超时与重试)。
+API 16-20 的 TLS 行为和 endpoint 要求见[参考](reference.md#兼容性)与[使用指南](usage.md#网络超时与重试)。
 
 ## 快速开始
 

@@ -16,7 +16,7 @@ Persistent 模式用于在进程异常退出、设备重启或暂时离线后恢
 
 ### 推荐配置
 
-`persistentFilePath` 是目录，不是单个文件。目录必须位于应用私有存储，不要放到共享或外部存储。下面的 `context` 表示宿主已有的 `Context`；API 21 及以上优先使用不参与自动备份的 `getNoBackupFilesDir()`，API 19 使用 `getFilesDir()`：
+`persistentFilePath` 是目录，不是单个文件。目录必须位于应用私有存储，不要放到共享或外部存储。下面的 `context` 表示宿主已有的 `Context`；API 21 及以上优先使用不参与自动备份的 `getNoBackupFilesDir()`，API 16-20 使用 `getFilesDir()`：
 
 ```java
 import android.os.Build;
@@ -45,7 +45,7 @@ LogProducerConfig config = new LogProducerConfig()
                 LogProducerConfig.PersistentOverflowPolicy.REJECT_NEW);
 ```
 
-开启 persistent 时，`persistentFilePath` 必须非空，`persistentMaxFileCount`、`persistentMaxFileSize` 和 `persistentMaxLogCount` 必须显式设置为正数；构造器不会从 `Context` 推导 WAL 目录。API 19 使用 `getFilesDir()` 时，应在宿主应用的备份规则中排除 WAL 目录。
+开启 persistent 时，`persistentFilePath` 必须非空，`persistentMaxFileCount`、`persistentMaxFileSize` 和 `persistentMaxLogCount` 必须显式设置为正数；构造器不会从 `Context` 推导 WAL 目录。API 16-20 使用 `getFilesDir()` 时，应在宿主应用的备份规则中排除 WAL 目录。
 
 ### 目录所有权
 
@@ -171,7 +171,7 @@ Producer 负责签名、聚合、压缩、发送和批次级重试。应用不�
 https://tls-cn-beijing.volces.com
 ```
 
-不要在生产环境使用 `http://`，也不要关闭证书或主机名校验。API 19 的连接使用系统 JSSE 和 SDK 的 TLS 1.2 兼容路径；服务端应保留该系统能够协商的 TLS 套件。SDK 不修改应用全局 TLS Provider。
+不要在生产环境使用 `http://`，也不能关闭证书或主机名校验。API 16-20 使用 Android 系统 JSSE 的 TLS 1.2 能力；API 16-19 由 SDK 显式启用 TLS 1.2，API 20 使用平台能力。服务端必须支持与目标系统共同协商的 TLS 1.2 `ECDHE_RSA` CBC 套件，因此 SDK 不承诺任意 HTTPS endpoint 都兼容。标准主线不引入 Conscrypt；任何 Conscrypt 变体仅属备用方案，不属于主线发布物。SDK 不修改应用全局 TLS Provider。
 
 ### 默认超时
 

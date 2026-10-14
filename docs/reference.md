@@ -1,6 +1,6 @@
 # 参考
 
-本文对应 SDK 版本为 `2.1.4`，覆盖配置、API 与错误、兼容性以及隐私与凭证边界。
+本文对应 SDK 版本为 `2.1.5`，覆盖配置、API 与错误、兼容性以及隐私与凭证边界。
 
 ## 配置参考
 
@@ -130,20 +130,17 @@
 
 ### 平台
 
-- 标准 Producer SDK 兼容范围从 Android API 19 开始。
+- 标准 Producer SDK 兼容范围从 Android 4.1（API 16）开始。
 - producer-native 使用 Java 8 source/target compatibility；宿主仍需按自己的 Android Gradle Plugin 和构建链选择 compile/target SDK。
-- API 19 的连接使用 Android 系统 JSSE，并通过 SDK 的 TLS 1.2 兼容路径建立连接；API 20 及以上使用平台 TLS 能力。
-- 宿主应用需要网络访问权限，连接应使用 HTTPS。SDK 不提供关闭证书或主机名校验的公共配置。
+- API 16-20 的连接使用 Android 系统 JSSE 和 TLS 1.2；API 16-19 由 SDK 显式启用 TLS 1.2，API 20 使用平台 TLS 能力。
+- API 16-20 的服务端 endpoint 必须支持与目标系统共同协商的 TLS 1.2 `ECDHE_RSA` CBC 套件；因此不承诺任意 HTTPS endpoint 都兼容。
+- 宿主应用需要网络访问权限，连接应使用 HTTPS。标准主线不引入 Conscrypt，证书和主机名校验不能关闭。任何 Conscrypt 变体仅属备用方案，不属于主线发布物。
 
-API 19 设备的最终可用 TLS 套件取决于系统和服务端协商结果。应在实际支持的 API 19 设备或等价真实环境上验证 endpoint，不要用开发机或模拟器结果替代兼容性结论。
-
-### API 16 定向包
-
-标准 `tls-android-producer` 仍以 API 19 为最低支持版本。API 16 只能通过维护者定向构建特殊包，不作为标准 SDK 的稳定兼容承诺；构建方式见[发布指南的 API 16 定向包](../RELEASE.md#api-16-定向包)。
+最终可用 TLS 套件取决于具体系统、系统 TLS Provider 和服务端协商结果。应在实际支持的 API 16-20 设备或等价真实环境上验证 endpoint，不要用开发机或模拟器结果替代兼容性结论。
 
 ### 页大小与 ELF 对齐
 
-64 位原生库采用 16 KB ELF 对齐，同时兼容 4 KB 页设备；最低 API 19 和原有 32 位 ABI 保持不变。宿主应用仍需正确打包 native 库，并在目标设备上验证，不能仅凭 Android API 级别判断页大小。
+64 位原生库采用 16 KB ELF 对齐，同时兼容 4 KB 页设备；最低 API 16 和原有 32 位 ABI 保持不变。宿主应用仍需正确打包 native 库，并在目标设备上验证，不能仅凭 Android API 级别判断页大小。
 推荐宿主使用 AGP 8.5.1 或更新版本获得正确的未压缩 native 库 ZIP 对齐。
 如暂时保留较旧 AGP，可在宿主应用启用压缩 native 库：
 

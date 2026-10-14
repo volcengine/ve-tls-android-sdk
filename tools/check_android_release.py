@@ -309,7 +309,7 @@ def _validate_requested_min_sdk(min_sdk: int) -> None:
         raise ValueError("--min-sdk must be an integer >= 16")
 
 
-def verify_aar(aar_path: str | Path, min_sdk: int = 19) -> VerificationResult:
+def verify_aar(aar_path: str | Path, min_sdk: int = 16) -> VerificationResult:
     """Return deterministic checks and errors for one AAR."""
 
     _validate_requested_min_sdk(min_sdk)
@@ -419,8 +419,8 @@ def _argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--min-sdk",
         type=int,
-        default=19,
-        help="expected Android minSdkVersion (default: 19; any integer >= 16 is accepted)",
+        default=16,
+        help="expected Android minSdkVersion (default: 16; any integer >= 16 is accepted)",
     )
     return parser
 
