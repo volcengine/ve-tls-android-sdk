@@ -1,3 +1,9 @@
+## 2.1.5（未发布）
+- 主发布坐标保持 `io.github.volcengine-tls:tls-android-producer`，最低支持 Android 4.1（API 16）；API 16 使用主线标准坐标，不再需要单独坐标、版本后缀或 manifest 覆盖。
+- API 16-20 使用系统 TLS 1.2 兼容路径；服务端需支持可协商的 `ECDHE_RSA` CBC 套件。主线发布物不引入 Conscrypt，证书和主机名校验不能关闭，也不承诺任意 HTTPS endpoint 都兼容。
+- C Core 继续固定 v0.3.2，不变。任何 Conscrypt 变体仅属备用方案，不属于主线发布物。
+- CI 增加 API 16 回归，保留 API 19 和 API 35/16 KB 页回归；接入示例及测试工具移除不兼容低版本的 Java API，并新增低数据量的真实发送验证入口。
+
 ## 2.1.4
 - 补全发布文档与导航，统一接入、持久化恢复、配置参考和运维指南。
 - 保留模块的 Java 依赖升级至 Fastjson 1.2.84、Protobuf 3.25.8 和 at.yawk.lz4:lz4-java 1.10.1，修复已知依赖漏洞。

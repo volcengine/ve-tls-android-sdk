@@ -85,10 +85,14 @@ final class ProducerRealBenchmarkDelivery {
     private static final Comparator<Range> RANGE_ORDER = new Comparator<Range>() {
         @Override
         public int compare(Range left, Range right) {
-            int byStart = Long.compare(left.startId, right.startId);
-            return byStart != 0 ? byStart : Long.compare(left.endId, right.endId);
+            int byStart = compareIds(left.startId, right.startId);
+            return byStart != 0 ? byStart : compareIds(left.endId, right.endId);
         }
     };
+
+    private static int compareIds(long left, long right) {
+        return left < right ? -1 : (left == right ? 0 : 1);
+    }
 
     private static final class Range {
         final long startId;

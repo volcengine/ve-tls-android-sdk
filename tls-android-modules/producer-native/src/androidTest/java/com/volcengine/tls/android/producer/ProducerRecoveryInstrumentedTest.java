@@ -11,7 +11,6 @@ import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
@@ -269,7 +268,7 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
                             headerBytes.write(value);
                             suffix = (suffix << 8) | value;
                         }
-                        String headers = new String(headerBytes.toByteArray(), StandardCharsets.US_ASCII)
+                        String headers = new String(headerBytes.toByteArray(), "US-ASCII")
                                 .toLowerCase(Locale.ROOT);
                         int length = -1;
                         for (String line : headers.split("\r\n")) {
@@ -297,7 +296,7 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
                         int status = responder.status(requests.incrementAndGet(), headers);
                         byte[] response = ("HTTP/1.1 " + status + " Test\r\n"
                                 + "Content-Length: 0\r\nX-Tls-Requestid: loopback-test\r\n"
-                                + "Connection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII);
+                                + "Connection: close\r\n\r\n").getBytes("US-ASCII");
                         socket.getOutputStream().write(response);
                         socket.getOutputStream().flush();
                         if (status >= 400) {

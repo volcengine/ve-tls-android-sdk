@@ -2,7 +2,7 @@ plugins {
   id 'com.android.application'
 }
 
-def minSdkProperty = project.findProperty('MIN_SDK_OVERRIDE') ?: '19'
+def minSdkProperty = project.findProperty('MIN_SDK_OVERRIDE') ?: '16'
 int selectedMinSdk
 try {
   selectedMinSdk = Integer.parseInt(minSdkProperty.toString())
@@ -13,10 +13,8 @@ if (selectedMinSdk < 16) {
   throw new GradleException('MIN_SDK_OVERRIDE must be >= 16')
 }
 
-def sdkVersion = project.findProperty('SDK_VERSION') ?: '2.1.4'
-def producerArtifact = selectedMinSdk < 19
-    ? "tls-android-producer-legacy${selectedMinSdk}"
-    : 'tls-android-producer'
+def sdkVersion = project.findProperty('SDK_VERSION') ?: '2.1.5'
+def producerArtifact = 'tls-android-producer'
 
 android {
   namespace 'com.volcengine.tls.producer.sample'

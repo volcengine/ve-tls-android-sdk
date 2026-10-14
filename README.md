@@ -2,7 +2,15 @@
 
 面向 Android 异步日志写入的 Producer SDK。公共模块是 `tls-android-producer`，提供批量聚合、压缩、有限重试以及可选的本地 WAL 恢复；不提供 Project/Topic 管理、查询或消费 API。
 
-当前文档对应 SDK 版本为 `2.1.4`。
+当前文档目标 SDK 版本为 `2.1.5`，发布状态见[发布指南](RELEASE.md)。
+
+标准坐标 `io.github.volcengine-tls:tls-android-producer` 从 Android 4.1（API 16）起支持。API 16-20 使用系统 TLS 1.2 兼容路径，服务端需支持可协商的 `ECDHE_RSA` CBC 套件；主线发布物不引入 Conscrypt，也不能关闭证书或主机名校验。endpoint 是否可用取决于设备与服务端协商，不能据此承诺任意 HTTPS endpoint。
+
+发布完成后，标准依赖目标坐标为：
+
+```groovy
+implementation "io.github.volcengine-tls:tls-android-producer:2.1.5"
+```
 
 ## 快速开始
 

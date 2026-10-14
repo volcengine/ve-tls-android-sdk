@@ -95,7 +95,7 @@ add_library(tls_producer_jni SHARED
   tls_producer_jni.cpp
 )
 
-# Keep the API 19 toolchain while supporting 16 KB pages on 64-bit devices.
+# Keep the API 16 baseline while supporting 16 KB pages on 64-bit devices.
 if (ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "x86_64")
   target_link_options(tls_producer_jni PRIVATE
     "-Wl,-z,max-page-size=16384"
