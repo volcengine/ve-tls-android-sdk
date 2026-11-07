@@ -1,17 +1,15 @@
 # 发布指南
 
-当前准备发布版本为 **2.1.5（待发布）**，主发布坐标为 `io.github.volcengine-tls:tls-android-producer`。
+**2.1.5** 的主发布坐标为 `io.github.volcengine-tls:tls-android-producer`。
 只发布 Producer AAR，不将历史 `core`、`full` 或测试 App 加入本次发布。
-最低 Android 4.1（API 16），C Core 继续使用[固定版本清单](tls-android-modules/producer-native/ve-tls-c-sdk.version)中的 v0.3.2。
+最低 Android 4.1（API 16）。C Core 使用 `v0.3.5`，提交见[固定版本清单](tls-android-modules/producer-native/ve-tls-c-sdk.version)。
 API 16-20 使用系统 TLS 1.2 兼容路径，服务端需支持可协商的 `ECDHE_RSA` CBC 套件；主线发布物不引入 Conscrypt。证书和主机名校验不能关闭，且不承诺任意 HTTPS endpoint 都兼容。
-
-本文用于发布前准备。发布动作完成后，发布负责人必须按上传与确认流程校验 Central Portal 中的坐标、版本和依赖，再创建 tag 与 Release 记录；发布前不要将 2.1.5 视为已发布或可下载。
 
 ## 发布门禁
 
-1. 从准备发布的干净 commit 构建；确认版本号、CHANGELOG、Java User-Agent 和 C Core SHA 一致。
+1. 从干净的发布提交构建，核对版本号、CHANGELOG 和 Java User-Agent。确认固定的 C Core SHA 指向正式 Core tag 的提交，并可从 GitHub 拉取。
 2. 完成[贡献指南](CONTRIBUTING.md)的单元测试、lint、文档检查和 release 构建。
-3. 在 API 16、API 19 和当前 Android 版本验证 JNI、HTTPS、凭证轮转、关闭与 WAL 恢复；API 16-20 的目标 endpoint 需单独验证 TLS 兼容性。
+3. 在 API 16、API 19 和当前 Android 版本验证 JNI、HTTPS、凭证轮转、关闭、WAL 恢复与同目录独占；API 16-20 的目标 endpoint 需单独验证 TLS 兼容性。
 4. 检查 AAR：四个 ABI、正确 minSdk、仅发布库内容，没有测试 Manifest、调试资源、配置文件或凭证。
 5. 检查 POM、Gradle module metadata、sources JAR 与 AAR 的版本和依赖一致；在独立接入工程验证解析和运行。
 6. 完成安全与第三方许可证审查。没有完整的当前版本测量证据时，不发布性能或包体积数字。

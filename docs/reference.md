@@ -58,7 +58,7 @@
 | `setPersistentSampleEveryN` | `10` | sample 策略参数，必须大于 `0` |
 | `setPersistentBlockTimeoutMs` | `1000` | block 等待时间，必须大于 `0` |
 
-`persistentFilePath` 应使用应用私有目录。一个活跃 client 独占一个目录；persistent sender 固定为单 sender。完整语义见[持久化与恢复](usage.md#持久化与恢复)。
+`persistentFilePath` 应使用应用私有目录。一个活跃的 native client 独占一个目录；锁在首次 native 创建时获取，关闭完成后释放。persistent sender 固定为单 sender。完整语义见[持久化与恢复](usage.md#持久化与恢复)。
 
 ### 生命周期与回调
 

@@ -14,7 +14,7 @@ API 16-20 使用 Android 系统 JSSE 的 TLS 1.2 能力；API 16-19 由 SDK 显�
 
 ### 标准依赖
 
-本文目标 SDK 版本为 `2.1.5`。发布完成后，使用 Maven 仓库时，标准依赖坐标如下：
+使用 Maven Central 时，SDK `2.1.5` 的标准依赖坐标如下：
 
 ```groovy
 repositories {

@@ -50,7 +50,7 @@ LogProducerConfig config = new LogProducerConfig()
 ### 目录所有权
 
 - 同一逻辑数据流在重启后复用同一目录，才能找到 backlog。
-- 一个活跃 client 独占一个 WAL 目录；同一进程的多个 client 必须使用不同目录。
+- 一个活跃 client 独占一个 WAL 目录；同一进程的多个 client 必须使用不同目录。锁在首次创建 native 实例时获取，另一个 client 此时无法打开同一目录。
 - persistent 快照会把 sender 数归一为 `1`，即使原 config 设置了更多 sender。
 - 非主进程可能在基础目录下追加进程名，以避免不同进程直接共用同一路径；这不能替代同一进程内的目录隔离。
 - 不要手工删除、移动或编辑 `manifest`、`checkpoint`、`lease` 和 segment 文件。应用备份策略如会复制该私有目录，应将 WAL 排除在备份范围外。
@@ -58,6 +58,8 @@ LogProducerConfig config = new LogProducerConfig()
 ### 恢复时机
 
 构造 client 不会立即创建 native producer、打开 WAL 或执行 recover。首次 `addLog`、`updateEndpoint` 或 `resetSecurityToken` 触发 native 创建时，persistent binding 才会执行恢复。当前没有独立公开的 `start()` 或 `recover()` 方法。
+
+正常关闭后复用目录前，应先等待原 client 的 `awaitDestroy` 返回 `true`。如果 native 创建失败，该 client 会记住错误；解决原因后应新建 client。进程异常退出时，目录锁由系统释放，但残留租约未过期前重新创建仍可能失败；当前默认租约超时为最后一次心跳后 60 秒。不要手动清理租约。
 
 恢复使用当前 config、当前凭证和当前目标。WAL 不绑定写入时的 endpoint、region 或 topic；如果目标身份改变，见[网络、超时与重试](#网络超时与重试)中的切换风险。
 
@@ -187,7 +189,7 @@ https://tls-cn-beijing.volces.com
 
 默认 `retryMaxAttempts=0` 表示不按次数截断，但仍受 `retryTotalTimeoutMs` 限制；默认退避间隔为 `500 ms`，上限为 `10000 ms`。Java setter 的合法范围见[配置参考](reference.md#配置参考)。
 
-固定 C core `v0.3.2` 将 HTTP `429/500/502/503/504` 标为可重试。persistent 模式的可重试错误耗尽当前轮预算后进入跨轮指数退避，跨轮单次延迟上限为 `5 分钟`；`close` 不等待该跨轮计时器，未确认 WAL 会保留到恢复。永久 TLS、主机名或非法 URL 错误不会自动重试；修正 endpoint 或配置后应重建 client，并使用相同 WAL 目录 recover。memory 模式耗尽单轮预算后会报告终态结果。
+当前固定的 C Core 默认将 HTTP `429/500/502/503/504` 标为可重试。persistent 模式的可重试错误耗尽当前轮预算后进入跨轮指数退避，跨轮单次延迟上限为 `5 分钟`；`close` 不等待该跨轮计时器，未确认 WAL 会保留到恢复。永久 TLS、主机名或非法 URL 错误不会自动重试；修正 endpoint 或配置后应重建 client，并使用相同 WAL 目录 recover。memory 模式耗尽单轮预算后会报告终态结果。
 
 所有超时和重试都属于 at-least-once 边界。为业务事件设置稳定 `event_id`，不要用发送调用次数推断服务端唯一日志数。
 

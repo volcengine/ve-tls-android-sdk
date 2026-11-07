@@ -9,6 +9,7 @@
 
 extern "C" {
 #include "ve_tls_android_binding.h"
+#include "producer/ve_tls_persistent.h"
 }
 
 namespace {
@@ -987,8 +988,9 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
         destroy_http_bridge_state(http_bridge_state);
         return 0;
     }
-    ve_tls_producer * producer = ve_tls_producer_create_versioned(
-        &config, sizeof(config), VE_TLS_CONFIG_VERSION_CURRENT);
+    ve_tls_producer * producer = config.use_persistent
+        ? ve_tls_producer_create_exclusive_persistence(&config, sizeof(config))
+        : ve_tls_producer_create_versioned(&config, sizeof(config), VE_TLS_CONFIG_VERSION_CURRENT);
     if (producer == nullptr) {
         free_kv_storage(log_tags, runtime_tag_count);
         destroy_http_bridge_state(http_bridge_state);
