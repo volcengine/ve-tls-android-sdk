@@ -107,7 +107,7 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
 
         long cpuStartMs = android.os.Process.getElapsedCpuTime();
         long wallStartMs = SystemClock.elapsedRealtime();
-        long startNs = SystemClock.elapsedRealtimeNanos();
+        long startNs = System.nanoTime();
         long endNs = startNs + (scenario.durationS * NS_PER_SECOND);
         long steadyStartOffsetMs = Math.max(0L, (scenario.durationS - STEADY_STATE_DURATION_S) * 1000L);
         long steadyStartNs = startNs + steadyStartOffsetMs * 1000000L;
@@ -117,7 +117,7 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
 
         try {
             while (true) {
-                long nowNs = SystemClock.elapsedRealtimeNanos();
+                long nowNs = System.nanoTime();
                 if (nowNs >= endNs) {
                     break;
                 }
@@ -125,7 +125,7 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
                 if (intervalNs > 0 && nextEmitNs > nowNs) {
                     sleepNs(nextEmitNs - nowNs);
                 }
-                long enqueueStartNs = SystemClock.elapsedRealtimeNanos();
+                long enqueueStartNs = System.nanoTime();
                 counters.attemptedLogs.incrementAndGet();
                 try {
                     client.addLog(buildLog(scenario.profileName, counters.attemptedLogs.get()));
@@ -134,7 +134,7 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
                     counters.rejectedLogs.incrementAndGet();
                     counters.lastFailure.set(sanitize(String.valueOf(e)));
                 } finally {
-                    long enqueueNs = SystemClock.elapsedRealtimeNanos() - enqueueStartNs;
+                    long enqueueNs = System.nanoTime() - enqueueStartNs;
                     counters.enqueueTimeNs.addAndGet(enqueueNs);
                     updateMax(counters.enqueueMaxNs, enqueueNs);
                 }
@@ -144,7 +144,7 @@ public final class ProducerRealBenchmarkInstrumentedTest extends TestCase {
             }
         } finally {
             long enqueueEndMs = SystemClock.elapsedRealtime();
-            markSteadyStart(counters, SystemClock.elapsedRealtimeNanos(), steadyStartNs);
+            markSteadyStart(counters, System.nanoTime(), steadyStartNs);
             long processCpuEndMs = android.os.Process.getElapsedCpuTime();
             if (counters.steadyStarted.get()) {
                 counters.steadyWallMs.set(Math.max(1L, enqueueEndMs - counters.steadyWallStartMs.get()));

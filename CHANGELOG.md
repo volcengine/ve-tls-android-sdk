@@ -1,3 +1,11 @@
+## 2.1.5
+- 集成 C Core `v0.3.5`。
+- 主发布坐标保持 `io.github.volcengine-tls:tls-android-producer`，最低支持 Android 4.1（API 16）；API 16 使用主线标准坐标，不再需要单独坐标、版本后缀或 manifest 覆盖。
+- API 16-20 使用系统 TLS 1.2 兼容路径；服务端需支持可协商的 `ECDHE_RSA` CBC 套件。主线发布物不引入 Conscrypt，证书和主机名校验不能关闭，也不承诺任意 HTTPS endpoint 都兼容。
+- 修复 WAL 确认存在缺口时，已确认日志在重启后被重复恢复的问题。修复 WAL 记录编号复用可能导致新日志被跳过的问题。
+- 持久化 client 在 native 实例存活期间独占 WAL 目录，防止仍在运行的实例被其他 client 接管。
+- 接入示例兼容 API 16。
+
 ## 2.1.4
 - 补全发布文档与导航，统一接入、持久化恢复、配置参考和运维指南。
 - 保留模块的 Java 依赖升级至 Fastjson 1.2.84、Protobuf 3.25.8 和 at.yawk.lz4:lz4-java 1.10.1，修复已知依赖漏洞。

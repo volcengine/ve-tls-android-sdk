@@ -24,7 +24,7 @@
 
 ### 超时、网络或 TLS 错误
 
-确认设备能访问 HTTPS endpoint，API 19 设备和服务端有共同的 TLS 1.2 套件。检查 `getHttpCode()`、`getTransportKind()`、`getTransportCode()` 和 `isRetryable()`。HTTP `429/500/502/503/504` 可进入重试；不要在应用层无界重试同一事件。
+确认设备能访问 HTTPS endpoint，API 16-20 设备和服务端有共同的 TLS 1.2 `ECDHE_RSA` CBC 套件；API 16-19 由 SDK 显式启用 TLS 1.2，API 20 使用平台能力。标准主线不引入 Conscrypt，证书和主机名校验不能关闭，且不承诺任意 endpoint 都支持。检查 `getHttpCode()`、`getTransportKind()`、`getTransportCode()` 和 `isRetryable()`。HTTP `429/500/502/503/504` 可进入重试；不要在应用层无界重试同一事件。
 
 ### 出现重复日志
 

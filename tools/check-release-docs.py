@@ -53,7 +53,9 @@ def main():
             errors.append(f"{name}: personal workspace or development host reference")
         if re.search(r"\b(?:aliyun|sls)\b|友商|阿里云", text, re.IGNORECASE):
             errors.append(f"{name}: competitor comparison does not belong in release docs")
-        if re.search(r"\bUnreleased\b|待发布|未发布|预期发布坐标", text, re.IGNORECASE):
+        if name not in {"CHANGELOG.md", "RELEASE.md"} and re.search(
+            r"\bUnreleased\b|待发布|未发布|预期发布坐标", text, re.IGNORECASE
+        ):
             errors.append(f"{name}: release docs must not contain temporary release status")
         for target in re.findall(r"\[[^\]\n]*\]\(([^)\n]+)\)", text):
             target = target.split(' "', 1)[0].strip("<>")

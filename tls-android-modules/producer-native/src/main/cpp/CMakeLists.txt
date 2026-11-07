@@ -19,7 +19,7 @@ if (NOT DEFINED VE_TLS_C_SDK_COMMIT OR "${VE_TLS_C_SDK_COMMIT}" STREQUAL "")
   message(FATAL_ERROR "VE_TLS_C_SDK_COMMIT must be provided by Gradle")
 endif()
 
-set(VE_TLS_C_SDK_EXPECTED_COMMIT "1d41ec4edb850ee7dd0b7f63c49738d6a9669c21")
+set(VE_TLS_C_SDK_EXPECTED_COMMIT "3e368a18330f529f984e51f8d274ecd582d15ca6")
 if (NOT "${VE_TLS_C_SDK_COMMIT}" STREQUAL "${VE_TLS_C_SDK_EXPECTED_COMMIT}")
   message(FATAL_ERROR
     "VE_TLS_C_SDK_COMMIT does not match the pinned ve-tls-c-sdk commit: expected ${VE_TLS_C_SDK_EXPECTED_COMMIT}, got ${VE_TLS_C_SDK_COMMIT}"
@@ -95,7 +95,7 @@ add_library(tls_producer_jni SHARED
   tls_producer_jni.cpp
 )
 
-# Keep the API 19 toolchain while supporting 16 KB pages on 64-bit devices.
+# Keep the API 16 baseline while supporting 16 KB pages on 64-bit devices.
 if (ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "x86_64")
   target_link_options(tls_producer_jni PRIVATE
     "-Wl,-z,max-page-size=16384"
@@ -108,6 +108,7 @@ target_compile_features(tls_producer_jni PRIVATE cxx_std_11)
 target_include_directories(tls_producer_jni PRIVATE
   ${VE_TLS_C_SDK_DIR}/bindings/android/include
   ${VE_TLS_C_SDK_DIR}/core/include
+  ${VE_TLS_C_SDK_DIR}/core/src
   ${VE_TLS_C_SDK_DIR}/adapters/include
 )
 

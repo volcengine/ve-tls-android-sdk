@@ -125,7 +125,7 @@ def make_classes_jar(include_license: bool = True, include_notice: bool = True) 
 def make_aar(
     directory: Path,
     *,
-    min_sdk: int = 19,
+    min_sdk: int = 16,
     abis: tuple[str, ...] = EXPECTED_ABIS,
     elf_data: dict[str, bytes] | None = None,
     include_license: bool = True,
@@ -215,14 +215,16 @@ class CheckAndroidReleaseTest(unittest.TestCase):
             result = verify_aar(path)
         self.assertTrue(any("JNI ABI x86 is missing" in error for error in result.errors))
 
-    def test_min_sdk_match_mismatch_and_special_16_value(self) -> None:
+    def test_min_sdk_match_mismatch_and_standard_16_value(self) -> None:
         with tempfile.TemporaryDirectory(prefix="check-aar-") as temp:
             path_19 = make_aar(Path(temp), min_sdk=19)
             self.assertFalse(verify_aar(path_19, 19).errors)
             mismatch = verify_aar(path_19, 16)
             self.assertTrue(any("minSdkVersion=19" in error for error in mismatch.errors))
+            self.assertTrue(verify_aar(path_19).errors)
 
             path_16 = make_aar(Path(temp), min_sdk=16)
+            self.assertFalse(verify_aar(path_16).errors)
             self.assertFalse(verify_aar(path_16, 16).errors)
 
             path_17 = make_aar(Path(temp), min_sdk=17)

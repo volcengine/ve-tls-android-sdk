@@ -2,6 +2,7 @@ package com.volcengine.tls.android.producer.internal;
 
 import com.volcengine.tls.android.producer.LogProducerCallback;
 import com.volcengine.tls.android.producer.LogProducerConfig;
+import com.volcengine.tls.android.producer.BuildConfig;
 
 import org.junit.Test;
 
@@ -59,7 +60,7 @@ public class JniNativeProducerBridgeTest {
         assertEquals(90_000, args.getConfig().getRetryTotalTimeoutMs());
         assertEquals(500, args.getConfig().getRetryInitialIntervalMs());
         assertEquals(10_000, args.getConfig().getRetryMaxIntervalMs());
-        assertEquals("volc-tls-android/producer/v2.1.4", args.getConfig().getUserAgent());
+        assertEquals(BuildConfig.SDK_USER_AGENT, args.getConfig().getUserAgent());
         assertFalse(args.isDestroyWaitSplitEnabled());
         assertEquals(2, args.getLogTagCount());
         assertArrayEquals(new String[] {"env", "env"}, args.getLogTagKeys());

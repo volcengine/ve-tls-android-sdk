@@ -37,6 +37,22 @@ public class VerificationConfigTest {
         VerificationConfig.fromMap(values, defaults());
     }
 
+    @Test
+    public void fromMap_defaultsMissingTokenToEmpty() {
+        Map<String, String> defaults = defaults();
+        defaults.remove("token");
+        VerificationConfig config = VerificationConfig.fromMap(new HashMap<>(), defaults);
+        assertEquals("", config.toProducerConfig().getSecurityToken());
+    }
+
+    @Test
+    public void fromMap_preservesExplicitToken() {
+        Map<String, String> values = new HashMap<>();
+        values.put("token", "test-session-token");
+        VerificationConfig config = VerificationConfig.fromMap(values, defaults());
+        assertEquals("test-session-token", config.toProducerConfig().getSecurityToken());
+    }
+
     private static Map<String, String> defaults() {
         Map<String, String> values = new HashMap<>();
         values.put("endpoint", "https://tls-cn-beijing.volces.com");

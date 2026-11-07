@@ -16,7 +16,7 @@ Persistent 模式用于在进程异常退出、设备重启或暂时离线后恢
 
 ### 推荐配置
 
-`persistentFilePath` 是目录，不是单个文件。目录必须位于应用私有存储，不要放到共享或外部存储。下面的 `context` 表示宿主已有的 `Context`；API 21 及以上优先使用不参与自动备份的 `getNoBackupFilesDir()`，API 19 使用 `getFilesDir()`：
+`persistentFilePath` 是目录，不是单个文件。目录必须位于应用私有存储，不要放到共享或外部存储。下面的 `context` 表示宿主已有的 `Context`；API 21 及以上优先使用不参与自动备份的 `getNoBackupFilesDir()`，API 16-20 使用 `getFilesDir()`：
 
 ```java
 import android.os.Build;
@@ -45,12 +45,12 @@ LogProducerConfig config = new LogProducerConfig()
                 LogProducerConfig.PersistentOverflowPolicy.REJECT_NEW);
 ```
 
-开启 persistent 时，`persistentFilePath` 必须非空，`persistentMaxFileCount`、`persistentMaxFileSize` 和 `persistentMaxLogCount` 必须显式设置为正数；构造器不会从 `Context` 推导 WAL 目录。API 19 使用 `getFilesDir()` 时，应在宿主应用的备份规则中排除 WAL 目录。
+开启 persistent 时，`persistentFilePath` 必须非空，`persistentMaxFileCount`、`persistentMaxFileSize` 和 `persistentMaxLogCount` 必须显式设置为正数；构造器不会从 `Context` 推导 WAL 目录。API 16-20 使用 `getFilesDir()` 时，应在宿主应用的备份规则中排除 WAL 目录。
 
 ### 目录所有权
 
 - 同一逻辑数据流在重启后复用同一目录，才能找到 backlog。
-- 一个活跃 client 独占一个 WAL 目录；同一进程的多个 client 必须使用不同目录。
+- 一个活跃 client 独占一个 WAL 目录；同一进程的多个 client 必须使用不同目录。锁在首次创建 native 实例时获取，另一个 client 此时无法打开同一目录。
 - persistent 快照会把 sender 数归一为 `1`，即使原 config 设置了更多 sender。
 - 非主进程可能在基础目录下追加进程名，以避免不同进程直接共用同一路径；这不能替代同一进程内的目录隔离。
 - 不要手工删除、移动或编辑 `manifest`、`checkpoint`、`lease` 和 segment 文件。应用备份策略如会复制该私有目录，应将 WAL 排除在备份范围外。
@@ -58,6 +58,8 @@ LogProducerConfig config = new LogProducerConfig()
 ### 恢复时机
 
 构造 client 不会立即创建 native producer、打开 WAL 或执行 recover。首次 `addLog`、`updateEndpoint` 或 `resetSecurityToken` 触发 native 创建时，persistent binding 才会执行恢复。当前没有独立公开的 `start()` 或 `recover()` 方法。
+
+正常关闭后复用目录前，应先等待原 client 的 `awaitDestroy` 返回 `true`。如果 native 创建失败，该 client 会记住错误；解决原因后应新建 client。进程异常退出时，目录锁由系统释放，但残留租约未过期前重新创建仍可能失败；当前默认租约超时为最后一次心跳后 60 秒。不要手动清理租约。
 
 恢复使用当前 config、当前凭证和当前目标。WAL 不绑定写入时的 endpoint、region 或 topic；如果目标身份改变，见[网络、超时与重试](#网络超时与重试)中的切换风险。
 
@@ -171,7 +173,7 @@ Producer 负责签名、聚合、压缩、发送和批次级重试。应用不�
 https://tls-cn-beijing.volces.com
 ```
 
-不要在生产环境使用 `http://`，也不要关闭证书或主机名校验。API 19 的连接使用系统 JSSE 和 SDK 的 TLS 1.2 兼容路径；服务端应保留该系统能够协商的 TLS 套件。SDK 不修改应用全局 TLS Provider。
+不要在生产环境使用 `http://`，也不能关闭证书或主机名校验。API 16-20 使用 Android 系统 JSSE 的 TLS 1.2 能力；API 16-19 由 SDK 显式启用 TLS 1.2，API 20 使用平台能力。服务端必须支持与目标系统共同协商的 TLS 1.2 `ECDHE_RSA` CBC 套件，因此 SDK 不承诺任意 HTTPS endpoint 都兼容。标准主线不引入 Conscrypt；任何 Conscrypt 变体仅属备用方案，不属于主线发布物。SDK 不修改应用全局 TLS Provider。
 
 ### 默认超时
 
@@ -187,7 +189,7 @@ https://tls-cn-beijing.volces.com
 
 默认 `retryMaxAttempts=0` 表示不按次数截断，但仍受 `retryTotalTimeoutMs` 限制；默认退避间隔为 `500 ms`，上限为 `10000 ms`。Java setter 的合法范围见[配置参考](reference.md#配置参考)。
 
-固定 C core `v0.3.2` 将 HTTP `429/500/502/503/504` 标为可重试。persistent 模式的可重试错误耗尽当前轮预算后进入跨轮指数退避，跨轮单次延迟上限为 `5 分钟`；`close` 不等待该跨轮计时器，未确认 WAL 会保留到恢复。永久 TLS、主机名或非法 URL 错误不会自动重试；修正 endpoint 或配置后应重建 client，并使用相同 WAL 目录 recover。memory 模式耗尽单轮预算后会报告终态结果。
+当前固定的 C Core 默认将 HTTP `429/500/502/503/504` 标为可重试。persistent 模式的可重试错误耗尽当前轮预算后进入跨轮指数退避，跨轮单次延迟上限为 `5 分钟`；`close` 不等待该跨轮计时器，未确认 WAL 会保留到恢复。永久 TLS、主机名或非法 URL 错误不会自动重试；修正 endpoint 或配置后应重建 client，并使用相同 WAL 目录 recover。memory 模式耗尽单轮预算后会报告终态结果。
 
 所有超时和重试都属于 at-least-once 边界。为业务事件设置稳定 `event_id`，不要用发送调用次数推断服务端唯一日志数。
 

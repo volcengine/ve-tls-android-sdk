@@ -109,7 +109,7 @@ final class VerificationConfig {
                 requireText(merged, "topicId"),
                 requireText(merged, "ak"),
                 requireText(merged, "sk"),
-                merged.getOrDefault("token", ""),
+                merged.containsKey("token") ? merged.get("token") : "",
                 compress,
                 sendCount,
                 callbackTimeoutMs,
