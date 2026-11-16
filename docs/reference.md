@@ -120,7 +120,8 @@
 ### 同步异常和异步结果
 
 - `addLog` 正常返回：只完成当前模式的本地接收步骤，不表示远端成功。
-- `addLog` 抛出 `RuntimeException`：可能发生在参数、生命周期、native 创建、内存、WAL、`fsync` 或入队阶段；persistent 模式下异常后仍可能已有记录落盘。
+- `addLog` 抛出 `LogProducerInitializationException` 时，本次提交还未接纳。`getReason()` 区分 native 准备、配置、目录锁占用、等待租约到期、WAL 打开和 WAL 恢复失败。`isRetryable()` 标识目录锁占用、等待租约到期或 WAL 打开的暂时性 I/O 错误，client 会在后台重试创建。
+- 其他 `RuntimeException` 可能来自参数、生命周期、内存、WAL、`fsync` 或入队。在 WAL 追加过程中或之后抛异常时，记录可能已经存在于磁盘；只有能确认写入之前被拒绝，重新提交才不会因该次提交产生重复。完整记录写入后的 `fsync` 失败会报告 native 持久化错误，SDK 会重试同步并在成功后发送沿用原记录 ID 的记录，见[接收边界与重复](usage.md#接收边界与重复)。
 - callback 成功：对应批次收到服务端成功响应，但 persistent checkpoint 边界仍可能造成重复。
 - callback 失败：查看错误和 request ID；persistent 认证 retain 不发终态失败 callback，不能依赖它触发凭证刷新。
 

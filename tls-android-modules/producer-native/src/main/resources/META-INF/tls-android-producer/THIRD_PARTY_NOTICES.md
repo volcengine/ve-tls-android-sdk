@@ -1,7 +1,7 @@
 # Android Producer native dependency
 
-The following notice is from C Core v0.3.5, commit
-3e368a18330f529f984e51f8d274ecd582d15ca6. Source paths below refer to that C Core
+The following notice is from C Core commit
+45b7cf893bd5248f0f082402c3b23d3c0bfb7e4f. Source paths below refer to that C Core
 repository. Android builds bundle LZ4 and disable curl and zlib.
 
 # Third-Party Notices

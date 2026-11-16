@@ -27,7 +27,7 @@ public class NativeApiContractTest {
         assertEquals(long.class, create.getReturnType());
 
         Method nativeCreate = bridgeClass.getDeclaredMethod(
-                "nativeCreate",
+                "nativeCreateWithStatus",
                 String.class,
                 String.class,
                 String.class,
@@ -73,7 +73,8 @@ public class NativeApiContractTest {
                 String[].class,
                 String[].class,
                 int.class,
-                Object.class);
+                Object.class,
+                int[].class);
         assertTrue(Modifier.isPrivate(nativeCreate.getModifiers()));
         assertTrue(Modifier.isStatic(nativeCreate.getModifiers()));
 

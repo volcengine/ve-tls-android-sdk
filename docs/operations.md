@@ -12,7 +12,7 @@
 - 检查运行时凭据是否在创建前可用，不要从旧的外部凭证文件或硬编码 BuildConfig 读取。
 - persistent 模式检查 `persistentFilePath` 是应用私有目录，且 file count、file size、log count 都大于 `0`。
 - 构造 client 后才修改原 config 会抛 `IllegalStateException`；重新构造 client 才能使用 create-time 配置。
-- native 创建失败后，client 会记住首次失败；修正配置后应创建新的 client。
+- 收到 `LogProducerInitializationException` 时记录 `getReason()` 和 `isRetryable()`。目录锁占用、未到期租约和 WAL 打开时的暂时性 I/O 错误由当前 client 后台退避重试。对于配置、其他 WAL 打开或恢复错误，按原因处理后新建 client。 [持久化与恢复](usage.md#持久化与恢复)
 
 ### `addLog` 返回但服务端没有日志
 
