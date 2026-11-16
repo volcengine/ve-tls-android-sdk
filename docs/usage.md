@@ -59,7 +59,13 @@ LogProducerConfig config = new LogProducerConfig()
 
 构造 client 不会立即创建 native producer、打开 WAL 或执行 recover。首次 `addLog`、`updateEndpoint` 或 `resetSecurityToken` 触发 native 创建时，persistent binding 才会执行恢复。当前没有独立公开的 `start()` 或 `recover()` 方法。
 
-正常关闭后复用目录前，应先等待原 client 的 `awaitDestroy` 返回 `true`。如果 native 创建失败，该 client 会记住错误；解决原因后应新建 client。进程异常退出时，目录锁由系统释放，但残留租约未过期前重新创建仍可能失败；当前默认租约超时为最后一次心跳后 60 秒。不要手动清理租约。
+正常关闭后复用目录前，先等待原 client 的 `awaitDestroy` 返回 `true`。进程异常退出后，新实例拿到目录锁且确认租约记录的旧进程已退出时，可以立即接管。无法确认时沿用租约到期规则，默认等待最后一次心跳后 60 秒。保留原目录和 checkpoint 可以补传待发记录，并跳过已持久化确认的记录。
+
+目录锁占用、未到期租约和扫描已有 WAL 段或读取 checkpoint 时的 I/O 错误，分别以 `LogProducerInitializationException` 的 `WAL_LOCK_BUSY`、`WAL_LEASE_PENDING` 和 `WAL_OPEN_IO_ERROR` 报出。当前 client 从 250 ms 开始在后台退避重试，退避时长上限为 5 秒。因初始化失败抛异常的 `addLog` 本次未接纳，App 可以保留该事件并在可用后重新提交。其他初始化失败（包括 `WAL_OPEN_FAILED` 和 `WAL_RECOVERY_FAILED`）应根据具体原因处理，并在解决后新建 client。
+
+WAL 重放期间发生的暂时性 I/O 错误由同一个 native producer 从已保存的位置继续重试，无须再次调用 client 来触发恢复。
+
+段中间的记录发生 CRC 损坏时，重放会继续发送边界可识别的完整记录。只有在确认损坏记录的边界和 ID 后，磁盘水位才会跨过该 ID。SDK 会将它记为本地损坏，发送成功回调只对应实际送达的记录。边界或 ID 存疑时，SDK 保留原段和未确认的缺口。
 
 恢复使用当前 config、当前凭证和当前目标。WAL 不绑定写入时的 endpoint、region 或 topic；如果目标身份改变，见[网络、超时与重试](#网络超时与重试)中的切换风险。
 
@@ -67,7 +73,8 @@ LogProducerConfig config = new LogProducerConfig()
 
 - `addLog` 正常返回只表示当前模式完成了本地接收步骤，不代表服务端成功。
 - 服务端已接收但响应丢失、请求超时、进程在远端成功与 checkpoint 之间退出，或恢复未确认记录时，都可能产生重复。
-- `SYNC_WAL` 的 `write` 成功但 `fsync` 失败时，`addLog` 可能抛异常；磁盘上仍可能留下可恢复记录，立即重试可能造成重复。
+- `SYNC_WAL` 的 WAL 记录完整写入后如果 `fsync` 失败，`addLog` 抛出 `IllegalStateException` 并报告 native 持久化错误，持久性尚未确认。SDK 会重试同步，同步成功后使用原记录 ID 发送。调用方重新提交可能造成重复。
+- 就当前提交而言，只有能确认在 WAL 写入之前被拒绝时，重新提交才不会因该次提交产生重复；写入过程中或之后的异常不能作此保证。
 - 成功 callback 表示对应请求进入服务端成功路径，不表示本地 persistent checkpoint 已经 durable；checkpoint 保存或进程退出边界仍可能导致重发。
 - 使用稳定的 `event_id` 或业务主键，在消费侧去重。
 

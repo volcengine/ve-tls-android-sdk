@@ -15,6 +15,14 @@ extern "C" {
 namespace {
 
 constexpr bool kAddLogPerfEnabled = false;
+constexpr jint kWalRecoveryCreateFailure = 6;
+
+jlong report_create_failure(JNIEnv * env, jintArray failure_status, jint status) {
+    if (!env->ExceptionCheck()) {
+        env->SetIntArrayRegion(failure_status, 0, 1, &status);
+    }
+    return 0;
+}
 
 struct JniHttpBridgeState;
 struct CallbackState;
@@ -851,7 +859,7 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void *) {
 }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_nativeCreate(
+Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_nativeCreateWithStatus(
     JNIEnv * env,
     jclass,
     jstring endpoint,
@@ -899,7 +907,8 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     jobjectArray log_tag_keys,
     jobjectArray log_tag_values,
     jint log_tag_count,
-    jobject callback_dispatcher
+    jobject callback_dispatcher,
+    jintArray failure_status
 ) {
     ScopedUtfChars endpoint_chars(env, endpoint);
     ScopedUtfChars region_chars(env, region);
@@ -986,15 +995,16 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
             &runtime) != VE_TLS_OK) {
         free_kv_storage(log_tags, runtime_tag_count);
         destroy_http_bridge_state(http_bridge_state);
-        return 0;
+        return report_create_failure(env, failure_status, VE_TLS_CREATE_INVALID_CONFIG);
     }
+    ve_tls_create_status create_status = VE_TLS_CREATE_FAILED;
     ve_tls_producer * producer = config.use_persistent
-        ? ve_tls_producer_create_exclusive_persistence(&config, sizeof(config))
+        ? ve_tls_producer_create_exclusive_persistence_with_status(&config, sizeof(config), &create_status)
         : ve_tls_producer_create_versioned(&config, sizeof(config), VE_TLS_CONFIG_VERSION_CURRENT);
     if (producer == nullptr) {
         free_kv_storage(log_tags, runtime_tag_count);
         destroy_http_bridge_state(http_bridge_state);
-        return 0;
+        return report_create_failure(env, failure_status, create_status);
     }
     free_kv_storage(log_tags, runtime_tag_count);
     CallbackState * callback_state = create_callback_state(env, callback_dispatcher);
@@ -1029,7 +1039,7 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
         ve_tls_android_binding_before_destroy(producer, &runtime);
         destroy_callback_state(callback);
         destroy_http_bridge_state(state);
-        return 0;
+        return report_create_failure(env, failure_status, kWalRecoveryCreateFailure);
     }
 
     return reinterpret_cast<jlong>(producer);

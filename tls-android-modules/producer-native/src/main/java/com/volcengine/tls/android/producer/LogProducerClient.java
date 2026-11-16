@@ -5,19 +5,34 @@ import com.volcengine.tls.android.producer.internal.ConfigSnapshot;
 import com.volcengine.tls.android.producer.internal.JniNativeProducerBridge;
 import com.volcengine.tls.android.producer.internal.ProcessUtil;
 
+import java.lang.ref.WeakReference;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public final class LogProducerClient {
     private static final CountDownLatch DESTROY_NOT_STARTED = new CountDownLatch(0);
+    private static final long CREATE_RETRY_INITIAL_MS = 250;
+    private static final long CREATE_RETRY_MAX_MS = 5000;
+    private static final ScheduledExecutorService CREATE_RETRY_EXECUTOR =
+            Executors.newSingleThreadScheduledExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "tls-producer-create-retry");
+                thread.setDaemon(true);
+                return thread;
+            });
     private final Object lifecycleLock = new Object();
     private final ConfigSnapshot config;
     private final LogProducerCallback callback;
     private final NativeProducerBridge bridge;
+    private final ScheduledExecutorService createRetryExecutor;
     private volatile long producerHandle = 0;
     private volatile boolean destroyed;
     private volatile CountDownLatch destroyCompletion = DESTROY_NOT_STARTED;
-    private volatile RuntimeException createFailure;
+    private RuntimeException createFailure;
+    private ScheduledFuture<?> createRetry;
+    private long createRetryDelayMs = CREATE_RETRY_INITIAL_MS;
 
     public LogProducerClient(LogProducerConfig config) {
         this(config, null);
@@ -32,6 +47,11 @@ public final class LogProducerClient {
     }
 
     LogProducerClient(LogProducerConfig config, LogProducerCallback callback, String processName, NativeProducerBridge bridge) {
+        this(config, callback, processName, bridge, CREATE_RETRY_EXECUTOR);
+    }
+
+    LogProducerClient(LogProducerConfig config, LogProducerCallback callback, String processName,
+            NativeProducerBridge bridge, ScheduledExecutorService createRetryExecutor) {
         if (config != null) {
             validatePersistentSetup(config, processName);
         }
@@ -41,6 +61,7 @@ public final class LogProducerClient {
         }
         this.callback = callback;
         this.bridge = bridge == null ? new JniNativeProducerBridge() : bridge;
+        this.createRetryExecutor = createRetryExecutor;
     }
 
     static LogProducerClient forTest(LogProducerConfig config, NativeProducerBridge bridge) {
@@ -55,6 +76,11 @@ public final class LogProducerClient {
         addLog(log, 0);
     }
 
+    /**
+     * If native initialization fails, this log has not been accepted. For a retryable
+     * {@link LogProducerInitializationException}, this client retries initialization
+     * in the background. The caller may retain and resubmit the rejected log.
+     */
     public void addLog(Log log, int flush) {
         synchronized (lifecycleLock) {
             long handle = ensureProducerLocked();
@@ -105,6 +131,10 @@ public final class LogProducerClient {
                 return;
             }
             destroyed = true;
+            if (createRetry != null) {
+                createRetry.cancel(false);
+                createRetry = null;
+            }
             if (bridge == null) {
                 return;
             }
@@ -168,22 +198,50 @@ public final class LogProducerClient {
             throw rememberCreateFailure(new IllegalArgumentException("config == null"));
         }
         config.validateForCreate();
-        try {
-            producerHandle = bridge.create(config, callback);
-        } catch (RuntimeException e) {
-            throw rememberCreateFailure(e);
-        }
-        if (producerHandle == 0) {
-            throw rememberCreateFailure(new IllegalStateException("native producer create failed"));
+        RuntimeException failure = tryCreateProducerLocked();
+        if (failure != null) {
+            throw failure;
         }
         return producerHandle;
     }
 
-    private RuntimeException rememberCreateFailure(RuntimeException failure) {
-        if (createFailure == null) {
-            createFailure = failure;
+    private RuntimeException tryCreateProducerLocked() {
+        try {
+            producerHandle = bridge.create(config, callback);
+        } catch (RuntimeException e) {
+            return rememberCreateFailure(e);
         }
-        return createFailure;
+        if (producerHandle == 0) {
+            return rememberCreateFailure(new IllegalStateException("native producer create failed"));
+        }
+        createFailure = null;
+        return null;
+    }
+
+    private RuntimeException rememberCreateFailure(RuntimeException failure) {
+        createFailure = failure;
+        if (failure instanceof LogProducerInitializationException
+                && ((LogProducerInitializationException) failure).isRetryable()) {
+            WeakReference<LogProducerClient> clientReference = new WeakReference<>(this);
+            createRetry = createRetryExecutor.schedule(() -> {
+                LogProducerClient client = clientReference.get();
+                if (client != null) {
+                    client.retryCreate();
+                }
+            }, createRetryDelayMs, TimeUnit.MILLISECONDS);
+            createRetryDelayMs = Math.min(CREATE_RETRY_MAX_MS, createRetryDelayMs * 2);
+        }
+        return failure;
+    }
+
+    private void retryCreate() {
+        synchronized (lifecycleLock) {
+            createRetry = null;
+            if (!destroyed) {
+                // The attempt records its outcome and schedules any subsequent retry.
+                tryCreateProducerLocked();
+            }
+        }
     }
 
     private static void validatePersistentSetup(LogProducerConfig config, String processName) {

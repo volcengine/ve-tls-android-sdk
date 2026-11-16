@@ -2,13 +2,21 @@ package com.volcengine.tls.android.producer;
 
 import com.volcengine.tls.android.producer.internal.NativeProducerBridge;
 import com.volcengine.tls.android.producer.internal.ConfigSnapshot;
+import com.volcengine.tls.android.producer.internal.JniNativeProducerBridge;
 
 import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Delayed;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -16,6 +24,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -251,6 +260,119 @@ public class LogProducerClientBridgeTest {
     }
 
     @Test
+    public void transientCreateFailure_retriesWithoutAnAddAndCapsBackoff() {
+        RetryingBridge bridge = new RetryingBridge(LogProducerInitializationException.Reason.WAL_LOCK_BUSY);
+        ManualCreateRetryExecutor executor = new ManualCreateRetryExecutor();
+        LogProducerClient client = new LogProducerClient(baseValidConfig(), null, "demo", bridge, executor);
+        assertEquals(0, bridge.createCalls);
+
+        LogProducerInitializationException busy = assertThrows(
+                LogProducerInitializationException.class, () -> client.addLog(new Log()));
+        assertTrue(busy.isRetryable());
+        assertSame(busy, assertThrows(LogProducerInitializationException.class, () -> client.addLog(new Log())));
+        assertEquals(1, bridge.createCalls);
+        assertEquals(0, bridge.addCalls);
+
+        bridge.failure = new LogProducerInitializationException(LogProducerInitializationException.Reason.WAL_LEASE_PENDING);
+        for (int i = 0; i < 6; i++) {
+            executor.runRetry();
+        }
+        assertSame(bridge.failure, assertThrows(LogProducerInitializationException.class, () -> client.addLog(new Log())));
+        assertEquals(Arrays.asList(250L, 500L, 1000L, 2000L, 4000L, 5000L, 5000L), executor.delaysMs);
+        assertEquals(7, bridge.createCalls);
+
+        bridge.failure = null;
+        executor.runRetry();
+        assertEquals(8, bridge.createCalls);
+        assertEquals(0, bridge.addCalls);
+        client.addLog(new Log());
+        assertEquals(8, bridge.createCalls);
+        assertEquals(1, bridge.addCalls);
+        client.destroyLogProducer();
+        assertTrue(client.awaitDestroy(1000));
+        assertEquals(1, bridge.destroyCalls);
+    }
+
+    @Test
+    public void walOpenIoFailure_mapsStatusAndRecoversWithoutAnotherClientCall() throws Exception {
+        Method toReason = JniNativeProducerBridge.class.getDeclaredMethod("toCreateFailureReason", int.class);
+        toReason.setAccessible(true);
+        LogProducerInitializationException.Reason reason =
+                (LogProducerInitializationException.Reason) toReason.invoke(null, 7);
+        assertSame(LogProducerInitializationException.Reason.WAL_OPEN_IO_ERROR, reason);
+        assertSame(LogProducerInitializationException.Reason.WAL_OPEN_FAILED, toReason.invoke(null, 5));
+        assertSame(LogProducerInitializationException.Reason.WAL_RECOVERY_FAILED, toReason.invoke(null, 6));
+
+        RetryingBridge bridge = new RetryingBridge(reason);
+        ManualCreateRetryExecutor executor = new ManualCreateRetryExecutor();
+        LogProducerClient client = new LogProducerClient(baseValidConfig(), null, "demo", bridge, executor);
+        Log rejected = new Log();
+        LogProducerInitializationException failure = assertThrows(
+                LogProducerInitializationException.class, () -> client.addLog(rejected));
+        assertEquals(reason, failure.getReason());
+        assertTrue(failure.isRetryable());
+        assertEquals(1, bridge.createCalls);
+        assertEquals(0, bridge.addCalls);
+        assertEquals(Arrays.asList(250L), executor.delaysMs);
+
+        executor.runRetry();
+        assertEquals(2, bridge.createCalls);
+        assertEquals(0, bridge.addCalls);
+        assertEquals(Arrays.asList(250L, 500L), executor.delaysMs);
+
+        bridge.failure = null;
+        executor.runRetry();
+        assertEquals(3, bridge.createCalls);
+        assertEquals(0, bridge.addCalls);
+
+        client.addLog(rejected);
+        assertEquals(3, bridge.createCalls);
+        assertEquals(1, bridge.addCalls);
+        assertSame(rejected, bridge.lastAddedLog);
+        client.destroyLogProducer();
+        assertTrue(client.awaitDestroy(1000));
+    }
+
+    @Test
+    public void permanentCreateFailure_stopsPendingRetries() {
+        for (LogProducerInitializationException.Reason reason : Arrays.asList(
+                LogProducerInitializationException.Reason.NATIVE_SETUP_FAILED,
+                LogProducerInitializationException.Reason.INVALID_CONFIG,
+                LogProducerInitializationException.Reason.WAL_OPEN_FAILED,
+                LogProducerInitializationException.Reason.WAL_RECOVERY_FAILED)) {
+            RetryingBridge bridge = new RetryingBridge(LogProducerInitializationException.Reason.WAL_LEASE_PENDING);
+            ManualCreateRetryExecutor executor = new ManualCreateRetryExecutor();
+            LogProducerClient client = new LogProducerClient(baseValidConfig(), null, "demo", bridge, executor);
+            assertThrows(LogProducerInitializationException.class, () -> client.addLog(new Log()));
+
+            bridge.failure = new LogProducerInitializationException(reason);
+            executor.runRetry();
+            LogProducerInitializationException failure = assertThrows(
+                    LogProducerInitializationException.class, () -> client.addLog(new Log()));
+            assertSame(bridge.failure, failure);
+            assertFalse(failure.isRetryable());
+            assertEquals(Arrays.asList(250L), executor.delaysMs);
+            assertEquals(2, bridge.createCalls);
+            assertEquals(0, bridge.addCalls);
+        }
+    }
+
+    @Test
+    public void destroyBeforeCreateRetry_cancelsPendingAttempt() {
+        RetryingBridge bridge = new RetryingBridge(LogProducerInitializationException.Reason.WAL_LOCK_BUSY);
+        ManualCreateRetryExecutor executor = new ManualCreateRetryExecutor();
+        LogProducerClient client = new LogProducerClient(baseValidConfig(), null, "demo", bridge, executor);
+        assertThrows(LogProducerInitializationException.class, () -> client.addLog(new Log()));
+
+        client.destroyLogProducer();
+        assertTrue(client.awaitDestroy(1000));
+        assertTrue(executor.pending.isCancelled());
+        executor.runRetry();
+        assertEquals(1, bridge.createCalls);
+        assertEquals(0, bridge.destroyCalls);
+    }
+
+    @Test
     public void destroyLogProducer_awaitDestroyReturnsWithinTimeoutAndUsesNonDaemonWorker() throws Exception {
         BlockingDestroyBridge bridge = new BlockingDestroyBridge();
         LogProducerClient client = LogProducerClient.forTest(
@@ -469,6 +591,75 @@ public class LogProducerClientBridgeTest {
         public long create(ConfigSnapshot config, LogProducerCallback callback) {
             createCalls++;
             throw new IllegalStateException("main-thread callback mode unavailable");
+        }
+    }
+
+    private static final class RetryingBridge extends FakeBridge {
+        private LogProducerInitializationException failure;
+        private int addCalls;
+        private Log lastAddedLog;
+
+        RetryingBridge(LogProducerInitializationException.Reason reason) {
+            failure = new LogProducerInitializationException(reason);
+        }
+
+        @Override
+        public long create(ConfigSnapshot config, LogProducerCallback callback) {
+            if (failure != null) {
+                createCalls++;
+                throw failure;
+            }
+            return super.create(config, callback);
+        }
+
+        @Override
+        public void addLog(long producerHandle, Log log, int flush) {
+            addCalls++;
+            lastAddedLog = log;
+        }
+    }
+
+    private static final class ManualCreateRetryExecutor extends ScheduledThreadPoolExecutor {
+        private final List<Long> delaysMs = new ArrayList<>();
+        private ManualRetryTask pending;
+
+        ManualCreateRetryExecutor() {
+            super(1);
+        }
+
+        @Override
+        public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
+            assertTrue("only one retry may be pending", pending == null);
+            long delayMs = unit.toMillis(delay);
+            delaysMs.add(delayMs);
+            pending = new ManualRetryTask(command, delayMs);
+            return pending;
+        }
+
+        void runRetry() {
+            assertTrue("retry was not scheduled", pending != null);
+            ManualRetryTask task = pending;
+            pending = null;
+            task.run();
+        }
+    }
+
+    private static final class ManualRetryTask extends FutureTask<Void> implements ScheduledFuture<Void> {
+        private final long delayMs;
+
+        ManualRetryTask(Runnable command, long delayMs) {
+            super(command, null);
+            this.delayMs = delayMs;
+        }
+
+        @Override
+        public long getDelay(TimeUnit unit) {
+            return unit.convert(delayMs, TimeUnit.MILLISECONDS);
+        }
+
+        @Override
+        public int compareTo(Delayed other) {
+            return Long.compare(getDelay(TimeUnit.MILLISECONDS), other.getDelay(TimeUnit.MILLISECONDS));
         }
     }
 }
