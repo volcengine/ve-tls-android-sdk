@@ -75,8 +75,15 @@ public final class NativeHttpBridge {
             writeBodyIfPresent(connection, request.getBody());
 
             int statusCode = connection.getResponseCode();
-            byte[] responseBody = readResponseBody(connection, statusCode);
             Map<String, List<String>> headers = connection.getHeaderFields();
+            byte[] responseBody;
+            try {
+                responseBody = readResponseBody(connection, statusCode);
+            } catch (IOException failure) {
+                if (statusCode == -1) throw failure;
+                // PutLogs can be classified from the received status even if the body fails.
+                responseBody = null;
+            }
             return new NativeHttpResponse(statusCode, headers, responseBody);
         } finally {
             connection.disconnect();
@@ -103,6 +110,8 @@ public final class NativeHttpBridge {
     }
 
     private void configureConnection(HttpURLConnection connection, Request request) throws IOException {
+        // The Core signs PutLogs for this URL. Return 3xx to the Core as received.
+        connection.setInstanceFollowRedirects(false);
         connection.setConnectTimeout(request.getConnectTimeoutMs());
         connection.setReadTimeout(request.getRequestTimeoutMs());
         connection.setRequestMethod(request.getMethod());

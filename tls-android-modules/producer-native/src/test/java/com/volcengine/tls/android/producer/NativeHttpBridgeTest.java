@@ -7,11 +7,13 @@ import com.volcengine.tls.android.producer.internal.NativeHttpResponse;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.File;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.MalformedURLException;
+import java.net.ProtocolException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -29,6 +31,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -127,6 +130,70 @@ public class NativeHttpBridgeTest {
         assertArrayEquals(new byte[] {9, 8, 7}, response.getBody());
         assertEquals("rid-1", response.getHeaders().get("x-request-id").get(0));
         assertEquals("rid-1", response.getRequestId());
+    }
+
+    @Test
+    public void execute_disablesRedirectsBeforeSendingPutLogs() throws Exception {
+        URL url = new URL("https://example.invalid/PutLogs?TopicId=test-topic");
+        CapturingHttpsURLConnection connection = new CapturingHttpsURLConnection(url);
+        connection.setInstanceFollowRedirects(true);
+        connection.responseCode = 302;
+        connection.responseHeaders.put("x-tls-requestid", Collections.singletonList("rid-redirect"));
+
+        NativeHttpResponse response = new NativeHttpBridge(ignored -> connection).execute(putLogsRequest(url));
+
+        assertFalse(connection.followRedirectsWhenWritingBody);
+        assertArrayEquals(new byte[] {1}, connection.writtenBody.toByteArray());
+        assertEquals(302, response.getStatusCode());
+        assertEquals("rid-redirect", response.getRequestId());
+    }
+
+    @Test
+    public void execute_preservesAcknowledgementWhenSuccessBodyReadFails() throws Exception {
+        assertResponseSurvivesBodyReadFailure(200, new EOFException("body truncated"));
+        assertResponseSurvivesBodyReadFailure(200, new ProtocolException("unexpected end of stream"));
+    }
+
+    @Test
+    public void execute_preservesStatusAndRequestIdWhenErrorBodyReadFails() throws Exception {
+        assertResponseSurvivesBodyReadFailure(503, new EOFException("body truncated"));
+        assertResponseSurvivesBodyReadFailure(503, new ProtocolException("unexpected end of stream"));
+    }
+
+    private static void assertResponseSurvivesBodyReadFailure(int status, IOException failure) throws Exception {
+        URL url = new URL("https://example.invalid/PutLogs?TopicId=test-topic");
+        CapturingHttpsURLConnection connection = new CapturingHttpsURLConnection(url);
+        connection.responseCode = status;
+        connection.responseHeaders.put("x-tls-requestid", Collections.singletonList("rid-body-io"));
+        connection.bodyFailure = failure;
+
+        NativeHttpResponse response = new NativeHttpBridge(ignored -> connection).execute(putLogsRequest(url));
+
+        assertEquals(status, response.getStatusCode());
+        assertEquals("rid-body-io", response.getRequestId());
+        assertArrayEquals(new byte[0], response.getBody());
+    }
+
+    @Test
+    public void execute_propagatesReadFailureUntilResponseStatusIsKnown() throws Exception {
+        URL url = new URL("https://example.invalid/PutLogs?TopicId=test-topic");
+        CapturingHttpsURLConnection connection = new CapturingHttpsURLConnection(url);
+        connection.responseFailure = new EOFException("headers truncated");
+        NativeHttpBridge bridge = new NativeHttpBridge(ignored -> connection);
+
+        assertSame(connection.responseFailure,
+                assertThrows(EOFException.class, () -> bridge.execute(putLogsRequest(url))));
+
+        connection.responseFailure = null;
+        connection.responseCode = -1;
+        connection.bodyFailure = new EOFException("response unavailable");
+        assertSame(connection.bodyFailure,
+                assertThrows(EOFException.class, () -> bridge.execute(putLogsRequest(url))));
+    }
+
+    private static NativeHttpBridge.Request putLogsRequest(URL url) {
+        return new NativeHttpBridge.Request("POST", url.toString(), "", new byte[] {1},
+                1000, 1000, 1, 1, null, null, "tls-producer");
     }
 
     @Test
@@ -291,6 +358,9 @@ public class NativeHttpBridgeTest {
         private HostnameVerifier hostnameVerifier;
         private int responseCode;
         private byte[] responseBody = new byte[0];
+        private boolean followRedirectsWhenWritingBody;
+        private IOException responseFailure;
+        private IOException bodyFailure;
 
         CapturingHttpsURLConnection(URL url) {
             super(url);
@@ -348,21 +418,31 @@ public class NativeHttpBridgeTest {
 
         @Override
         public InputStream getInputStream() {
+            if (bodyFailure != null) {
+                return new InputStream() {
+                    @Override
+                    public int read() throws IOException {
+                        throw bodyFailure;
+                    }
+                };
+            }
             return new ByteArrayInputStream(responseBody);
         }
 
         @Override
         public java.io.OutputStream getOutputStream() {
+            followRedirectsWhenWritingBody = getInstanceFollowRedirects();
             return writtenBody;
         }
 
         @Override
         public InputStream getErrorStream() {
-            return null;
+            return bodyFailure == null ? null : getInputStream();
         }
 
         @Override
-        public int getResponseCode() {
+        public int getResponseCode() throws IOException {
+            if (responseFailure != null) throw responseFailure;
             return responseCode;
         }
 
