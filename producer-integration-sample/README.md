@@ -7,7 +7,7 @@ BuildConfig 占位符仅用于编译验证，不要填入真实 AK/SK 后分发 
 
 构建前请确认主线工件已发布到本机 Maven Local；本样例不会自动发布工件，也不会上传远端：
 
-- 主线标准坐标：`io.github.volcengine-tls:tls-android-producer:2.1.5`
+- 主线标准坐标：`io.github.volcengine-tls:tls-android-producer:2.1.6`
 
 ## 标准 API 16+ 构建
 
