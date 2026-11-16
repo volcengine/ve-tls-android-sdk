@@ -3,6 +3,8 @@ package com.volcengine.tls.android.producer.internal;
 import com.volcengine.tls.android.producer.Log;
 import com.volcengine.tls.android.producer.LogProducerCallback;
 import com.volcengine.tls.android.producer.LogProducerConfig;
+import com.volcengine.tls.android.producer.LogProducerInitializationException;
+import com.volcengine.tls.android.producer.LogProducerInitializationException.Reason;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -657,7 +659,8 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
 
     private static long invokeNativeCreate(CreateArgs args) {
         ConfigSnapshot config = args.getConfig();
-        return nativeCreate(
+        int[] failureStatus = new int[1];
+        long handle = nativeCreateWithStatus(
                 config.getEndpoint(),
                 config.getRegion(),
                 config.getProjectId(),
@@ -703,7 +706,32 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
                 args.getLogTagKeys(),
                 args.getLogTagValues(),
                 args.getLogTagCount(),
-                args.getCallbackDispatcher());
+                args.getCallbackDispatcher(),
+                failureStatus);
+        if (handle == 0) {
+            throw new LogProducerInitializationException(toCreateFailureReason(failureStatus[0]));
+        }
+        return handle;
+    }
+
+    private static Reason toCreateFailureReason(int status) {
+        // Matches native creation statuses, including JNI and Core private values.
+        switch (status) {
+            case 2:
+                return Reason.INVALID_CONFIG;
+            case 3:
+                return Reason.WAL_LOCK_BUSY;
+            case 4:
+                return Reason.WAL_LEASE_PENDING;
+            case 5:
+                return Reason.WAL_OPEN_FAILED;
+            case 6:
+                return Reason.WAL_RECOVERY_FAILED;
+            case 7:
+                return Reason.WAL_OPEN_IO_ERROR;
+            default:
+                return Reason.NATIVE_SETUP_FAILED;
+        }
     }
 
     static int toNativeCompressType(LogProducerConfig.CompressType compressType) {
@@ -804,7 +832,7 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
         }
     }
 
-    private static native long nativeCreate(
+    private static native long nativeCreateWithStatus(
             String endpoint,
             String region,
             String projectId,
@@ -850,7 +878,8 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
             String[] logTagKeys,
             String[] logTagValues,
             int logTagCount,
-            Object callbackDispatcher);
+            Object callbackDispatcher,
+            int[] failureStatus);
 
     private static native int nativeAddLog(
             long producerHandle,

@@ -14,7 +14,7 @@ API 16-20 使用 Android 系统 JSSE 的 TLS 1.2 能力；API 16-19 由 SDK 显�
 
 ### 标准依赖
 
-使用 Maven Central 时，SDK `2.1.5` 的标准依赖坐标如下：
+使用 Maven Central 时，SDK `2.1.6` 的标准依赖坐标如下：
 
 ```groovy
 repositories {
@@ -22,7 +22,7 @@ repositories {
 }
 
 dependencies {
-    implementation "io.github.volcengine-tls:tls-android-producer:2.1.5"
+    implementation "io.github.volcengine-tls:tls-android-producer:2.1.6"
 }
 ```
 

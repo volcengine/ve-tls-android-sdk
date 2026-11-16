@@ -1,5 +1,7 @@
 package com.volcengine.tls.android.producer;
 
+import android.os.SystemClock;
+
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.volcengine.tls.android.producer.internal.ProcessUtil;
@@ -187,7 +189,6 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
             File dir = testDir();
             RecoveryProcessFixture owner = null;
             LogProducerClient contender = null;
-            LogProducerClient reopened = null;
             try {
                 owner = new RecoveryProcessFixture(server.endpoint(), dir, durability);
                 String ownerProcessName = owner.processName();
@@ -198,14 +199,16 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
                 LogProducerResult pending = assertResultAndBody(server, ownerResults, "pending", 400);
 
                 // A stopped process cannot refresh the stale fixture or modify the snapshot.
-                IllegalStateException denied;
+                BlockingQueue<LogProducerResult> contenderResults = new LinkedBlockingQueue<>();
                 owner.pause();
                 try {
                     expireLeaseHeartbeat(new File(actualDir, "lease"));
                     Map<String, byte[]> before = snapshotFiles(actualDir);
                     contender = new LogProducerClient(
-                            recoveryGapConfig(server, dir, durability), null, ownerProcessName, null);
-                    denied = expectNativeCreationFailure(contender, server);
+                            recoveryGapConfig(server, dir, durability), contenderResults::add, ownerProcessName, null);
+                    LogProducerInitializationException denied = expectNativeCreationFailure(
+                            contender, "unaccepted", LogProducerInitializationException.Reason.WAL_LOCK_BUSY);
+                    assertTrue(denied.isRetryable());
                     assertFileSnapshotsEqual(before, snapshotFiles(actualDir));
                     android.util.Log.i("RecoveryProcessFixture", "stale lease contender refused pid="
                             + owner.pid() + " unchangedFiles=" + before.keySet());
@@ -215,27 +218,26 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
 
                 // Failed takeover must not disturb the still-live owner.
                 owner.add("owner-after", System.currentTimeMillis());
-                assertResultAndBody(server, ownerResults, "owner-after", 200);
-                owner.stop();
+                LogProducerResult ownerAfter = assertResultAndBody(server, ownerResults, "owner-after", 200);
+                awaitCheckpoint(new File(actualDir, "checkpoint"), pending.getStartId() - 1, ownerAfter.getStartId());
+                owner.kill();
                 owner.close();
                 owner = null;
-                assertSame("a failed client retains its creation failure", denied,
-                        expectNativeCreationFailure(contender, server));
 
-                BlockingQueue<LogProducerResult> reopenedResults = new LinkedBlockingQueue<>();
-                reopened = new LogProducerClient(recoveryGapConfig(server, dir, durability),
-                        reopenedResults::add, ownerProcessName, null);
-                reopened.updateEndpoint(server.endpoint(), "cn-beijing", "recovery-test");
-                assertSameLogIdRange(pending, assertResultAndBody(server, reopenedResults, "pending", 200));
-                stop(reopened);
-                reopened = null;
-                assertEquals("failed create must not send or lose records", 3, server.requests.get());
+                // The failed instance must recover without another SDK call triggering creation.
+                assertSameLogIdRange(pending, assertResultAndBody(server, contenderResults, "pending", 200));
+                android.util.Log.i("RecoveryProcessFixture", "same contender recovered pending=" + pending.getStartId()
+                        + " without resubmitting the rejected event");
+                contender.addLog(event("contender-after"), 1);
+                assertResultAndBody(server, contenderResults, "contender-after", 200);
+                stop(contender);
+                contender = null;
+                assertEquals("only committed WAL and the new submission may be sent", 4, server.requests.get());
                 assertNull("unexpected request after recovery", server.requestBodies.poll());
                 assertNull("unexpected owner callback", ownerResults.poll());
-                assertNull("unexpected recovery callback", reopenedResults.poll());
+                assertNull("unexpected contender callback", contenderResults.poll());
                 server.assertHealthy();
             } finally {
-                if (reopened != null) stop(reopened);
                 if (contender != null) stop(contender);
                 if (owner != null) owner.close();
                 deleteTestDir(dir);
@@ -295,39 +297,24 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
                 android.util.Log.i("RecoveryProcessFixture", "before kill pid=" + killedPid
                         + " A=" + a.getStartId() + "/200 B=" + b.getStartId() + "/400 C="
                         + c.getStartId() + "/200 D=" + d.getStartId() + "/400");
+                long killStarted = SystemClock.elapsedRealtime();
                 first.kill();
                 first.close();
                 first = null;
 
-                // A dead process releases its lock, but its unexpired lease still refuses
-                // another owner until the production 60 s timeout has elapsed.
-                Map<String, byte[]> beforeRefusal = snapshotFiles(actualDir);
-                byte[] lease = beforeRefusal.get("lease");
+                // Read the original lease left by the crashed process, without advancing its heartbeat.
+                byte[] lease = readFile(new File(actualDir, "lease"));
                 int checksumOffset = leaseChecksumOffset(lease);
                 long heartbeat = ByteBuffer.wrap(lease).order(ByteOrder.nativeOrder())
                         .getLong(checksumOffset - 16);
                 long leaseAge = System.currentTimeMillis() - heartbeat;
-                assertTrue("expected a fresh lease, age=" + leaseAge, leaseAge >= 0 && leaseAge <= 60000);
-                LogProducerClient premature = new LogProducerClient(
-                        recoveryGapConfig(server, dir, durability), null, processName, null);
-                try {
-                    expectNativeCreationFailure(premature, server);
-                    assertFileSnapshotsEqual(beforeRefusal, snapshotFiles(actualDir));
-                    assertEquals("fresh-lease refusal must not send records", 4, server.requests.get());
-                } finally {
-                    stop(premature);
-                }
-                android.util.Log.i("RecoveryProcessFixture", "fresh lease refused after process exit pid="
-                        + killedPid + " ageMs=" + leaseAge + " requests=" + server.requests.get());
-
-                // Advance only the test fixture to expiry after SIGKILL and process exit.
-                expireLeaseHeartbeat(new File(actualDir, "lease"));
-                android.util.Log.i("RecoveryProcessFixture", "expired dead owner's lease fixture pid="
-                        + killedPid + " heartbeat=1");
+                assertTrue("expected a fresh lease, age=" + leaseAge, leaseAge >= 0 && leaseAge < 60000);
                 second = new RecoveryProcessFixture(server.endpoint(), dir, durability);
                 assertTrue("restart must use a new process", killedPid != second.pid());
                 assertEquals("restart must retain the Android process identity", processName, second.processName());
                 second.open();
+                long openedInMs = SystemClock.elapsedRealtime() - killStarted;
+                assertTrue("open waited for lease expiry", System.currentTimeMillis() - heartbeat < 60000);
                 Map<String, LogProducerResult> recovered =
                         assertSuccessfulResultsAndBodies(server, second.results, "B", "D");
                 assertSameLogIdRange(b, recovered.get("B"));
@@ -346,7 +333,9 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
                 assertEquals(eventTime + 3, singleLogTime(replayBodies.get("D")));
 
                 second.add("barrier", eventTime + 4);
-                assertResultAndBody(server, second.results, "barrier", 200);
+                LogProducerResult barrier = assertResultAndBody(server, second.results, "barrier", 200);
+                assertEquals(d.getEndId() + 1, barrier.getStartId());
+                awaitCheckpoint(new File(actualDir, "checkpoint"), barrier.getEndId(), 0);
                 second.stop();
                 assertEquals("A and C must not be resent; B and D must not be lost", 7, server.requests.get());
                 assertNull("unexpected replay", server.requestBodies.poll());
@@ -354,7 +343,8 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
                 android.util.Log.i("RecoveryProcessFixture", "restarted pid=" + second.pid()
                         + " replay B=" + recovered.get("B").getStartId() + " time=" + (eventTime + 1)
                         + " D=" + recovered.get("D").getStartId() + " time=" + (eventTime + 3)
-                        + " requests=" + server.requests.get());
+                        + " requests=" + server.requests.get() + " oldLeaseAgeMs=" + leaseAge
+                        + " killToOpenMs=" + openedInMs + " durableAck=" + barrier.getEndId());
                 server.assertHealthy();
             } finally {
                 if (second != null) second.close();
@@ -364,10 +354,39 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
         }
     }
 
+    public void testWalOpenFailureReportsNonRetryableReason() throws Exception {
+        try (TestServer server = new TestServer((attempt, headers, body) -> 200)) {
+            File path = testDir();
+            assertTrue(path.createNewFile());
+            LogProducerClient client = new LogProducerClient(
+                    recoveryGapConfig(server, path, LogProducerConfig.PersistentDurability.SYNC_WAL));
+            try {
+                LogProducerInitializationException failure = expectNativeCreationFailure(
+                        client, "unaccepted", LogProducerInitializationException.Reason.WAL_OPEN_FAILED);
+                assertFalse(failure.isRetryable());
+                assertTrue(path.delete());
+                assertSame(failure, expectNativeCreationFailure(
+                        client, "still-unaccepted", LogProducerInitializationException.Reason.WAL_OPEN_FAILED));
+                assertEquals(0, server.requests.get());
+            } finally {
+                stop(client);
+                deleteTestDir(path);
+            }
+            server.assertHealthy();
+        }
+    }
+
     private static void awaitCheckpoint(File checkpoint, long prefixId, long sparseId) throws Exception {
         long deadline = android.os.SystemClock.elapsedRealtime() + 10000;
         while (android.os.SystemClock.elapsedRealtime() < deadline) {
             byte[] bytes = readFile(checkpoint);
+            if (sparseId == 0 && bytes.length == 48) {
+                ByteBuffer data = ByteBuffer.wrap(bytes).order(ByteOrder.nativeOrder());
+                if (data.getInt(0) == 0x54435031 && data.getInt(4) == 1 && data.getLong(8) == prefixId
+                        && data.getInt(44) == leaseChecksum(bytes, 44)) {
+                    return;
+                }
+            }
             if (bytes.length == 84) {
                 ByteBuffer data = ByteBuffer.wrap(bytes).order(ByteOrder.nativeOrder());
                 CRC32 crc = new CRC32();
@@ -385,7 +404,7 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
             }
             Thread.sleep(10);
         }
-        throw new AssertionError("idle checkpoint did not persist acknowledged prefix and sparse range");
+        throw new AssertionError("idle checkpoint did not persist the expected acknowledgements");
     }
 
     private static long singleLogTime(byte[] body) throws IOException {
@@ -398,15 +417,15 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
         return readVarint(input);
     }
 
-    private static IllegalStateException expectNativeCreationFailure(
-            LogProducerClient client, TestServer server) {
+    private static LogProducerInitializationException expectNativeCreationFailure(
+            LogProducerClient client, String eventId, LogProducerInitializationException.Reason reason) {
         try {
-            client.updateEndpoint(server.endpoint(), "cn-beijing", "recovery-test");
-        } catch (IllegalStateException expected) {
-            assertEquals("native producer create failed", expected.getMessage());
+            client.addLog(event(eventId), 1);
+        } catch (LogProducerInitializationException expected) {
+            assertEquals(reason, expected.getReason());
             return expected;
         }
-        throw new AssertionError("a live owner or fresh lease must prevent another client from opening its WAL");
+        throw new AssertionError("expected native creation to fail with " + reason);
     }
 
     // The test fixture writes a valid stale heartbeat while preserving the owner and fencing token.
@@ -632,7 +651,13 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
     static LogProducerConfig recoveryGapConfig(
             String endpoint, File dir, LogProducerConfig.PersistentDurability durability) {
         return config(endpoint, dir)
+                .setMaxBufferLimit(8 * 1024 * 1024)
+                .setPersistentMaxBytes(10 * 1024 * 1024)
+                .setPersistentMaxRecords(65536).setPersistentMaxSegments(10)
+                .setPersistentMaxLogCount(65536).setPersistentMaxFileCount(10)
+                .setPersistentMaxFileSize(1024 * 1024)
                 .setPersistentDurability(durability)
+                .setPersistentForceFlush(durability == LogProducerConfig.PersistentDurability.SYNC_WAL)
                 .setCompressType(LogProducerConfig.CompressType.NONE)
                 .setPacketLogCount(1);
     }
