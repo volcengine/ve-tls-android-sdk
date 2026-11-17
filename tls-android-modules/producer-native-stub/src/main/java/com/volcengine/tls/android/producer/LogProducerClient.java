@@ -1,8 +1,25 @@
 package com.volcengine.tls.android.producer;
 
+import android.app.Application;
+import android.os.Handler;
+import android.os.Looper;
+
 public final class LogProducerClient {
     private final LogProducerCallback callback;
     private volatile boolean destroyed;
+
+    public interface OpenCallback {
+        void onCompletion(LogProducerClient client, RuntimeException error);
+    }
+
+    public static void open(Application application, LogProducerConfig config,
+            LogProducerCallback sendCallback, OpenCallback completion) {
+        if (completion == null) {
+            throw new IllegalArgumentException("completion == null");
+        }
+        new Handler(Looper.getMainLooper()).post(
+                () -> completion.onCompletion(new LogProducerClient(config, sendCallback), null));
+    }
 
     public LogProducerClient(LogProducerConfig config) {
         this(config, null);

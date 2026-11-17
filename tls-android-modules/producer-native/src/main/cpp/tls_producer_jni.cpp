@@ -908,6 +908,7 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
     jobjectArray log_tag_values,
     jint log_tag_count,
     jobject callback_dispatcher,
+    jboolean retry_transient_http_responses,
     jintArray failure_status
 ) {
     ScopedUtfChars endpoint_chars(env, endpoint);
@@ -997,6 +998,7 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
         destroy_http_bridge_state(http_bridge_state);
         return report_create_failure(env, failure_status, VE_TLS_CREATE_INVALID_CONFIG);
     }
+    config.retry_transient_http_errors = retry_transient_http_responses == JNI_TRUE ? 1 : 0;
     ve_tls_create_status create_status = VE_TLS_CREATE_FAILED;
     ve_tls_producer * producer = config.use_persistent
         ? ve_tls_producer_create_exclusive_persistence_with_status(&config, sizeof(config), &create_status)
@@ -1363,6 +1365,26 @@ Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_native
         access_key_id_chars.c_str(),
         access_key_secret_chars.c_str(),
         security_token_chars.c_str());
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_volcengine_tls_android_producer_internal_JniNativeProducerBridge_nativeOnAppVisibility(
+    JNIEnv *,
+    jclass,
+    jlong producer_handle,
+    jboolean foreground
+) {
+    ve_tls_producer * producer = producer_from_handle(producer_handle);
+    if (producer == nullptr) {
+        return VE_TLS_INVALID;
+    }
+
+    ve_tls_result flush_result = ve_tls_producer_flush(producer);
+    if (foreground) {
+        ve_tls_result wake_result = ve_tls_producer_notify_network_recovered(producer);
+        return flush_result == VE_TLS_OK ? wake_result : flush_result;
+    }
+    return flush_result;
 }
 
 extern "C" JNIEXPORT void JNICALL

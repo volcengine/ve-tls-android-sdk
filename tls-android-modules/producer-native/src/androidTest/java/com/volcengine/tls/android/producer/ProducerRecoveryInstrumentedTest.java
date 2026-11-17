@@ -1,5 +1,6 @@
 package com.volcengine.tls.android.producer;
 
+import android.app.Application;
 import android.os.SystemClock;
 
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -54,6 +55,68 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
             }
             server.assertHealthy();
             assertEquals("only the terminal success is reported", 1, completion.calls.get());
+        }
+    }
+
+    public void testTransientHttpOptInRetriesOnlyCoreAllowlist() throws Exception {
+        assertTransientHttpResponse(408, null, true, true);
+        assertTransientHttpResponse(499, null, true, true);
+        for (String code : Arrays.asList("ClientCanceled", "Timeout", "RequestTimeout", "ConnectionClosed")) {
+            assertTransientHttpResponse(400, code, true, true);
+        }
+        assertTransientHttpResponse(400, "InvalidParameter", true, false);
+        assertTransientHttpResponse(400, null, true, false);
+    }
+
+    public void testDefaultUsesStandardHttpRetryPolicy() throws Exception {
+        assertTransientHttpResponse(408, null, false, false);
+        assertTransientHttpResponse(499, null, false, false);
+        assertTransientHttpResponse(400, "RequestTimeout", false, false);
+        assertTransientHttpResponse(503, null, false, true);
+    }
+
+    private void assertTransientHttpResponse(int status, String errorCode, boolean enabled, boolean retries)
+            throws Exception {
+        try (TestServer server = new TestServer((attempt, headers, body) -> attempt == 1 ? status : 200, errorCode)) {
+            File dir = testDir();
+            File checkpoint = new File(ProcessUtil.rewritePersistentPath(dir.getAbsolutePath(),
+                    ProcessUtil.getCurrentProcessName()), "checkpoint");
+            Completion completion = new Completion();
+            LogProducerConfig config = recoveryGapConfig(server, dir, LogProducerConfig.PersistentDurability.SYNC_WAL)
+                    .setRetryMaxAttempts(2).setRetryTotalTimeoutMs(3000);
+            if (enabled) {
+                config.setRetryTransientHttpResponses(true);
+            }
+            LogProducerClient client = new LogProducerClient(config, completion::accept);
+            try {
+                try {
+                    client.addLog(log(), 1);
+                    if (retries) {
+                        completion.assertSuccess();
+                        assertFalse("retry changed the encoded batch", server.bodyChanged.get());
+                        awaitCheckpoint(checkpoint, completion.result.get().getEndId(), 0);
+                    } else {
+                        assertTrue("terminal failure timed out", completion.done.await(5, TimeUnit.SECONDS));
+                        LogProducerResult result = completion.result.get();
+                        assertFalse(result.isSuccess());
+                        assertFalse(result.isRetryable());
+                        assertEquals(status, result.getHttpCode());
+                        if (errorCode != null) {
+                            assertEquals(errorCode, result.getErrorCode());
+                        }
+                    }
+                } finally {
+                    stop(client);
+                }
+                if (!retries && checkpoint.exists()) {
+                    awaitCheckpoint(checkpoint, 0, 0);
+                }
+                assertEquals(retries ? 2 : 1, server.requests.get());
+                assertEquals(1, completion.calls.get());
+                server.assertHealthy();
+            } finally {
+                deleteTestDir(dir);
+            }
         }
     }
 
@@ -159,6 +222,134 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
 
     public void testSyncProcessKillPreservesSparseAcknowledgements() throws Exception {
         assertProcessKillPreservesSparseAcknowledgements(LogProducerConfig.PersistentDurability.SYNC_WAL);
+    }
+
+    public void testBufferedProducerIdTakesOverLegacyWalAcrossProcesses() throws Exception {
+        assertProducerIdTakesOverLegacyWal(LogProducerConfig.PersistentDurability.BUFFERED_WAL);
+    }
+
+    public void testSyncProducerIdTakesOverLegacyWalAcrossProcesses() throws Exception {
+        assertProducerIdTakesOverLegacyWal(LogProducerConfig.PersistentDurability.SYNC_WAL);
+    }
+
+    private void assertProducerIdTakesOverLegacyWal(LogProducerConfig.PersistentDurability durability)
+            throws Exception {
+        Application application = (Application) InstrumentationRegistry.getInstrumentation()
+                .getTargetContext().getApplicationContext();
+        final long eventTime = 1700000000123L;
+        AtomicBoolean allowReplay = new AtomicBoolean();
+        try (TestServer server = new TestServer((attempt, headers, body) -> {
+            String event = singleEventId(body);
+            return !allowReplay.get() && ("B".equals(event) || "D".equals(event)) ? 400 : 200;
+        })) {
+            File dir = testDir();
+            String producerId = dir.getName();
+            RecoveryProcessFixture oldOwner = null;
+            RecoveryProcessFixture reopened = null;
+            LogProducerClient migrated = null;
+            try {
+                oldOwner = new RecoveryProcessFixture(server.endpoint(), dir, durability);
+                assertFalse(ProcessUtil.getCurrentProcessName().equals(oldOwner.processName()));
+                File actualDirectory = new File(ProcessUtil.rewritePersistentPath(
+                        dir.getAbsolutePath(), oldOwner.processName()));
+                File checkpoint = new File(actualDirectory, "checkpoint");
+                oldOwner.add("A", eventTime);
+                LogProducerResult a = assertResultAndBody(server, oldOwner.results, "A", 200);
+                oldOwner.add("B", eventTime + 1);
+                LogProducerResult b = assertResultAndBody(server, oldOwner.results, "B", 400);
+                oldOwner.add("C", eventTime + 2);
+                LogProducerResult c = assertResultAndBody(server, oldOwner.results, "C", 200);
+                awaitCheckpoint(checkpoint, a.getEndId(), c.getStartId());
+                oldOwner.add("D", eventTime + 3);
+                LogProducerResult d = assertResultAndBody(server, oldOwner.results, "D", 400);
+                assertTrue(a.getEndId() < b.getStartId() && b.getEndId() < c.getStartId()
+                        && c.getEndId() < d.getStartId());
+
+                LogProducerConfig firstSwitch = recoveryGapConfig(server, dir, durability)
+                        .setPersistentFilePath(null)
+                        .setProducerId(producerId, actualDirectory.getAbsolutePath());
+                assertProducerIdBusy(application, firstSwitch);
+                assertEquals(4, server.requests.get());
+
+                int oldPid = oldOwner.pid();
+                oldOwner.kill();
+                oldOwner.close();
+                oldOwner = null;
+                byte[] lease = readFile(new File(actualDirectory, "lease"));
+                long heartbeat = ByteBuffer.wrap(lease).order(ByteOrder.nativeOrder())
+                        .getLong(leaseChecksumOffset(lease) - 16);
+                allowReplay.set(true);
+                BlockingQueue<LogProducerResult> results = new LinkedBlockingQueue<>();
+                LogProducerConfig idOnly = recoveryGapConfig(server, dir, durability)
+                        .setPersistentFilePath(null).setProducerId(producerId);
+                migrated = openProducer(application, idOnly, results::add);
+                long leaseAgeAtOpen = System.currentTimeMillis() - heartbeat;
+                assertTrue("takeover must not wait for lease expiry", leaseAgeAtOpen >= 0 && leaseAgeAtOpen < 60000);
+                Map<String, LogProducerResult> recovered = assertSuccessfulResultsAndBodies(server, results, "B", "D");
+                assertSameLogIdRange(b, recovered.get("B"));
+                assertSameLogIdRange(d, recovered.get("D"));
+                awaitCheckpoint(checkpoint, d.getEndId(), 0);
+                assertProducerIdBusy(application, idOnly);
+                stop(migrated);
+                migrated = null;
+
+                // The same ID now opens from an Android service process again using only the ID.
+                reopened = new RecoveryProcessFixture(server.endpoint(), dir, durability, producerId);
+                reopened.add("after-id-move", eventTime + 4);
+                LogProducerResult probe = assertResultAndBody(server, reopened.results, "after-id-move", 200);
+                assertEquals(d.getEndId() + 1, probe.getStartId());
+                awaitCheckpoint(checkpoint, probe.getEndId(), 0);
+                reopened.stop();
+                assertEquals("only the pending events and the new probe may be sent after takeover",
+                        7, server.requests.get());
+                assertNull(server.requestBodies.poll());
+                assertNull(results.poll());
+                assertNull(reopened.results.poll());
+                android.util.Log.i("RecoveryProcessFixture", "producerId " + durability + " oldPid=" + oldPid
+                        + " takeoverPid=" + android.os.Process.myPid() + " reopenPid=" + reopened.pid()
+                        + " leaseAgeAtOpenMs=" + leaseAgeAtOpen + " replay=B/" + recovered.get("B").getStartId()
+                        + ",D/" + recovered.get("D").getStartId() + " durableAck=" + d.getEndId()
+                        + " reopenedAck=" + probe.getEndId() + " requests=" + server.requests.get());
+                server.assertHealthy();
+            } finally {
+                if (reopened != null) reopened.close();
+                if (migrated != null) stop(migrated);
+                if (oldOwner != null) oldOwner.close();
+                deleteTestDir(dir);
+                File bindings = new File(application.getFilesDir(), "com.volcengine.tls/producer-bindings");
+                for (String suffix : new String[]{".path", ".lock", ".path.tmp"}) {
+                    File file = new File(bindings, producerId + suffix);
+                    if (file.exists()) assertTrue(file.delete());
+                }
+            }
+        }
+    }
+
+    private static void assertProducerIdBusy(Application application, LogProducerConfig config) throws Exception {
+        try {
+            LogProducerClient unexpectedlyOpened = openProducer(application, config, null);
+            stop(unexpectedlyOpened);
+            fail("a live owner must keep the WAL lock");
+        } catch (LogProducerInitializationException failure) {
+            assertEquals(LogProducerInitializationException.Reason.WAL_LOCK_BUSY, failure.getReason());
+            assertTrue(failure.isRetryable());
+        }
+    }
+
+    private static LogProducerClient openProducer(Application application, LogProducerConfig config,
+            LogProducerCallback callback) throws Exception {
+        CountDownLatch completed = new CountDownLatch(1);
+        AtomicReference<LogProducerClient> ready = new AtomicReference<>();
+        AtomicReference<RuntimeException> failure = new AtomicReference<>();
+        LogProducerClient.open(application, config, callback, (client, error) -> {
+            ready.set(client);
+            failure.set(error);
+            completed.countDown();
+        });
+        assertTrue("producer open timed out", completed.await(15, TimeUnit.SECONDS));
+        if (failure.get() != null) throw failure.get();
+        assertNotNull(ready.get());
+        return ready.get();
     }
 
     public void testMemoryProducerCanSendWithoutPersistentDirectory() throws Exception {
@@ -940,6 +1131,13 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
         byte[] firstBody;
 
         TestServer(Responder responder) throws IOException {
+            this(responder, null);
+        }
+
+        TestServer(Responder responder, String errorCode) throws IOException {
+            byte[] errorBody = (errorCode == null ? "" : "{\"ErrorCode\":\"" + errorCode + "\"}")
+                    .getBytes("US-ASCII");
+            byte[] emptyBody = new byte[0];
             server = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
             worker = new Thread(() -> {
                 while (!closed) {
@@ -983,10 +1181,12 @@ public final class ProducerRecoveryInstrumentedTest extends TestCase {
                         }
                         requestBodies.add(body);
                         int status = responder.status(requests.incrementAndGet(), headers, body);
+                        byte[] responseBody = status >= 400 ? errorBody : emptyBody;
                         byte[] response = ("HTTP/1.1 " + status + " Test\r\n"
-                                + "Content-Length: 0\r\nX-Tls-Requestid: loopback-test\r\n"
+                                + "Content-Length: " + responseBody.length + "\r\nX-Tls-Requestid: loopback-test\r\n"
                                 + "Connection: close\r\n\r\n").getBytes("US-ASCII");
                         socket.getOutputStream().write(response);
+                        socket.getOutputStream().write(responseBody);
                         socket.getOutputStream().flush();
                         if (status >= 400) {
                             firstFailure.countDown();
