@@ -13,7 +13,7 @@ if (selectedMinSdk < 16) {
   throw new GradleException('MIN_SDK_OVERRIDE must be >= 16')
 }
 
-def sdkVersion = project.findProperty('SDK_VERSION') ?: '2.1.6'
+def sdkVersion = project.findProperty('SDK_VERSION') ?: '2.1.7'
 def producerArtifact = 'tls-android-producer'
 
 android {
