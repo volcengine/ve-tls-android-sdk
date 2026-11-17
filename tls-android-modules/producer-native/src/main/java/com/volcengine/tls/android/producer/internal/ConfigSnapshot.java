@@ -24,6 +24,7 @@ public final class ConfigSnapshot {
     private final int retryTotalTimeoutMs;
     private final int retryInitialIntervalMs;
     private final int retryMaxIntervalMs;
+    private final boolean retryTransientHttpResponses;
     private final boolean persistent;
     private final String persistentFilePath;
     private final boolean persistentForceFlush;
@@ -51,6 +52,10 @@ public final class ConfigSnapshot {
     private final String[] tagValues;
 
     public ConfigSnapshot(LogProducerConfig sourceConfig, String processName) {
+        this(sourceConfig, processName, null);
+    }
+
+    public ConfigSnapshot(LogProducerConfig sourceConfig, String processName, String resolvedWalDirectory) {
         if (sourceConfig == null) {
             this.endpoint = null;
             this.region = null;
@@ -71,6 +76,7 @@ public final class ConfigSnapshot {
             this.retryTotalTimeoutMs = 0;
             this.retryInitialIntervalMs = 0;
             this.retryMaxIntervalMs = 0;
+            this.retryTransientHttpResponses = false;
             this.sendThreadCount = 0;
             this.persistent = false;
             this.persistentFilePath = null;
@@ -119,10 +125,15 @@ public final class ConfigSnapshot {
         this.retryTotalTimeoutMs = sourceConfig.getRetryTotalTimeoutMs();
         this.retryInitialIntervalMs = sourceConfig.getRetryInitialIntervalMs();
         this.retryMaxIntervalMs = sourceConfig.getRetryMaxIntervalMs();
+        this.retryTransientHttpResponses = sourceConfig.isRetryTransientHttpResponses();
         this.persistent = sourceConfig.isPersistent();
-        this.persistentFilePath = this.persistent
-                ? ProcessUtil.rewritePersistentPath(sourceConfig.getPersistentFilePath(), processName)
-                : sourceConfig.getPersistentFilePath();
+        if (resolvedWalDirectory != null) {
+            this.persistentFilePath = resolvedWalDirectory;
+        } else {
+            this.persistentFilePath = this.persistent
+                    ? ProcessUtil.rewritePersistentPath(sourceConfig.getPersistentFilePath(), processName)
+                    : sourceConfig.getPersistentFilePath();
+        }
         this.persistentForceFlush = sourceConfig.isPersistentForceFlush();
         this.persistentDurability = sourceConfig.getPersistentDurability();
         this.persistentMaxFileCount = sourceConfig.getPersistentMaxFileCount();
@@ -263,6 +274,10 @@ public final class ConfigSnapshot {
 
     public int getRetryMaxIntervalMs() {
         return retryMaxIntervalMs;
+    }
+
+    public boolean isRetryTransientHttpResponses() {
+        return retryTransientHttpResponses;
     }
 
     public boolean isPersistent() {

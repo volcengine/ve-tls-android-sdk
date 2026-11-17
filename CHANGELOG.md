@@ -1,3 +1,9 @@
+## 2.1.7
+- 新增异步 `LogProducerClient.open`，在 native Producer 就绪后回调，并自动恢复待发 WAL。
+- 支持使用 `producerId` 绑定旧 WAL 目录。首次绑定后，同一个 App 的不同进程可在原持有者退出后仅凭 ID 接管，沿用持久化 ACK。
+- 显式打开时可传入 `Application`。进入后台触发 flush，回前台唤醒保留的重试。
+- 新增 `setRetryTransientHttpResponses`。可按 Producer 开启 408、499 和指定 400 响应的重试，默认关闭。
+
 ## 2.1.6
 - 集成 C Core `v0.3.6`，优化 WAL 积压恢复、容量回收和旧格式续传。
 - 确认旧进程退出并取得目录锁后可提前接管 WAL，缩短异常重启后的补传等待。

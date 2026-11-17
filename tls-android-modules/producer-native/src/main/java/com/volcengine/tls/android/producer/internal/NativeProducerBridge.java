@@ -14,5 +14,7 @@ public interface NativeProducerBridge {
 
     void addLog(long producerHandle, Log log, int flush);
 
+    void onAppVisibility(long producerHandle, boolean foreground);
+
     void destroy(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled);
 }

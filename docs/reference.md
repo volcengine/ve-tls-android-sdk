@@ -1,6 +1,6 @@
 # 参考
 
-本文对应 SDK 版本为 `2.1.6`，覆盖配置、API 与错误、兼容性以及隐私与凭证边界。
+本文对应 SDK 版本为 `2.1.7`，覆盖配置、API 与错误、兼容性以及隐私与凭证边界。
 
 ## 配置参考
 
@@ -35,6 +35,7 @@
 | `setRetryTotalTimeoutMs` | `90000` | 必须大于 `0` |
 | `setRetryInitialIntervalMs` | `500` | 范围 `[100, 30000]` ms |
 | `setRetryMaxIntervalMs` | `10000` | 范围 `[1000, 60000]` ms，且不小于 initial |
+| `setRetryTransientHttpResponses` | `false` | 创建前设为 `true`，允许重试 HTTP `408`、`499`，以及错误码为 `ClientCanceled`、`Timeout`、`RequestTimeout`、`ConnectionClosed` 的 HTTP `400` |
 | `setConnectTimeoutMs` | `0` | `0` 交给 native，默认 `10000 ms` |
 | `setRequestTimeoutMs` | `0` | `0` 交给 native，默认 `50000 ms` |
 
@@ -43,7 +44,8 @@
 | API | Java 默认值 | 约束或说明 |
 | --- | ---: | --- |
 | `setPersistent` | `false` | 开启 WAL 和恢复 |
-| `setPersistentFilePath` | `null` | WAL 目录；persistent 时必须非空 |
+| `setPersistentFilePath` | `null` | 旧接法使用的 WAL 基础目录 |
+| `setProducerId` | `null` | 配合 `open(application, ...)` 定位 WAL。可在首次迁移时绑定原目录 |
 | `setPersistentDurability` | `BUFFERED_WAL` | 可选 `BUFFERED_WAL`、`SYNC_WAL` |
 | `setPersistentForceFlush` | `false` | deprecated；`true` 映射为 `SYNC_WAL` |
 | `setPersistentMaxFileCount` | `0` | persistent 时必须大于 `0` |
@@ -58,7 +60,7 @@
 | `setPersistentSampleEveryN` | `10` | sample 策略参数，必须大于 `0` |
 | `setPersistentBlockTimeoutMs` | `1000` | block 等待时间，必须大于 `0` |
 
-`persistentFilePath` 应使用应用私有目录。一个活跃的 native client 独占一个目录；锁在首次 native 创建时获取，关闭完成后释放。persistent sender 固定为单 sender。完整语义见[持久化与恢复](usage.md#持久化与恢复)。
+`persistentFilePath` 应使用应用私有目录。`setProducerId(id)` 可配合 `open(application, ...)` 使用固定目录，`setProducerId(id, legacyWalDirectory)` 可在首次切换时绑定旧 WAL。一个活跃的 native client 独占一个目录，锁在首次 native 创建时获取，关闭完成后释放。persistent sender 固定为单 sender。完整语义见[持久化与恢复](usage.md#持久化与恢复)。
 
 ### 生命周期与回调
 
@@ -85,6 +87,7 @@
 
 | 类型 | 方法 | 含义 |
 | --- | --- | --- |
+| `LogProducerClient` | `open(application, config, sendCallback, completion)` | 异步打开 native Producer，在主线程报告就绪或失败；传 `Application` 启用前后台处理 |
 | `LogProducerClient` | `addLog(log)` | 异步接收一条日志 |
 | `LogProducerClient` | `addLog(log, 1)` | 接收并请求尽快 flush，不等待远端 |
 | `LogProducerClient` | `resetSecurityToken(ak, sk, token)` | 更新整组凭证并恢复 persistent retain 记录 |

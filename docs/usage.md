@@ -45,23 +45,38 @@ LogProducerConfig config = new LogProducerConfig()
                 LogProducerConfig.PersistentOverflowPolicy.REJECT_NEW);
 ```
 
-开启 persistent 时，`persistentFilePath` 必须非空，`persistentMaxFileCount`、`persistentMaxFileSize` 和 `persistentMaxLogCount` 必须显式设置为正数；构造器不会从 `Context` 推导 WAL 目录。API 16-20 使用 `getFilesDir()` 时，应在宿主应用的备份规则中排除 WAL 目录。
+开启 persistent 时，选择 `persistentFilePath` 或 `producerId` 来定位 WAL，`persistentMaxFileCount`、`persistentMaxFileSize` 和 `persistentMaxLogCount` 必须显式设为正数。使用 `getFilesDir()` 时，应在宿主应用的备份规则中排除持久化目录。
+
+### 使用 producerId 定位 WAL
+
+调用 `LogProducerClient.open` 时传入 `Application`。开启 persistent 并设置 `setProducerId("push-prod")` 后，新目录为 `<filesDir>/com.volcengine.tls/producer/push-prod`。`producerId` 支持 1 到 64 个 `[A-Za-z0-9._-]` 字符，`.` 和 `..` 无效。同一个业务流跨启动使用固定 ID，同一个 ID 的有效目录在该 App 的各进程间一致。
+
+已有 WAL 的业务，首次升级时将旧版本实际打开的绝对目录传给 `setProducerId` 的第二个参数，包含旧 SDK 追加的进程子目录。
+
+```java
+// 使用已开启 persistent 并配置好 WAL 配额的 config。
+config.setPersistentFilePath(null);
+config.setProducerId("push-prod", existingWalDirectory.getAbsolutePath());
+LogProducerClient.open(application, config, sendCallback, completion);
+```
+
+SDK 保存 ID 与原目录的绑定，原 `manifest`、`checkpoint` 和日志段留在原地。此时如果旧实例还持锁，`open` 返回 `WAL_LOCK_BUSY`，可等旧实例退出后退避重开。绑定完成后，创建新配置时可以只设置 `setProducerId("push-prod")`。 首次迁移应先传入旧目录完成绑定，再让其他进程仅用 ID 打开。保留原 WAL 及 `<filesDir>/com.volcengine.tls/producer-bindings` 目录，并在宿主备份规则中排除这些目录。已绑定的 ID 指向其他存储目录时会报告冲突。已有绑定指向的旧目录不可用时会报告 WAL 打开错误。
 
 ### 目录所有权
 
 - 同一逻辑数据流在重启后复用同一目录，才能找到 backlog。
 - 一个活跃 client 独占一个 WAL 目录；同一进程的多个 client 必须使用不同目录。锁在首次创建 native 实例时获取，另一个 client 此时无法打开同一目录。
 - persistent 快照会把 sender 数归一为 `1`，即使原 config 设置了更多 sender。
-- 非主进程可能在基础目录下追加进程名，以避免不同进程直接共用同一路径；这不能替代同一进程内的目录隔离。
+- 使用 `persistentFilePath` 时，包含 `:` 的进程名会作为子目录追加到基础路径，`:` 转换为 `_`。使用 `producerId` 时，同一 ID 在各进程间定位同一目录，可在旧持有者退出后接管。
 - 不要手工删除、移动或编辑 `manifest`、`checkpoint`、`lease` 和 segment 文件。应用备份策略如会复制该私有目录，应将 WAL 排除在备份范围外。
 
 ### 恢复时机
 
-构造 client 不会立即创建 native producer、打开 WAL 或执行 recover。首次 `addLog`、`updateEndpoint` 或 `resetSecurityToken` 触发 native 创建时，persistent binding 才会执行恢复。当前没有独立公开的 `start()` 或 `recover()` 方法。
+`LogProducerClient.open` 在工作线程创建 native producer 并启动 WAL 恢复。在使用普通构造方法的接入中，首次 `addLog`、`updateEndpoint` 或 `resetSecurityToken` 触发 native 创建和 WAL 恢复。
 
 正常关闭后复用目录前，先等待原 client 的 `awaitDestroy` 返回 `true`。进程异常退出后，新实例拿到目录锁且确认租约记录的旧进程已退出时，可以立即接管。无法确认时沿用租约到期规则，默认等待最后一次心跳后 60 秒。保留原目录和 checkpoint 可以补传待发记录，并跳过已持久化确认的记录。
 
-目录锁占用、未到期租约和扫描已有 WAL 段或读取 checkpoint 时的 I/O 错误，分别以 `LogProducerInitializationException` 的 `WAL_LOCK_BUSY`、`WAL_LEASE_PENDING` 和 `WAL_OPEN_IO_ERROR` 报出。当前 client 从 250 ms 开始在后台退避重试，退避时长上限为 5 秒。因初始化失败抛异常的 `addLog` 本次未接纳，App 可以保留该事件并在可用后重新提交。其他初始化失败（包括 `WAL_OPEN_FAILED` 和 `WAL_RECOVERY_FAILED`）应根据具体原因处理，并在解决后新建 client。
+目录锁占用、未到期租约和扫描已有 WAL 段或读取 checkpoint 时的 I/O 错误，分别以 `LogProducerInitializationException` 的 `WAL_LOCK_BUSY`、`WAL_LEASE_PENDING` 和 `WAL_OPEN_IO_ERROR` 报出。显式 `open` 把本次创建结果交给 App，App 可根据 `isRetryable()` 安排退避重开。用普通构造方法创建的 client 从 250 ms 开始在后台退避重试，退避时长上限为 5 秒。因初始化失败抛异常的 `addLog` 本次未接纳，App 可以保留该事件并在可用后重新提交。其他初始化失败（包括 `WAL_OPEN_FAILED` 和 `WAL_RECOVERY_FAILED`）应根据具体原因处理。
 
 WAL 重放期间发生的暂时性 I/O 错误由同一个 native producer 从已保存的位置继续重试，无须再次调用 client 来触发恢复。
 
@@ -147,9 +162,25 @@ Producer 是长生命周期对象，建议由 `Application` 级组件或业务�
 
 ### 创建与配置冻结
 
-`new LogProducerClient(config, callback)` 会复制 config 并立即冻结原对象。构造后继续调用原 config 的 setter 会抛出 `IllegalStateException`。压缩、批量、内存、sender、重试、persistent、WAL 目录、容量、callback 线程和 destroy 等参数都是 create-time 配置；修改它们需要创建新的 client。
+`LogProducerClient.open` 和普通构造方法都在调用时冻结原 config。冻结后继续调用原 config 的 setter 会抛出 `IllegalStateException`。压缩、批量、内存、sender、重试、persistent、WAL 目录、容量、callback 线程和 destroy 等参数都是 create-time 配置；修改它们需要创建新的 client。
 
-native producer 采用惰性创建。只构造 client 不会打开 WAL 或开始恢复；首次 `addLog`、`updateEndpoint` 或 `resetSecurityToken` 才会创建 native 实例。并发首次访问由 client 串行化，不应自行创建多个实例来“预热”同一目录。
+### 显式打开与前后台
+
+需要初始化完成信号时，传入宿主 `Application` 并在成功回调后开始提交 App 缓存的事件。
+
+```java
+LogProducerClient.open(application, config, sendCallback, (client, error) -> {
+    if (error != null) {
+        handleOpenFailure(error);
+        return;
+    }
+    uploadExecutor.execute(() -> onProducerReady(client));
+});
+```
+
+每次 `open` 在主线程回调一次。成功表示本地 Producer 已可接纳，服务端发送结果由 `sendCallback` 提供。失败时 `client` 为空。App 可根据 `LogProducerInitializationException.getReason()` 和 `isRetryable()` 选择何时重新打开。
+
+启用自动处理后，SDK 收到进程 UI 不可见通知时在工作线程请求 flush，UI 回到前台时请求 flush 并唤醒保留的可重试发送。Android 的后台执行时间由系统决定，剩余未确认记录可在使用同一 WAL 目录的后续打开中恢复。传 `null` 作为 `Application` 时，可以单独使用显式打开。
 
 ### 正常关闭
 
@@ -160,7 +191,7 @@ client.destroyLogProducer();
 boolean closed = client.awaitDestroy(6000);
 ```
 
-`destroyLogProducer` 是一次性操作；之后不能再次调用 `addLog`、`updateEndpoint` 或 `resetSecurityToken`。`awaitDestroy` 的等待时间只影响 Java 侧等待，不会把 native 的 flusher/sender 预算无限延长。需要拆分预算时，在创建前设置 `setDestroyFlusherWaitMs` 和 `setDestroySenderWaitMs`，不要同时混用总预算。
+`destroyLogProducer` 是一次性操作，并解除自动生命周期监听；之后不能再次调用 `addLog`、`updateEndpoint` 或 `resetSecurityToken`。`awaitDestroy` 的等待时间只影响 Java 侧等待，不会把 native 的 flusher/sender 预算无限延长。需要拆分预算时，在创建前设置 `setDestroyFlusherWaitMs` 和 `setDestroySenderWaitMs`，不要同时混用总预算。
 
 正常关闭不等于所有日志已经被服务端确认。persistent 模式下未确认 WAL 可由下一次使用同一目录的 client 恢复；崩溃、强制终止或系统直接结束进程时不能依赖关闭回调。
 

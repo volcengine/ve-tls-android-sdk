@@ -79,6 +79,11 @@ public final class RecoveryProcessFixture implements AutoCloseable {
 
     RecoveryProcessFixture(String endpoint, File dir,
             LogProducerConfig.PersistentDurability durability) throws Exception {
+        this(endpoint, dir, durability, null);
+    }
+
+    RecoveryProcessFixture(String endpoint, File dir,
+            LogProducerConfig.PersistentDurability durability, String producerId) throws Exception {
         bound = context.bindService(new Intent(context, OwnerService.class), connection, Context.BIND_AUTO_CREATE);
         assertTrue("cannot bind recovery owner service", bound);
         try {
@@ -87,6 +92,7 @@ public final class RecoveryProcessFixture implements AutoCloseable {
             args.putString("endpoint", endpoint);
             args.putString("dir", dir.getAbsolutePath());
             args.putString("durability", durability.name());
+            args.putString("producerId", producerId);
             send(INITIALIZE, args);
             Bundle ready = reply(READY);
             pid = ready.getInt("pid");
@@ -272,11 +278,21 @@ public final class RecoveryProcessFixture implements AutoCloseable {
                             LogProducerConfig.PersistentDurability.valueOf(args.getString("durability"));
                     LogProducerConfig config = ProducerRecoveryInstrumentedTest.recoveryGapConfig(
                             endpoint, new File(args.getString("dir")), durability);
-                    client = new LogProducerClient(config, this::sendResult);
-                    Bundle data = new Bundle();
-                    data.putInt("pid", Process.myPid());
-                    data.putString("processName", ProcessUtil.getCurrentProcessName());
-                    sendReply(READY, data);
+                    String producerId = args.getString("producerId");
+                    if (producerId == null) {
+                        client = new LogProducerClient(config, this::sendResult);
+                        sendReady();
+                    } else {
+                        config.setPersistentFilePath(null).setProducerId(producerId);
+                        LogProducerClient.open(getApplication(), config, this::sendResult, (opened, error) -> {
+                            if (error != null) {
+                                sendError(error);
+                                return;
+                            }
+                            client = opened;
+                            sendReady();
+                        });
+                    }
                 } else if (message.what == ADD) {
                     Log log = ProducerRecoveryInstrumentedTest.event(args.getString("id"));
                     log.setLogTime(args.getLong("time"));
@@ -289,14 +305,25 @@ public final class RecoveryProcessFixture implements AutoCloseable {
                     sendReply(STOPPED, new Bundle());
                 }
             } catch (Exception e) {
-                Bundle error = new Bundle();
-                error.putString("error", android.util.Log.getStackTraceString(e));
-                sendReply(ERROR, error);
+                sendError(e);
             }
             return true;
         }));
 
         @Override public IBinder onBind(Intent intent) { return messenger.getBinder(); }
+
+        private void sendReady() {
+            Bundle data = new Bundle();
+            data.putInt("pid", Process.myPid());
+            data.putString("processName", ProcessUtil.getCurrentProcessName());
+            sendReply(READY, data);
+        }
+
+        private void sendError(Exception e) {
+            Bundle data = new Bundle();
+            data.putString("error", android.util.Log.getStackTraceString(e));
+            sendReply(ERROR, data);
+        }
 
         private void sendResult(LogProducerResult result) {
             Bundle data = new Bundle();

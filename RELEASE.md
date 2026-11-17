@@ -1,6 +1,6 @@
 # 发布指南
 
-**2.1.6** 的主发布坐标为 `io.github.volcengine-tls:tls-android-producer`。
+**2.1.7** 的主发布坐标为 `io.github.volcengine-tls:tls-android-producer`。
 只发布 Producer AAR，不将历史 `core`、`full` 或测试 App 加入本次发布。
 最低 Android 4.1（API 16）。C Core 使用 `v0.3.6`，提交见[固定版本清单](tls-android-modules/producer-native/ve-tls-c-sdk.version)。
 API 16-20 使用系统 TLS 1.2 兼容路径，服务端需支持可协商的 `ECDHE_RSA` CBC 套件；主线发布物不引入 Conscrypt。证书和主机名校验不能关闭，且不承诺任意 HTTPS endpoint 都兼容。

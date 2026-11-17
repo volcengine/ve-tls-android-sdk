@@ -62,8 +62,11 @@ public final class LogProducerConfig {
     private int retryTotalTimeoutMs = RETRY_TOTAL_TIMEOUT_MS_DEFAULT;
     private int retryInitialIntervalMs = RETRY_INITIAL_INTERVAL_MS_DEFAULT;
     private int retryMaxIntervalMs = RETRY_MAX_INTERVAL_MS_DEFAULT;
+    private boolean retryTransientHttpResponses;
     private boolean persistent;
     private String persistentFilePath;
+    private String producerId;
+    private String legacyWalDirectory;
     private boolean persistentForceFlush;
     private PersistentDurability persistentDurability = PersistentDurability.BUFFERED_WAL;
     private boolean persistentDurabilityConfigured;
@@ -386,6 +389,20 @@ public final class LogProducerConfig {
         return this;
     }
 
+    public boolean isRetryTransientHttpResponses() {
+        return retryTransientHttpResponses;
+    }
+
+    /**
+     * Enables Core retries for received HTTP 408 and 499 and selected transient
+     * error codes in HTTP 400 responses. Disabled by default.
+     */
+    public LogProducerConfig setRetryTransientHttpResponses(boolean enabled) {
+        ensureMutable();
+        this.retryTransientHttpResponses = enabled;
+        return this;
+    }
+
     public boolean isPersistent() {
         return persistent;
     }
@@ -411,6 +428,38 @@ public final class LogProducerConfig {
         ensureMutable();
         this.persistentFilePath = persistentFilePath;
         return this;
+    }
+
+    public String getProducerId() {
+        return producerId;
+    }
+
+    /** Selects a stable, application-private WAL directory when opened with an Application. */
+    public LogProducerConfig setProducerId(String producerId) {
+        return setProducerId(producerId, null);
+    }
+
+    /**
+     * Binds a producer ID to an existing WAL on first use. The legacy directory is the
+     * absolute directory previously opened by the SDK, including any process subdirectory.
+     * Use the one-argument form after the binding has been recorded.
+     */
+    public LogProducerConfig setProducerId(String producerId, String legacyWalDirectory) {
+        ensureMutable();
+        if (producerId != null && (!producerId.matches("[A-Za-z0-9._-]{1,64}")
+                || ".".equals(producerId) || "..".equals(producerId))) {
+            throw new IllegalArgumentException("producerId must contain 1 to 64 characters from [A-Za-z0-9._-], excluding . and ..");
+        }
+        if (producerId == null && legacyWalDirectory != null) {
+            throw new IllegalArgumentException("legacyWalDirectory requires a producerId");
+        }
+        this.producerId = producerId;
+        this.legacyWalDirectory = legacyWalDirectory;
+        return this;
+    }
+
+    String getLegacyWalDirectory() {
+        return legacyWalDirectory;
     }
 
     public boolean isPersistentForceFlush() {

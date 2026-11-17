@@ -1,5 +1,7 @@
 package com.volcengine.tls.android.producer;
 
+import android.content.ComponentCallbacks2;
+
 import com.volcengine.tls.android.producer.internal.NativeProducerBridge;
 import com.volcengine.tls.android.producer.internal.ConfigSnapshot;
 import com.volcengine.tls.android.producer.internal.JniNativeProducerBridge;
@@ -76,6 +78,23 @@ public class LogProducerClientBridgeTest {
 
         client.addLog(new Log());
         assertTrue(bridge.createInputSnapshot.isPersistent());
+    }
+
+    @Test
+    public void transientHttpRetriesAreOptInAndFrozenAtCreation() {
+        LogProducerConfig config = new LogProducerConfig()
+                .setEndpoint("https://tls-cn-beijing.volces.com")
+                .setRegion("cn-beijing")
+                .setTopicId("topic-id");
+        assertFalse(config.isRetryTransientHttpResponses());
+        assertFalse(new ConfigSnapshot(config, "demo").isRetryTransientHttpResponses());
+        assertSame(config, config.setRetryTransientHttpResponses(true));
+
+        FakeBridge bridge = new FakeBridge();
+        LogProducerClient client = LogProducerClient.forTest(config, bridge, "demo");
+        client.addLog(new Log());
+        assertTrue(bridge.createInputSnapshot.isRetryTransientHttpResponses());
+        assertThrows(IllegalStateException.class, () -> config.setRetryTransientHttpResponses(false));
     }
 
     @Test
@@ -242,6 +261,86 @@ public class LogProducerClientBridgeTest {
         assertEquals(1, bridge.destroyWaitMs);
         assertEquals(0, bridge.destroyFlusherWaitMs);
         assertEquals(0, bridge.destroySenderWaitMs);
+    }
+
+    @Test
+    public void explicitOpenCreatesBeforeReportingReadyWithoutAddingALog() {
+        RetryingBridge bridge = new RetryingBridge(null);
+        ManualCreateRetryExecutor worker = new ManualCreateRetryExecutor();
+        LogProducerClient client = new LogProducerClient(baseValidConfig(), null, "demo", bridge, worker);
+        List<Runnable> callbacks = new ArrayList<>();
+        List<LogProducerClient> opened = new ArrayList<>();
+
+        worker.execute(() -> client.openOnWorker(null, callbacks::add, (producer, error) -> {
+            assertEquals(null, error);
+            opened.add(producer);
+        }));
+        assertEquals(0, bridge.createCalls);
+        assertTrue(callbacks.isEmpty());
+
+        worker.runNext();
+        assertEquals(1, bridge.createCalls);
+        assertEquals(0, bridge.addCalls);
+        assertTrue(opened.isEmpty());
+        assertEquals(1, callbacks.size());
+        callbacks.remove(0).run();
+        assertEquals(Arrays.asList(client), opened);
+
+        client.addLog(new Log());
+        assertEquals(1, bridge.createCalls);
+        assertEquals(1, bridge.addCalls);
+        client.destroyLogProducer();
+        assertTrue(client.awaitDestroy(1000));
+    }
+
+    @Test
+    public void explicitOpenReportsRetryableFailureOnceWithoutLeavingARetryBehind() {
+        RetryingBridge bridge = new RetryingBridge(LogProducerInitializationException.Reason.WAL_LOCK_BUSY);
+        ManualCreateRetryExecutor worker = new ManualCreateRetryExecutor();
+        LogProducerClient client = new LogProducerClient(baseValidConfig(), null, "demo", bridge, worker);
+        List<RuntimeException> failures = new ArrayList<>();
+
+        worker.execute(() -> client.openOnWorker(null, Runnable::run, (producer, error) -> {
+            assertEquals(null, producer);
+            failures.add(error);
+        }));
+        worker.runNext();
+
+        assertEquals(Arrays.asList(bridge.failure), failures);
+        assertEquals(1, bridge.createCalls);
+        assertTrue(worker.delaysMs.isEmpty());
+    }
+
+    @Test
+    public void appVisibilityDispatchesOncePerTransitionAndSkipsClosedProducer() {
+        FakeBridge bridge = new FakeBridge();
+        ManualCreateRetryExecutor worker = new ManualCreateRetryExecutor();
+        LogProducerClient client = new LogProducerClient(baseValidConfig(), null, "demo", bridge, worker);
+        ProducerAppLifecycle lifecycle = new ProducerAppLifecycle(null,
+                () -> client.dispatchAppVisibility(false), () -> client.dispatchAppVisibility(true));
+
+        worker.execute(() -> client.openOnWorker(null, Runnable::run, (producer, error) -> assertSame(client, producer)));
+        worker.runNext();
+        lifecycle.onActivityStarted(null);
+        lifecycle.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW);
+        lifecycle.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN);
+        lifecycle.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN);
+        lifecycle.onActivityStarted(null);
+        lifecycle.onActivityStarted(null);
+
+        assertEquals(2, worker.tasks.size());
+        assertTrue(bridge.lifecycleEvents.isEmpty());
+        worker.runNext();
+        worker.runNext();
+        assertEquals(Arrays.asList(false, true), bridge.lifecycleEvents);
+        assertEquals(bridge.lastCreateHandle, bridge.lifecycleHandle);
+        assertEquals(1, bridge.createCalls);
+
+        lifecycle.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN);
+        client.destroyLogProducer();
+        worker.runNext();
+        assertTrue(client.awaitDestroy(1000));
+        assertEquals(Arrays.asList(false, true), bridge.lifecycleEvents);
     }
 
     @Test
@@ -458,6 +557,14 @@ public class LogProducerClientBridgeTest {
         private String lastAccessKeyId;
         private String lastAccessKeySecret;
         private String lastSecurityToken;
+        private final List<Boolean> lifecycleEvents = new ArrayList<>();
+        private long lifecycleHandle;
+
+        @Override
+        public void onAppVisibility(long producerHandle, boolean foreground) {
+            lifecycleHandle = producerHandle;
+            lifecycleEvents.add(foreground);
+        }
 
         @Override
         public long create(ConfigSnapshot config, LogProducerCallback callback) {
@@ -600,7 +707,7 @@ public class LogProducerClientBridgeTest {
         private Log lastAddedLog;
 
         RetryingBridge(LogProducerInitializationException.Reason reason) {
-            failure = new LogProducerInitializationException(reason);
+            failure = reason == null ? null : new LogProducerInitializationException(reason);
         }
 
         @Override
@@ -621,10 +728,20 @@ public class LogProducerClientBridgeTest {
 
     private static final class ManualCreateRetryExecutor extends ScheduledThreadPoolExecutor {
         private final List<Long> delaysMs = new ArrayList<>();
+        private final List<Runnable> tasks = new ArrayList<>();
         private ManualRetryTask pending;
 
         ManualCreateRetryExecutor() {
             super(1);
+        }
+
+        @Override
+        public void execute(Runnable command) {
+            tasks.add(command);
+        }
+
+        void runNext() {
+            tasks.remove(0).run();
         }
 
         @Override
