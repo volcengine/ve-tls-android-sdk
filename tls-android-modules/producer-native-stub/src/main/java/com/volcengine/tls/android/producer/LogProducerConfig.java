@@ -20,6 +20,8 @@ public final class LogProducerConfig {
     private int retryTotalTimeoutMs = 90 * 1000;
     private int retryInitialIntervalMs = 500;
     private int retryMaxIntervalMs = 10 * 1000;
+    private boolean retryTransientHttpResponses;
+    private String producerId;
 
     public LogProducerConfig() {}
     public LogProducerConfig(Context context) { this(); }
@@ -30,6 +32,9 @@ public final class LogProducerConfig {
     public LogProducerConfig setRegion(String region) { this.region = region; return this; }
     public String getTopicId() { return topicId; }
     public LogProducerConfig setTopicId(String topicId) { this.topicId = topicId; return this; }
+    public String getProducerId() { return producerId; }
+    public LogProducerConfig setProducerId(String producerId) { this.producerId = producerId; return this; }
+    public LogProducerConfig setProducerId(String producerId, String legacyWalDirectory) { return setProducerId(producerId); }
     public String getAccessKeyId() { return accessKeyId; }
     public LogProducerConfig setAccessKeyId(String accessKeyId) { this.accessKeyId = accessKeyId; return this; }
     public String getAccessKeySecret() { return accessKeySecret; }
@@ -60,4 +65,9 @@ public final class LogProducerConfig {
     public LogProducerConfig setRetryInitialIntervalMs(int retryInitialIntervalMs) { this.retryInitialIntervalMs = retryInitialIntervalMs; return this; }
     public int getRetryMaxIntervalMs() { return retryMaxIntervalMs; }
     public LogProducerConfig setRetryMaxIntervalMs(int retryMaxIntervalMs) { this.retryMaxIntervalMs = retryMaxIntervalMs; return this; }
+    public boolean isRetryTransientHttpResponses() { return retryTransientHttpResponses; }
+    public LogProducerConfig setRetryTransientHttpResponses(boolean enabled) {
+        this.retryTransientHttpResponses = enabled;
+        return this;
+    }
 }

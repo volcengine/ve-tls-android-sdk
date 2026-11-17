@@ -1,3 +1,9 @@
+## Unreleased
+- 新增异步 `LogProducerClient.open`。成功回调可用于确认 native Producer 就绪，已存在的 WAL 在打开后开始恢复。
+- 显式打开时可传入 `Application`，让 SDK 在 UI 进入后台时请求 flush，并在回到前台时唤醒保留的重试。
+- 新增 `producerId`。同一 ID 在 App 的不同进程使用同一个 WAL 目录，首次切换可绑定原本已打开的 WAL 目录。
+- 新增 `setRetryTransientHttpResponses`，可按 Producer 开启暂态 HTTP 响应重试。默认关闭，与 RC.6 一致。
+
 ## 2.1.5
 - 集成 C Core `v0.3.5`。
 - 主发布坐标保持 `io.github.volcengine-tls:tls-android-producer`，最低支持 Android 4.1（API 16）；API 16 使用主线标准坐标，不再需要单独坐标、版本后缀或 manifest 覆盖。

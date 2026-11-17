@@ -707,6 +707,7 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
                 args.getLogTagValues(),
                 args.getLogTagCount(),
                 args.getCallbackDispatcher(),
+                config.isRetryTransientHttpResponses(),
                 failureStatus);
         if (handle == 0) {
             throw new LogProducerInitializationException(toCreateFailureReason(failureStatus[0]));
@@ -826,6 +827,15 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
         }
     }
 
+    @Override
+    public void onAppVisibility(long producerHandle, boolean foreground) {
+        int result = nativeOnAppVisibility(producerHandle, foreground);
+        if (result != 0) {
+            System.err.println("LogProducerClient app visibility handling failed: foreground="
+                    + foreground + " result=" + result);
+        }
+    }
+
     private static void requireNativeLibrary() {
         if (!NATIVE_LIBRARY_LOADED) {
             throw new IllegalStateException("tls_producer_jni is not loaded", NATIVE_LIBRARY_ERROR);
@@ -879,6 +889,7 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
             String[] logTagValues,
             int logTagCount,
             Object callbackDispatcher,
+            boolean retryTransientHttpResponses,
             int[] failureStatus);
 
     private static native int nativeAddLog(
@@ -896,6 +907,8 @@ public final class JniNativeProducerBridge implements NativeProducerBridge {
             String accessKeyId,
             String accessKeySecret,
             String securityToken);
+
+    private static native int nativeOnAppVisibility(long producerHandle, boolean foreground);
 
     private static native void nativeDestroy(
             long producerHandle,

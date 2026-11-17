@@ -74,6 +74,7 @@ public class NativeApiContractTest {
                 String[].class,
                 int.class,
                 Object.class,
+                boolean.class,
                 int[].class);
         assertTrue(Modifier.isPrivate(nativeCreate.getModifiers()));
         assertTrue(Modifier.isStatic(nativeCreate.getModifiers()));

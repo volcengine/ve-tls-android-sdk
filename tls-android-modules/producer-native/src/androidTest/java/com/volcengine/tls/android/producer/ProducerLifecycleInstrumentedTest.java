@@ -1,7 +1,10 @@
 package com.volcengine.tls.android.producer;
 
+import android.app.Application;
 import android.os.Looper;
 import android.os.SystemClock;
+
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.volcengine.tls.android.producer.internal.NativeProducerBridge;
 
@@ -13,6 +16,36 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 public final class ProducerLifecycleInstrumentedTest extends TestCase {
+
+    public void testExplicitOpenReturnsReadyClientOnMainWithoutSubmittingALog() throws Exception {
+        Application application = (Application) InstrumentationRegistry.getInstrumentation()
+                .getTargetContext().getApplicationContext();
+        CountDownLatch completion = new CountDownLatch(1);
+        LogProducerClient[] opened = new LogProducerClient[1];
+        RuntimeException[] openError = new RuntimeException[1];
+        Thread[] callbackThread = new Thread[1];
+        LogProducerConfig config = new LogProducerConfig()
+                .setEndpoint("https://example.invalid")
+                .setRegion("cn-beijing")
+                .setProjectId("test-project")
+                .setTopicId("test-topic")
+                .setAccessKeyId("test-ak")
+                .setAccessKeySecret("test-sk");
+
+        LogProducerClient.open(application, config, null, (client, error) -> {
+            opened[0] = client;
+            openError[0] = error;
+            callbackThread[0] = Thread.currentThread();
+            completion.countDown();
+        });
+
+        assertTrue(completion.await(5, TimeUnit.SECONDS));
+        assertNull(openError[0]);
+        assertNotNull(opened[0]);
+        assertSame(Looper.getMainLooper().getThread(), callbackThread[0]);
+        opened[0].destroyLogProducer();
+        assertTrue(opened[0].awaitDestroy(1000));
+    }
 
     public void testDestroyWaitIsBoundedOnDevice() throws Exception {
         BlockingDestroyBridge bridge = new BlockingDestroyBridge();
@@ -143,6 +176,10 @@ public final class ProducerLifecycleInstrumentedTest extends TestCase {
 
         @Override
         public void addLog(long producerHandle, Log log, int flush) {
+        }
+
+        @Override
+        public void onAppVisibility(long producerHandle, boolean foreground) {
         }
 
         @Override

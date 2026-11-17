@@ -60,6 +60,10 @@ public class LogProducerClientPublicApiTest {
         }
 
         @Override
+        public void onAppVisibility(long producerHandle, boolean foreground) {
+        }
+
+        @Override
         public void destroy(long producerHandle, int destroyWaitMs, int destroyFlusherWaitMs, int destroySenderWaitMs, boolean destroyWaitSplitEnabled) {
         }
     }
